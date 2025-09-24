@@ -8,5 +8,58 @@
   },
   "languageModal": {
     "title": "Select Language"
+  },
+  "stakingPage": {
+    "dailyRate": "Daily Rate",
+    "multiplier": "Multiplier to Exit",
+    "stakeTitle": "Stake",
+    "stakingRules": "Staking Rules",
+    "stake": "Stake",
+    "balance": "Balance",
+    "minStakeAmount": "Minimum stake: {amount} USDT",
+    "minerFee": "Miner Fee",
+    "stakeNow": "Stake Now",
+    "currentStaking": "Current Staking",
+    "ecoStaking": "Eco Staking",
+    "noData": "No Data",
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold",
+    "diamond": "Diamond",
+    "totalQuota": "Total Quota",
+    "released": "Released",
+    "releasedHAF": "Released HAF",
+    "stakingTime": "Staking Time"
+  },
+  "swapPage": {
+    "title": "Swap",
+    "from": "From",
+    "to": "To",
+    "balance": "Balance",
+    "rate": "Rate",
+    "swap": "Confirm",
+    "enterAmount": "0.0",
+    "receivingAddress": "Receiving Address",
+    "minSwapAmount": "Minimum swap amount: {amount} {token}"
+  },
+  "incomePage": {
+    "totalIncome": "Total Income",
+    "todayIncome": "Today's Income",
+    "staticIncome": "Static Income",
+    "dynamicIncome": "Dynamic Income",
+    "incomeRecords": "Income Records",
+    "tabs": {
+      "all": "All",
+      "static": "Static",
+      "direct": "Direct",
+      "share": "Share",
+      "team": "Team"
+    },
+    "types": {
+      "static": "Static Income",
+      "direct": "Direct Referral Income",
+      "share": "Share Income",
+      "team": "Team Income"
+    }
   }
 }

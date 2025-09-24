@@ -19,6 +19,6 @@ import BottomBar from './components/BottomBar.vue';
 /* 全局样式 */
 body {
   margin: 0;
-  background-color: #f3f4f6; /* fallback for bg-gray-100 */
+  background-color: #ffffff;
 }
 </style>

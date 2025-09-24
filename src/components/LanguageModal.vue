@@ -2,7 +2,7 @@
   <div
     v-if="show"
     @click.self="$emit('close')"
-    class="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center"
+    class="fixed inset-0 bg-opacity-50 z-40 flex justify-center items-center backdrop-blur-sm"
   >
     <div class="bg-white rounded-lg shadow-xl w-11/12 max-w-sm mx-auto p-4">
       <div class="flex justify-between items-center mb-4">

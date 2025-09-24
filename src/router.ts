@@ -1,19 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-// 为了演示，我们先创建一些占位符组件
-const Staking = { template: '<div>质押页面</div>' };
+// Lazy load components for better performance
+const Staking = () => import('./views/Staking.vue');
+const StakingOrderDetail = () => import('./views/StakingOrderDetail.vue');
 const Swap = () => import('./views/Swap.vue');
-const Income = { template: '<div>投资收益页面</div>' };
-const Team = { template: '<div>团队页面</div>' };
-const Profile = { template: '<div>我的页面</div>' };
+const Income = () => import('./views/Income.vue');
+const Team = () => import('./views/Team.vue');
+const Profile = () => import('./views/Profile.vue');
+const GenesisNode = () => import('./views/GenesisNode.vue'); // 新增
 
 const routes = [
   { path: '/', redirect: '/swap' },
   { path: '/staking', component: Staking },
+  { path: '/staking/order/:id', component: StakingOrderDetail },
   { path: '/swap', component: Swap },
   { path: '/income', component: Income },
   { path: '/team', component: Team },
   { path: '/profile', component: Profile },
+  { path: '/genesis-node', component: GenesisNode }, // 新增
 ];
 
 const router = createRouter({

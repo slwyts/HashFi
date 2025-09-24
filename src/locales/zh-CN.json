@@ -8,5 +8,129 @@
   },
   "languageModal": {
     "title": "选择语言"
+  },
+  "stakingPage": {
+    "dailyRate": "日收益率",
+    "multiplier": "倍额度出局",
+    "stakeTitle": "质押",
+    "stakingRules": "质押规则",
+    "stake": "质押",
+    "balance": "余额",
+    "minStakeAmount": "最少质押金额: {amount} USDT",
+    "minerFee": "矿工费",
+    "stakeNow": "立即质押",
+    "currentStaking": "当前质押",
+    "ecoStaking": "生态质押",
+    "noData": "暂无数据",
+    "bronze": "青铜",
+    "silver": "白银",
+    "gold": "黄金",
+    "diamond": "钻石",
+    "totalQuota": "总额度",
+    "released": "已释放",
+    "releasedHAF": "已释放 HAF",
+    "stakingTime": "质押时间"
+  },
+  "swapPage": {
+    "title": "闪兑",
+    "from": "从",
+    "to": "到",
+    "balance": "余额",
+    "rate": "汇率",
+    "swap": "确认",
+    "enterAmount": "0.0",
+    "receivingAddress": "接收地址",
+    "minSwapAmount": "最低闪兑金额: {amount} {token}"
+  },
+  "incomePage": {
+    "totalIncome": "累计总收益",
+    "todayIncome": "今日收益",
+    "staticIncome": "静态收益",
+    "dynamicIncome": "动态收益",
+    "incomeRecords": "收益记录",
+    "tabs": {
+      "all": "全部",
+      "static": "静态奖",
+      "direct": "直推奖",
+      "share": "分享奖",
+      "team": "团队奖"
+    },
+    "types": {
+      "static": "静态收益",
+      "direct": "直推收益",
+      "share": "分享收益",
+      "team": "团队收益"
+    }
+  },
+  "teamPage": {
+    "inviteTitle": "邀请好友",
+    "copy": "复制",
+    "totalMembers": "团队总人数",
+    "directReferrals": "直推人数",
+    "totalPerformance": "团队总业绩",
+    "teamLevel": "团队等级",
+    "largeDistrict": "大区业绩",
+    "smallDistrict": "小区业绩",
+    "nextLevelMsg": "距离下一等级 {level} 还差 {amount} USDT",
+    "myTeam": "我的团队",
+    "joinTime": "加入时间"
+  },
+  "miningPool": {
+    "platformHashrate": "平台总算力",
+    "networkHashrate": "全网算力",
+    "dailyEarningsPerT": "每T日收益",
+    "btcPrice": "BTC价格",
+    "totalMined": "累计已挖",
+    "yesterdayMined": "昨日已挖"
+  },
+  "orderDetail": {
+    "title": "订单详情",
+    "stakingLevel": "质押级别",
+    "stakingAmount": "认购金额",
+    "multiplier": "所得倍数",
+    "totalQuota": "总额度",
+    "releasedQuota": "已释放",
+    "releasedHaf": "已释放 HAF",
+    "stakingTime": "认购时间",
+    "status": "状态",
+    "statusInProgress": "进行中",
+    "statusFinished": "已结束"
+  },
+  "nodeCenter": {
+    "title": "创世节点中心",
+    "applyTitle": "成为创世节点",
+    "applyDesc": "加入网络核心，共享平台发展红利。",
+    "condition": "申请条件",
+    "conditionDesc": "消耗 5000 USDT 成为创世节点。",
+    "rights": "节点权益",
+    "rightsDesc": "参与瓜分全网所有用户每日静态释放10%的金额。",
+    "exit": "出局机制",
+    "exitDesc": "当累计分红达到 15,000 USDT (3倍) 后出局。",
+    "applyNow": "立即申请",
+    "myDividends": "我的节点分红",
+    "nodeActive": "节点生效中",
+    "totalReceived": "累计已分红",
+    "dividendRecords": "分红记录",
+    "dailyDividend": "每日节点分红"
+  },
+  "profilePage": {
+    "totalAssets": "总资产",
+    "withdraw": "提现",
+    "records": "记录",
+    "applyNode": "申请创世节点",
+    "bindReferrer": "绑定推荐人",
+    "notBound": "未绑定",
+    "helpCenter": "帮助中心",
+    "announcements": "公告通知",
+    "aboutRwa": "关于 RWA",
+    "tokenomics": "代币经济学",
+    "roadmap": "发展路线图",
+    "disconnect": "断开连接",
+    "content": {
+      "aboutRwa": "<p class='mb-4'><b>RWA (现实世界资产)</b> 是指将传统物理资产（如矿机、算力）通过区块链技术进行数字化，生成可在链上交易的代币化资产。</p><p>Hash Fi 正是基于 RWA 技术，将 En+ 集团旗下矿场的真实算力资产转化为 <b>HAF 代币</b>，让全球用户都能低门槛、透明地参与比特币挖矿，共享红利。</p>",
+      "tokenomics": "<h4 class='font-bold text-lg mb-2'>HAF 代币发行</h4><ul class='list-disc pl-5 space-y-2'><li><b>发行总量:</b> 2亿枚</li><li><b>分配比例:</b><ul class='list-disc pl-5'><li>公开认购产出: 60%</li><li>生态建设激励: 20%</li><li>团队运营持有: 10%</li><li>量化对冲基金: 10%</li></ul></li></ul><h4 class='font-bold text-lg mt-4 mb-2'>价值支撑</h4><ul class='list-disc pl-5 space-y-2'><li><b>锚定真实算力:</b> 每枚HAF都对应固定比例的真实比特币算力。</li><li><b>通缩销毁机制:</b> 每月将用10%的挖矿收益回购并销毁HAF，直至总量减少到2100万枚。</li></ul>",
+      "roadmap": "<h4 class='font-bold text-lg mb-2'>第一阶段 (2024-2025)</h4><p class='mb-4'>完成HAF代币发行，算力规模提升至3EH/s，上线DEX，建立初步社区生态。</p><h4 class='font-bold text-lg mb-2'>第二阶段 (2025-2026)</h4><p class='mb-4'>算力网络整合至5EH/s，推出HAF质押、借贷服务，引入机构投资者。</p><h4 class='font-bold text-lg mb-2'>第三阶段 (2026-2028)</h4><p>正式发行稳定币，算力规模达全球3%以上，成为全球算力资产RWA化的标杆项目。</p>"
+    }
   }
+
 }

@@ -1,15 +1,24 @@
 <template>
-  <footer class="bg-white shadow-md">
-    <nav class="flex justify-around">
+  <footer class="bg-white shadow-inner">
+    <nav class="flex justify-around items-center h-16">
       <router-link
         v-for="item in navItems"
         :key="item.path"
         :to="item.path"
-        class="flex flex-col items-center justify-center w-full py-2 text-gray-500"
-        active-class="text-blue-600"
+        class="flex flex-col items-center justify-center w-full h-full text-gray-500"
+        v-slot="{ isActive }"
       >
-        <img :src="item.icon" alt="" class="w-6 h-6 mb-1" />
-        <span class="text-xs">{{ t(item.label) }}</span>
+        <img 
+          :src="isActive ? item.activeIcon : item.icon" 
+          :alt="t(item.label)" 
+          class="w-5 h-5 mb-0.5"
+        />
+        <span
+          class="text-xs font-medium"
+          :class="{ 'text-blue-600': isActive }"
+        >
+          {{ t(item.label) }}
+        </span>
       </router-link>
     </nav>
   </footer>
@@ -22,17 +31,14 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 
 const navItems = computed(() => [
-  { path: '/staking', label: 'bottomNav.staking', icon: '/icons/staking.svg' },
-  { path: '/income', label: 'bottomNav.income', icon: '/icons/income.svg' },
-  { path: '/swap', label: 'bottomNav.swap', icon: '/icons/flash_exchange.svg' },
-  { path: '/team', label: 'bottomNav.team', icon: '/icons/ecosystem.svg' },
-  { path: '/profile', label: 'bottomNav.profile', icon: '/icons/profile.svg' },
+  { path: '/staking', label: 'bottomNav.staking', icon: '/icons/staking.svg', activeIcon: '/icons/staking-.svg' },
+  { path: '/income', label: 'bottomNav.income', icon: '/icons/income.svg', activeIcon: '/icons/income-.svg' },
+  { path: '/swap', label: 'bottomNav.swap', icon: '/icons/flash_exchange.svg', activeIcon: '/icons/flash-.svg' },
+  { path: '/team', label: 'bottomNav.team', icon: '/icons/ecosystem.svg', activeIcon: '/icons/eco-.svg' },
+  { path: '/profile', label: 'bottomNav.profile', icon: '/icons/profile.svg', activeIcon: '/icons/profile-.svg' },
 ]);
 </script>
 
 <style scoped>
-/* 活动链接的图标颜色会通过CSS过滤器改变 */
-.router-link-active img {
-  filter: invert(39%) sepia(80%) saturate(1413%) hue-rotate(205deg) brightness(90%) contrast(96%);
-}
+/* 移除了之前的 filter 样式，因为现在我们直接切换图标文件 */
 </style>
