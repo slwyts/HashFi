@@ -1,0 +1,12 @@
+{
+  "bottomNav": {
+    "staking": "质押",
+    "income": "投资收益",
+    "swap": "闪兑",
+    "team": "团队",
+    "profile": "我的"
+  },
+  "languageModal": {
+    "title": "选择语言"
+  }
+}

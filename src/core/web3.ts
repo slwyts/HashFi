@@ -1,5 +1,6 @@
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi/vue'
-import { bsc, mainnet } from 'viem/chains' // 引入BSC链
+import { bsc, mainnet } from 'viem/chains'
+import { reconnect } from 'wagmi/actions'
 
 const projectId = '8fad523df181cc16d6cfe41bf546b913' 
 
@@ -11,14 +12,16 @@ const metadata = {
 }
 
 const chains = [bsc, mainnet] as const
-export const config = defaultWagmiConfig({
+export const wagmiConfig = defaultWagmiConfig({
   chains,
   projectId,
   metadata,
 })
 
+reconnect(wagmiConfig);
+
 createWeb3Modal({
-  wagmiConfig: config,
+  wagmiConfig,
   projectId,
   enableAnalytics: true
 })

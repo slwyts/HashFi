@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* 添加下面的代码 */
+body {
+  background-color: #ffffff; /* 设置一个白色背景 */
+}
+
+/* 或者为您的应用根元素设置背景 */
+#app {
+  background-color: #f0f2f5; /* 设置一个浅灰色背景 */
+  min-height: 100vh; /* 确保背景铺满整个屏幕 */
+}
