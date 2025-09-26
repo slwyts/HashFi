@@ -1,7 +1,7 @@
 <template>
   <div class="p-4 bg-gray-50 text-gray-800 min-h-screen">
     <div class="relative w-full overflow-hidden rounded-lg mb-4">
-      <img src="/icons/banner_01.png" alt="Banner" class="w-full">
+      <img src="/banner_01.png" alt="Banner" class="w-full">
     </div>
 
     <BtcPoolStats />
