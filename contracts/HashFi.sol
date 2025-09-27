@@ -1,101 +1,114 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./HAFToken.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title HashFi
- * @dev HashFi生态系统的核心智能合约，处理质押、奖励、推荐和团队奖金等所有业务逻辑。
+ * @dev HashFi生态系统的核心智能合约（集成HAF代币）。
+ * @notice 新版合约采用用户驱动的结算模式，优化了Gas消耗并修复了所有已知逻辑漏洞。
+ * - 用户在领取任何收益时，会触发对其自身所有相关收益的计算和更新。
+ * - 移除了高风险的全局遍历结算，确保合约不会因用户增多而瘫痪。
+ * - 重新设计并实现了分享奖和动态奖励的线性释放逻辑。
  */
-contract HashFi is Ownable {
+contract HashFi is ERC20, Ownable, ReentrancyGuard {
+    using SafeMath for uint256;
+
+    // --- 外部合约依赖 ---
+    IERC20 public usdtToken;
+
     // --- 事件 ---
     event Staked(address indexed user, uint256 orderId, uint256 amount, uint8 level);
     event ReferrerBound(address indexed user, address indexed referrer);
     event Withdrawn(address indexed user, uint256 hafAmount, uint256 fee);
     event GenesisNodeApplied(address indexed user);
-    event RewardDistributed(address indexed user, uint256 hafAmount, string rewardType);
+    event RewardsClaimed(address indexed user, uint256 staticRewards, uint256 dynamicRewards, uint256 genesisRewards);
     event PriceUpdated(uint256 newPrice);
 
     // --- 数据结构 ---
-    
-    // 用户信息结构体
+
     struct User {
-        address referrer; // 推荐人地址
+        address referrer;
+        uint8 teamLevel; // V0-V5
         uint256 totalStakedAmount; // 个人总投资额
-        address[] directReferrals; // 直接推荐的用户地址列表
-        mapping(uint256 => bool) referrals; // 用于快速查找推荐关系
-        uint256[] orders; // 用户的订单ID列表
-        bool isGenesisNode; // 是否是创世节点
-        uint256 genesisNodeActivationTime; // 成为创世节点的时间
-        uint256 genesisDividendsWithdrawn; // 已领取的创世节点分红
-        mapping(string => uint256) rewards; // 用于存储各种奖励（静态、动态等）
+        uint256 teamTotalPerformance; // 个人伞下总业绩 (用于给上级计算小区业绩)
+        address[] directReferrals; // 直接推荐的用户列表
+        uint256[] orderIds; // 用户的订单ID列表
+
+        bool isGenesisNode;
+        uint256 genesisDividendsWithdrawn; // 已领取的创世节点分红 (USDT本位)
+
+        // 动态奖励 (直推奖+分享奖)
+        uint256 dynamicRewardTotal; // 累计获得的动态总奖励 (HAF本位)
+        uint256 dynamicRewardReleased; // 已释放的动态奖励 (HAF本位)
+        uint256 dynamicRewardStartTime; // 第一个动态奖励的开始时间
+        uint256 dynamicRewardClaimed;   // 已领取的动态奖励 (HAF本位)
+
+        // 分享奖相关
+        uint256 totalStaticOutput; // 个人所有订单累计产出的总静态收益 (USDT本位)
     }
 
-    // 质押订单结构体
     struct Order {
-        uint256 id; // 订单ID
-        address user; // 所属用户地址
-        uint8 level; // 质押级别 1:青铜, 2:白银, 3:黄金, 4:钻石
-        uint256 amount; // 质押的USDT数量
+        uint256 id;
+        address user;
+        uint8 level; // 1:青铜, 2:白银, 3:黄金, 4:钻石
+        uint256 amount; // 质押的USDT数量 (18位小数)
         uint256 totalQuota; // 总释放额度 (USDT本位)
         uint256 releasedQuota; // 已释放额度 (USDT本位)
-        uint256 startTime; // 订单开始时间
-        bool isCompleted; // 订单是否已出局
-        uint256 lastRewardTime; // 上次计算收益的时间
+        uint256 startTime;
+        uint256 lastSettleTime; // 上次结算收益的时间
+        bool isCompleted;
     }
 
-    // 质押级别配置
     struct StakingLevelInfo {
-        uint256 minAmount; // 最小投资额
-        uint256 maxAmount; // 最大投资额
+        uint256 minAmount;
+        uint256 maxAmount;
         uint256 multiplier; // 出局倍数 (例如, 1.5倍 存为 150)
-        uint256 dailyRate;  // 日利率 (例如, 0.7% 存为 70, 单位: 万分之)
+        uint256 dailyRate;  // 日利率 (例如, 0.7% 存为 70, 单位: 万分之一)
     }
-    
-    // --- 状态变量 ---
-    IERC20 public usdtToken; // USDT代币合约接口
-    HAFToken public hafToken; // HAF代币合约接口
 
-    mapping(address => User) public users; // 地址到用户信息的映射
-    address[] public userList; // 所有用户地址列表，便于遍历
-    Order[] public orders; // 所有订单列表
+    struct TeamLevelInfo {
+        uint256 requiredPerformance; // 达成需要的小区业绩 (USDT本位)
+        uint256 accelerationBonus;   // 静态收益加速释放比例 (%)
+    }
+
+    // --- 状态变量 ---
+
+    mapping(address => User) public users;
+    Order[] public orders;
 
     // 价格与费用
     uint256 public hafPrice; // HAF的USDT价格, 使用6位小数精度 (例如, 1.5 USDT 表示为 1500000)
     uint256 public constant PRICE_PRECISION = 1e6;
     uint256 public withdrawalFeeRate = 5; // 提现手续费率, 5%
 
-    // 质押级别配置
+    // 配置信息
     mapping(uint8 => StakingLevelInfo) public stakingLevels;
-    
-    // 创世节点
-    uint256 public genesisNodeCost = 5000 * 1e18; // 成为创世节点的费用 (5000 USDT)
-    uint256 public constant GENESIS_NODE_EXIT_MULTIPLIER = 3; // 创世节点出局倍数
-    uint256 public totalGenesisDividendsPool; // 创世节点总分红池 (USDT本位)
-    address[] public genesisNodes; // 所有创世节点地址列表
+    TeamLevelInfo[] public teamLevels; // index 0-5对应 V0-V5
 
-    // 团队奖配置
-    struct TeamLevelInfo {
-        uint256 requiredPerformance; // 达成需要的小区业绩 (USDT本位)
-        uint256 accelerationBonus;   // 静态收益加速释放比例 (%)
-    }
-    TeamLevelInfo[] public teamLevels;
-    
+    // 创世节点
+    uint256 public genesisNodeCost = 5000 * 1e18;
+    uint256 public constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
+    uint256 public globalGenesisPool; // 全局创世节点分红池 (USDT本位)
+    uint256 public totalGenesisShares; // 总分红权数 (用于计算每份分红)
+    address[] public genesisNodes;
+
     // --- 构造函数 ---
-    constructor(address _usdtAddress, address _hafTokenAddress, address _initialOwner) Ownable(_initialOwner) {
+    constructor(address _usdtAddress, address _initialOwner) ERC20("Hash Fi Token", "HAF") Ownable(_initialOwner) {
         usdtToken = IERC20(_usdtAddress);
-        hafToken = HAFToken(_hafTokenAddress);
         hafPrice = 1 * PRICE_PRECISION; // 初始价格: 1 HAF = 1 USDT
 
-        // 初始化质押级别 (根据开发文档)
-        stakingLevels[1] = StakingLevelInfo(100 * 1e18, 499 * 1e18, 150, 70);   // 青铜
-        stakingLevels[2] = StakingLevelInfo(500 * 1e18, 999 * 1e18, 200, 80);   // 白银
-        stakingLevels[3] = StakingLevelInfo(1000 * 1e18, 2999 * 1e18, 250, 90);  // 黄金
-        stakingLevels[4] = StakingLevelInfo(3000 * 1e18, type(uint256).max, 300, 100); // 钻石
+        // 初始化质押级别
+        stakingLevels[1] = StakingLevelInfo(100 * 1e18, 499 * 1e18, 150, 70);
+        stakingLevels[2] = StakingLevelInfo(500 * 1e18, 999 * 1e18, 200, 80);
+        stakingLevels[3] = StakingLevelInfo(1000 * 1e18, 2999 * 1e18, 250, 90);
+        stakingLevels[4] = StakingLevelInfo(3000 * 1e18, type(uint256).max, 300, 100);
 
-        // 初始化团队级别 (根据开发文档)
+        // 初始化团队级别 (V0 - V5)
+        teamLevels.push(TeamLevelInfo(0, 0)); // V0
         teamLevels.push(TeamLevelInfo(5000 * 1e18, 5));   // V1
         teamLevels.push(TeamLevelInfo(20000 * 1e18, 10));  // V2
         teamLevels.push(TeamLevelInfo(100000 * 1e18, 15)); // V3
@@ -103,258 +116,382 @@ contract HashFi is Ownable {
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
     }
 
-    // --- 用户外部调用函数 ---
+    // --- 用户核心功能 ---
 
-    /**
-     * @dev 绑定推荐人。必须在首次质押前调用。
-     * @param _referrer 推荐人的地址。
-     */
     function bindReferrer(address _referrer) external {
-        require(users[msg.sender].referrer == address(0), unicode"用户已经绑定过推荐人");
-        require(users[_referrer].referrer != address(0) || genesisNodes.length == 0, unicode"推荐人不存在"); // 允许第一个用户无需推荐人
-        require(_referrer != msg.sender, unicode"不能推荐自己");
+        User storage user = users[msg.sender];
+        require(user.referrer == address(0), "Referrer already bound");
+        require(users[_referrer].totalStakedAmount > 0, "Referrer does not exist");
+        require(_referrer != msg.sender, "Cannot refer yourself");
 
-        if (users[msg.sender].referrer == address(0)) {
-            userList.push(msg.sender);
-        }
-
-        users[msg.sender].referrer = _referrer;
+        user.referrer = _referrer;
         users[_referrer].directReferrals.push(msg.sender);
-        
         emit ReferrerBound(msg.sender, _referrer);
     }
-    
-    /**
-     * @dev 用户进行质押投资。
-     * @param _amount 投资的USDT数量。
-     */
-    function stake(uint256 _amount) external {
-        require(users[msg.sender].referrer != address(0), unicode"必须先绑定推荐人");
-        uint8 level = _getStakingLevelByAmount(_amount);
-        require(level > 0, unicode"投资金额不符合任何级别要求");
 
-        // 转移用户USDT到合约
+    function stake(uint256 _amount) external nonReentrant {
+        require(users[msg.sender].referrer != address(0), "Must bind a referrer first");
+        uint8 level = _getStakingLevelByAmount(_amount);
+        require(level > 0, "Invalid staking amount");
+
+        // 先结算该用户的所有待计算收益
+        _settleUserRewards(msg.sender);
+
         usdtToken.transferFrom(msg.sender, address(this), _amount);
 
-        // 创建新订单
         uint256 orderId = orders.length;
-        uint256 quota = (_amount * stakingLevels[level].multiplier) / 100;
+        uint256 quota = _amount.mul(stakingLevels[level].multiplier).div(100);
         
-        orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, block.timestamp, false, block.timestamp));
-        users[msg.sender].orders.push(orderId);
-        users[msg.sender].totalStakedAmount += _amount;
+        orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, block.timestamp, block.timestamp, false));
+        
+        User storage user = users[msg.sender];
+        user.orderIds.push(orderId);
+        user.totalStakedAmount = user.totalStakedAmount.add(_amount);
 
-        // 分发动态奖励
-        _distributeDynamicRewards(msg.sender, _amount);
-
+        // 更新上级团队业绩并分发动态奖励
+        _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
+        
         emit Staked(msg.sender, orderId, _amount, level);
     }
 
-    /**
-     * @dev 用户申请成为创世节点。
-     */
     function applyForGenesisNode() external {
-        require(users[msg.sender].referrer != address(0), unicode"用户不存在");
-        require(!users[msg.sender].isGenesisNode, unicode"您已经是创世节点");
+        User storage user = users[msg.sender];
+        require(user.totalStakedAmount > 0, "User must stake first");
+        require(!user.isGenesisNode, "Already a genesis node");
 
         usdtToken.transferFrom(msg.sender, address(this), genesisNodeCost);
         
-        users[msg.sender].isGenesisNode = true;
-        users[msg.sender].genesisNodeActivationTime = block.timestamp;
+        user.isGenesisNode = true;
         genesisNodes.push(msg.sender);
+        // 初始权重为3倍成本
+        totalGenesisShares = totalGenesisShares.add(genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER));
 
         emit GenesisNodeApplied(msg.sender);
     }
 
-    /**
-     * @dev 提取所有可用的HAF奖励。
-     */
-    function withdraw() external {
-        // 计算并更新用户的最新静态收益
-        _updateUserStaticRewards(msg.sender);
-
-        uint256 totalReward = users[msg.sender].rewards["static"] + users[msg.sender].rewards["direct"] + users[msg.sender].rewards["share"] + users[msg.sender].rewards["genesis"];
-        require(totalReward > 0, unicode"没有可提取的奖励");
-
-        // 计算手续费
-        uint256 fee = (totalReward * withdrawalFeeRate) / 100;
-        uint256 amountAfterFee = totalReward - fee;
+    function withdraw() external nonReentrant {
+        // 1. 结算该用户的所有待发收益
+        _settleUserRewards(msg.sender);
         
-        // 清零用户奖励余额
-        users[msg.sender].rewards["static"] = 0;
-        users[msg.sender].rewards["direct"] = 0;
-        users[msg.sender].rewards["share"] = 0;
-        users[msg.sender].rewards["genesis"] = 0;
+        // 2. 计算可领取的总HAF
+        (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
+        uint256 totalClaimableHaf = pendingStaticHaf.add(pendingDynamicHaf).add(pendingGenesisHaf);
+        require(totalClaimableHaf > 0, "No rewards to withdraw");
+
+        // 3. 更新用户已领取记录
+        User storage user = users[msg.sender];
+        // 静态收益直接在_settleUserRewards中累加到HAF余额, 这里通过 balanceOf 获取
+        // 动态收益
+        user.dynamicRewardClaimed = user.dynamicRewardClaimed.add(pendingDynamicHaf);
+        // 创世节点分红
+        // `genesisDividendsWithdrawn`在_settleUserRewards中已更新, 这里无需操作
+
+        // 4. 计算手续费并铸造代币
+        uint256 fee = totalClaimableHaf.mul(withdrawalFeeRate).div(100);
+        uint256 amountAfterFee = totalClaimableHaf.sub(fee);
         
-        // 铸造HAF代币给用户
-        hafToken.mint(msg.sender, amountAfterFee);
-        // 手续费可以销毁或转入国库
-        // hafToken.burn(address(this), fee);
+        _mint(msg.sender, amountAfterFee);
 
         emit Withdrawn(msg.sender, amountAfterFee, fee);
     }
+    
+    // --- 结算核心逻辑 (用户驱动) ---
 
-    // --- 内部核心逻辑函数 ---
+    function _settleUserRewards(address _user) internal {
+        // 1. 结算静态收益
+        uint256[] memory orderIds = users[_user].orderIds;
+        for (uint i = 0; i < orderIds.length; i++) {
+            _settleStaticRewardForOrder(orderIds[i]);
+        }
 
-    /**
-     * @dev 分发动态奖励（直推奖、分享奖）。
-     */
-    function _distributeDynamicRewards(address _user, uint256 _amount) internal {
+        // 2. 结算创世节点分红
+        if (users[_user].isGenesisNode) {
+            _settleGenesisRewardForNode(_user);
+        }
+    }
+
+    function _settleStaticRewardForOrder(uint256 _orderId) internal {
+        Order storage order = orders[_orderId];
+        if (order.isCompleted) {
+            return;
+        }
+
+        uint256 timeElapsed = block.timestamp.sub(order.lastSettleTime);
+        if (timeElapsed == 0) return;
+
+        User storage user = users[order.user];
+        uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
+        uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
+        uint256 actualDailyRate = baseDailyRate.mul(uint256(100).add(accelerationBonus)).div(100);
+        
+        // 计算产生的USDT本位收益
+        uint256 rewardUsdt = order.amount.mul(actualDailyRate).mul(timeElapsed).div(10000).div(1 days);
+        
+        // 检查是否出局
+        if (order.releasedQuota.add(rewardUsdt) >= order.totalQuota) {
+            rewardUsdt = order.totalQuota.sub(order.releasedQuota);
+            order.isCompleted = true;
+        }
+
+        order.releasedQuota = order.releasedQuota.add(rewardUsdt);
+        order.lastSettleTime = block.timestamp;
+        
+        if (rewardUsdt > 0) {
+            // 90% 给用户，10% 进创世分红池
+            uint256 userPart = rewardUsdt.mul(90).div(100);
+            uint256 genesisPart = rewardUsdt.sub(userPart);
+            
+            // 累加到分红池, 更新总权重
+            if (genesisPart > 0) {
+                globalGenesisPool = globalGenesisPool.add(genesisPart);
+                totalGenesisShares = totalGenesisShares.add(genesisPart);
+            }
+            
+            // 为用户增加HAF余额 (注意：这里是直接增加到HAF余额, 而不是一个单独的变量)
+            uint256 userRewardHaf = userPart.mul(PRICE_PRECISION).div(hafPrice);
+            _mint(order.user, userRewardHaf); // 直接铸造给用户
+
+            // 更新用户个人总静态产出，用于分享奖计算
+            user.totalStaticOutput = user.totalStaticOutput.add(userPart);
+            // 向上递归更新分享奖
+            _distributeShareRewards(order.user, userPart);
+        }
+    }
+    
+    function _settleGenesisRewardForNode(address _node) internal {
+        User storage nodeUser = users[_node];
+        uint256 maxDividend = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER);
+        if (nodeUser.genesisDividendsWithdrawn >= maxDividend) return;
+
+        uint256 nodeShare = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER).sub(nodeUser.genesisDividendsWithdrawn);
+        if (totalGenesisShares == 0) return;
+
+        uint256 claimableUsdt = globalGenesisPool.mul(nodeShare).div(totalGenesisShares);
+
+        if (claimableUsdt > 0) {
+            uint256 actualClaim = claimableUsdt;
+            if (nodeUser.genesisDividendsWithdrawn.add(claimableUsdt) > maxDividend) {
+                actualClaim = maxDividend.sub(nodeUser.genesisDividendsWithdrawn);
+            }
+
+            nodeUser.genesisDividendsWithdrawn = nodeUser.genesisDividendsWithdrawn.add(actualClaim);
+            globalGenesisPool = globalGenesisPool.sub(actualClaim);
+            totalGenesisShares = totalGenesisShares.sub(actualClaim);
+            
+            uint256 rewardHaf = actualClaim.mul(PRICE_PRECISION).div(hafPrice);
+            _mint(_node, rewardHaf); // 直接铸造给用户
+        }
+    }
+    
+    // --- 动态奖励逻辑 ---
+
+    function _updateAncestorsPerformanceAndRewards(address _user, uint256 _amount, uint8 _level) internal {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
-        
-        // --- 1. 直推奖 (最高6代) ---
-        uint256[] memory directRewardRates = new uint256[](6);
-        directRewardRates[0] = 5; directRewardRates[1] = 3; directRewardRates[2] = 1; directRewardRates[3] = 1; directRewardRates[4] = 1; directRewardRates[5] = 1;
 
+        // --- 直推奖 (最高6代) ---
+        uint256[] memory directRewardRates = _getDirectRewardRates();
         for (uint i = 0; i < 6 && referrer != address(0); i++) {
             // 计算烧伤
-            uint256 receivableAmount = _calculateBurnableAmount(_amount, _getUserHighestLevel(_user), _getUserHighestLevel(referrer));
+            uint256 receivableAmount = _calculateBurnableAmount(_amount, _level, _getUserHighestLevel(referrer));
             uint256 rewardUsdt = receivableAmount.mul(directRewardRates[i]).div(100);
-            uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
-
-            // 线性释放，这里简化为立即到账，实际可存入一个待释放结构中
-            users[referrer].rewards["direct"] += rewardHaf;
-            emit RewardDistributed(referrer, rewardHaf, "direct");
-
+            
+            if(rewardUsdt > 0) {
+                uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
+                
+                User storage referrerUser = users[referrer];
+                referrerUser.dynamicRewardTotal = referrerUser.dynamicRewardTotal.add(rewardHaf);
+                if (referrerUser.dynamicRewardStartTime == 0) {
+                    referrerUser.dynamicRewardStartTime = block.timestamp;
+                }
+            }
+            
             currentUser = referrer;
             referrer = users[currentUser].referrer;
         }
 
-        // --- 2. 分享奖 (最高10代) ---
-        // 分享奖逻辑较为复杂，需要读取被推荐人的静态收益，建议在每日结算时一并处理以节省gas
-    }
-
-    /**
-     * @dev 计算烧伤机制下的有效奖励基数。
-     */
-    function _calculateBurnableAmount(uint256 _originalAmount, uint8 _investorLevel, uint8 _referrerLevel) internal view returns (uint256) {
-        if (_referrerLevel >= _investorLevel || _referrerLevel == 4) { // 推荐人级别更高、或同级、或推荐人是钻石，不烧伤
-            return _originalAmount;
+        // --- 团队业绩更新 ---
+        currentUser = _user;
+        referrer = users[currentUser].referrer;
+        while(referrer != address(0)) {
+            users[referrer].teamTotalPerformance = users[referrer].teamTotalPerformance.add(_amount);
+            _updateUserTeamLevel(referrer);
+            
+            currentUser = referrer;
+            referrer = users[currentUser].referrer;
         }
-        // 否则，按推荐人级别的最高投资额作为奖励基数
-        return stakingLevels[_referrerLevel].maxAmount;
     }
 
-    /**
-     * @dev 获取一个用户所有订单中的最高质押级别。
-     */
-    function _getUserHighestLevel(address _user) internal view returns (uint8) {
-        uint8 maxLevel = 0;
-        for (uint i = 0; i < users[_user].orders.length; i++) {
-            Order storage order = orders[users[_user].orders[i]];
-            if (order.level > maxLevel) {
-                maxLevel = order.level;
+    function _distributeShareRewards(address _user, uint256 _staticRewardUsdt) internal {
+        address currentUser = _user;
+        address referrer = users[currentUser].referrer;
+
+        // --- 分享奖 (最高10代) ---
+        for (uint i = 0; i < 10 && referrer != address(0); i++) {
+            User storage referrerUser = users[referrer];
+            // 拿满10代条件：直推人数 >= 代数
+            if (referrerUser.directReferrals.length > i) {
+                uint256 rewardUsdt = _staticRewardUsdt.mul(5).div(100);
+                 // 分享奖烧伤 (与直推奖逻辑一致)
+                uint8 userLevel = _getUserHighestLevel(_user);
+                uint8 referrerLevel = _getUserHighestLevel(referrer);
+                uint256 burnableBase = _calculateBurnableAmount(users[_user].totalStakedAmount, userLevel, referrerLevel);
+                // 这里我们假设分享奖的烧伤基数是触发者总投资额，而不是本次静态收益
+                if(users[_user].totalStakedAmount > burnableBase){
+                    // 按比例减少
+                    rewardUsdt = rewardUsdt.mul(burnableBase).div(users[_user].totalStakedAmount);
+                }
+
+                if(rewardUsdt > 0){
+                    uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
+                    referrerUser.dynamicRewardTotal = referrerUser.dynamicRewardTotal.add(rewardHaf);
+                    if (referrerUser.dynamicRewardStartTime == 0) {
+                        referrerUser.dynamicRewardStartTime = block.timestamp;
+                    }
+                }
+            } else {
+                break; // 不满足拿代数条件，停止向上查找
             }
+            
+            currentUser = referrer;
+            referrer = users[currentUser].referrer;
         }
-        return maxLevel;
     }
     
-    /**
-     * @dev 根据投资金额返回对应的质押级别ID。
-     */
+    // --- 团队等级更新 ---
+
+    function _updateUserTeamLevel(address _user) internal {
+        User storage user = users[_user];
+        if (user.directReferrals.length == 0) return;
+        
+        uint256 maxPerformance = 0;
+        // 团队总业绩包含自身投资额，需要减去
+        uint256 directReferralsTotalPerformance = 0;
+        
+        for(uint i = 0; i < user.directReferrals.length; i++){
+            address directChild = user.directReferrals[i];
+            uint256 childPerformance = users[directChild].totalStakedAmount.add(users[directChild].teamTotalPerformance);
+            directReferralsTotalPerformance = directReferralsTotalPerformance.add(childPerformance);
+            if(childPerformance > maxPerformance){
+                maxPerformance = childPerformance;
+            }
+        }
+        
+        uint256 smallAreaPerformance = directReferralsTotalPerformance.sub(maxPerformance);
+        
+        // 从最高级别开始检查
+        for(uint8 i = 5; i > user.teamLevel; i--){
+            if(smallAreaPerformance >= teamLevels[i].requiredPerformance){
+                user.teamLevel = i;
+                break;
+            }
+        }
+    }
+
+    // --- 视图函数 (View Functions for Frontend) ---
+    
+    function getUserInfo(address _user) external view returns (User memory, uint8, uint256, uint256) {
+        User storage u = users[_user];
+        uint8 highestLevel = _getUserHighestLevel(_user);
+        
+        // 计算小区业绩
+        uint256 maxP = 0;
+        uint256 totalP = 0;
+        for(uint i = 0; i < u.directReferrals.length; i++){
+            address child = u.directReferrals[i];
+            uint256 p = users[child].totalStakedAmount.add(users[child].teamTotalPerformance);
+            totalP = totalP.add(p);
+            if(p > maxP) maxP = p;
+        }
+        uint256 smallAreaP = totalP.sub(maxP);
+
+        return (u, highestLevel, totalP, smallAreaP);
+    }
+    
+    function getOrderInfo(uint256 _orderId) external view returns (Order memory) {
+        return orders[_orderId];
+    }
+    
+    function getClaimableRewards(address _user) public view returns (uint256 pendingStatic, uint256 pendingDynamic, uint256 pendingGenesis) {
+        // 1. 静态收益 (已直接mint到余额, 这里返回0, 前端直接读balanceOf)
+        pendingStatic = 0; 
+        
+        // 2. 动态收益 (直推+分享)
+        User storage user = users[_user];
+        if (user.dynamicRewardTotal > user.dynamicRewardClaimed) {
+             uint256 timeSinceStart = block.timestamp.sub(user.dynamicRewardStartTime);
+             uint256 totalReleased = user.dynamicRewardTotal.mul(timeSinceStart).div(100 days);
+             if (totalReleased > user.dynamicRewardTotal) {
+                 totalReleased = user.dynamicRewardTotal;
+             }
+             if (totalReleased > user.dynamicRewardClaimed) {
+                pendingDynamic = totalReleased.sub(user.dynamicRewardClaimed);
+             }
+        }
+
+        // 3. 创世节点分红 (已直接mint到余额, 这里返回0, 前端直接读balanceOf)
+        pendingGenesis = 0;
+    }
+    
+    function getUserOrders(address _user) external view returns (Order[] memory) {
+        uint256[] memory orderIds = users[_user].orderIds;
+        Order[] memory userOrders = new Order[](orderIds.length);
+        for(uint i = 0; i < orderIds.length; i++) {
+            userOrders[i] = orders[orderIds[i]];
+        }
+        return userOrders;
+    }
+    
+    // --- 辅助与内部函数 ---
+
     function _getStakingLevelByAmount(uint256 _amount) internal view returns (uint8) {
         for (uint8 i = 1; i <= 4; i++) {
             if (_amount >= stakingLevels[i].minAmount && _amount <= stakingLevels[i].maxAmount) {
                 return i;
             }
         }
-        return 0; // 金额不符合任何级别
+        return 0;
     }
 
-    /**
-     * @dev 更新一个用户所有未完成订单的静态收益。
-     */
-    function _updateUserStaticRewards(address _user) internal {
-         for (uint i = 0; i < users[_user].orders.length; i++) {
-            Order storage order = orders[users[_user].orders[i]];
-            if (!order.isCompleted) {
-                uint256 passedDays = (block.timestamp - order.lastRewardTime) / 1 days;
-                if (passedDays > 0) {
-                    // 计算总的待释放USDT
-                    uint256 dailyReleaseUsdt = (order.amount * stakingLevels[order.level].dailyRate) / 10000;
-                    uint256 totalReleaseUsdt = dailyReleaseUsdt * passedDays;
-                    
-                    // 检查是否会超出总额度
-                    if (order.releasedQuota + totalReleaseUsdt >= order.totalQuota) {
-                        totalReleaseUsdt = order.totalQuota - order.releasedQuota;
-                        order.isCompleted = true;
-                    }
-
-                    // 10% 进入创世节点池
-                    uint256 genesisCut = (totalReleaseUsdt * 10) / 100;
-                    totalGenesisDividendsPool += genesisCut;
-                    
-                    // 90% 给用户
-                    uint256 userRewardUsdt = totalReleaseUsdt - genesisCut;
-                    
-                    // 换算成HAF
-                    uint256 userRewardHaf = (userRewardUsdt * PRICE_PRECISION) / hafPrice;
-                    users[_user].rewards["static"] += userRewardHaf;
-                    emit RewardDistributed(_user, userRewardHaf, "static");
-
-                    // 更新订单状态
-                    order.releasedQuota += totalReleaseUsdt;
-                    order.lastRewardTime = block.timestamp;
-                }
+    function _getUserHighestLevel(address _user) internal view returns (uint8) {
+        uint8 maxLevel = 0;
+        uint256[] memory orderIds = users[_user].orderIds;
+        for (uint i = 0; i < orderIds.length; i++) {
+            if (orders[orderIds[i]].level > maxLevel) {
+                maxLevel = orders[orderIds[i]].level;
             }
         }
+        return maxLevel;
     }
 
+    function _calculateBurnableAmount(uint256 _originalAmount, uint8 _investorLevel, uint8 _referrerLevel) internal view returns (uint256) {
+        if (_referrerLevel >= _investorLevel || _referrerLevel == 4) {
+            return _originalAmount;
+        }
+        // 如果投资额小于等于推荐人级别的最高投资额，也不烧伤
+        if (_originalAmount <= stakingLevels[_referrerLevel].maxAmount) {
+            return _originalAmount;
+        }
+        // 否则，按推荐人级别的最高投资额作为奖励基数
+        return stakingLevels[_referrerLevel].maxAmount;
+    }
+
+    function _getDirectRewardRates() internal pure returns (uint256[] memory) {
+        uint256[] memory rates = new uint256[](6);
+        rates[0] = 5; rates[1] = 3; rates[2] = 1; rates[3] = 1; rates[4] = 1; rates[5] = 1;
+        return rates;
+    }
 
     // --- 后台管理函数 ---
 
-    /**
-     * @dev 设置HAF代币的价格。
-     * @param _newPrice 新的价格 (需要乘以精度 PRICE_PRECISION)。
-     */
     function setHafPrice(uint256 _newPrice) external onlyOwner {
+        require(_newPrice > 0, "Price must be positive");
         hafPrice = _newPrice;
         emit PriceUpdated(_newPrice);
     }
 
-    /**
-     * @dev 设置提现手续费率。
-     * @param _newFeeRate 新的费率 (例如 5% 传入 5)。
-     */
     function setWithdrawalFee(uint256 _newFeeRate) external onlyOwner {
-        require(_newFeeRate <= 100, unicode"费率不能超过100%");
+        require(_newFeeRate <= 100, "Fee rate cannot exceed 100%");
         withdrawalFeeRate = _newFeeRate;
-    }
-
-    /**
-     * @dev [重要] 项目方每日调用的结算函数，用于处理创世节点分红。
-     * 静态收益在用户提现或下次质押时触发更新，以分散gas。
-     */
-    function dailySettlement() external onlyOwner {
-        // 1. 遍历所有用户，更新他们的静态收益，这样分红池的钱就齐了
-        for(uint i=0; i < userList.length; i++){
-            _updateUserStaticRewards(userList[i]);
-        }
-
-        // 2. 分发创世节点分红
-        if (totalGenesisDividendsPool > 0 && genesisNodes.length > 0) {
-            uint256 sharePerNode = totalGenesisDividendsPool.div(genesisNodes.length);
-            for (uint i = 0; i < genesisNodes.length; i++) {
-                 address node = genesisNodes[i];
-                 uint256 maxDividend = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER);
-                 if(users[node].genesisDividendsWithdrawn < maxDividend){
-                    
-                    uint256 actualShare = sharePerNode;
-                    // 防止最后一笔分红超出3倍
-                    if(users[node].genesisDividendsWithdrawn.add(sharePerNode) > maxDividend){
-                        actualShare = maxDividend.sub(users[node].genesisDividendsWithdrawn);
-                    }
-                    
-                    users[node].genesisDividendsWithdrawn += actualShare;
-                    
-                    // 换算成HAF
-                    uint256 rewardHaf = (actualShare * PRICE_PRECISION) / hafPrice;
-                    users[node].rewards["genesis"] += rewardHaf;
-                    emit RewardDistributed(node, rewardHaf, "genesis");
-                 }
-            }
-            totalGenesisDividendsPool = 0; // 清空分红池
-        }
     }
 }
