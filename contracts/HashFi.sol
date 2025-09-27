@@ -11,12 +11,20 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * @title HashFi
  * @dev HashFi生态系统的核心智能合约（集成HAF代币）。
  * @notice 新版合约采用用户驱动的结算模式，优化了Gas消耗并修复了所有已知逻辑漏洞。
+ * @notice V2版修改：采用固定供应量和金库模型。
  */
 contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     using SafeMath for uint256;
 
     // --- 外部合约依赖 ---
     IERC20 public usdtToken;
+
+    // --- 代币经济模型变更 ---
+    /**
+     * @dev HAF代币的总供应量，固定为2亿。
+     */
+    uint256 public constant TOTAL_SUPPLY = 200_000_000 * 1e18;
+
 
     // --- 事件 ---
     event Staked(address indexed user, uint256 orderId, uint256 amount, uint8 level);
@@ -124,6 +132,11 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     // --- 构造函数 ---
     constructor(address _usdtAddress, address _initialOwner) ERC20("Hash Fi Token", "HAF") Ownable(_initialOwner) {
+        // ========== MODIFIED: 金库模型 ==========
+        // 在合约创建时，将2亿HAF代币全部铸造到合约自身地址，作为金库。
+        _mint(address(this), TOTAL_SUPPLY);
+        // =====================================
+
         usdtToken = IERC20(_usdtAddress);
         hafPrice = 1 * PRICE_PRECISION; // 初始价格: 1 HAF = 1 USDT
 
@@ -159,7 +172,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint8 level = _getStakingLevelByAmount(_amount);
         require(level > 0, "Invalid staking amount");
 
-        // 先结算该用户的所有待计算收益
         _settleUserRewards(msg.sender);
 
         usdtToken.transferFrom(msg.sender, address(this), _amount);
@@ -172,7 +184,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         user.orderIds.push(orderId);
         user.totalStakedAmount = user.totalStakedAmount.add(_amount);
 
-        // 更新上级团队业绩并分发动态奖励
         _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
         emit Staked(msg.sender, orderId, _amount, level);
     }
@@ -186,33 +197,28 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         
         user.isGenesisNode = true;
         genesisNodes.push(msg.sender);
-        // 初始权重为3倍成本
         totalGenesisShares = totalGenesisShares.add(genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER));
 
         emit GenesisNodeApplied(msg.sender);
     }
 
     function withdraw() external nonReentrant whenNotPaused {
-        // 1. 结算该用户的所有待发收益
         _settleUserRewards(msg.sender);
-        // 2. 计算可领取的总HAF
+        
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
         uint256 totalClaimableHaf = pendingStaticHaf.add(pendingDynamicHaf).add(pendingGenesisHaf);
         require(totalClaimableHaf > 0, "No rewards to withdraw");
 
-        // 3. 更新用户已领取记录
         User storage user = users[msg.sender];
-        // 静态收益直接在_settleUserRewards中累加到HAF余额, 这里通过 balanceOf 获取
-        // 动态收益
         user.dynamicRewardClaimed = user.dynamicRewardClaimed.add(pendingDynamicHaf);
-        // 创世节点分红
-        // `genesisDividendsWithdrawn`在_settleUserRewards中已更新, 这里无需操作
-
-        // 4. 计算手续费并铸造代币
+       
         uint256 fee = totalClaimableHaf.mul(withdrawalFeeRate).div(100);
         uint256 amountAfterFee = totalClaimableHaf.sub(fee);
         
-        _mint(msg.sender, amountAfterFee);
+        // ========== MODIFIED: 从金库分发 ==========
+        // 不再是铸造，而是从合约金库转账给用户
+        _distributeHaf(msg.sender, amountAfterFee);
+        // =====================================
 
         emit Withdrawn(msg.sender, amountAfterFee, fee);
     }
@@ -226,14 +232,21 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 fee = hafAmount.mul(swapFeeRate).div(100);
         uint256 finalHafAmount = hafAmount.sub(fee);
         
-        _mint(msg.sender, finalHafAmount);
+        // ========== MODIFIED: 从金库分发 ==========
+        _distributeHaf(msg.sender, finalHafAmount);
+        // =====================================
         
         emit Swapped(msg.sender, address(usdtToken), address(this), _usdtAmount, finalHafAmount);
     }
 
     function swapHafToUsdt(uint256 _hafAmount) external nonReentrant whenNotPaused {
         require(_hafAmount > 0, "HAF amount must be positive");
-        _burn(msg.sender, _hafAmount);
+        
+        // ========== MODIFIED: 回收至金库 ==========
+        // 不再是销毁，而是将用户的HAF转回合约地址（金库）
+        // 因为这是在代币合约内部调用，所以不需要用户approve
+        _transfer(msg.sender, address(this), _hafAmount);
+        // =====================================
         
         uint256 usdtAmount = _hafAmount.mul(hafPrice).div(PRICE_PRECISION);
         uint256 fee = usdtAmount.mul(swapFeeRate).div(100);
@@ -249,13 +262,11 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     // --- 结算核心逻辑 (用户驱动) ---
 
     function _settleUserRewards(address _user) internal {
-        // 1. 结算静态收益
         uint256[] memory orderIds = users[_user].orderIds;
         for (uint i = 0; i < orderIds.length; i++) {
             _settleStaticRewardForOrder(orderIds[i]);
         }
 
-        // 2. 结算创世节点分红
         if (users[_user].isGenesisNode) {
             _settleGenesisRewardForNode(_user);
         }
@@ -275,10 +286,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
         uint256 actualDailyRate = baseDailyRate.mul(uint256(100).add(accelerationBonus)).div(100);
         
-        // 计算产生的USDT本位收益
         uint256 rewardUsdt = order.amount.mul(actualDailyRate).mul(timeElapsed).div(10000).div(1 days);
         
-        // 检查是否出局
         if (order.releasedQuota.add(rewardUsdt) >= order.totalQuota) {
             rewardUsdt = order.totalQuota.sub(order.releasedQuota);
             order.isCompleted = true;
@@ -288,26 +297,23 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         order.lastSettleTime = block.timestamp;
 
         if (rewardUsdt > 0) {
-            // 90% 给用户，10% 进创世分红池
             uint256 userPart = rewardUsdt.mul(90).div(100);
             uint256 genesisPart = rewardUsdt.sub(userPart);
             
-            // 累加到分红池, 更新总权重
             if (genesisPart > 0) {
                 globalGenesisPool = globalGenesisPool.add(genesisPart);
                 totalGenesisShares = totalGenesisShares.add(genesisPart);
             }
             
-            // 为用户增加HAF余额 (注意：这里是直接增加到HAF余额, 而不是一个单独的变量)
             uint256 userRewardHaf = userPart.mul(PRICE_PRECISION).div(hafPrice);
-            _mint(order.user, userRewardHaf); // 直接铸造给用户
+            
+            // ========== MODIFIED: 从金库分发 ==========
+            _distributeHaf(order.user, userRewardHaf);
+            // =====================================
 
-            // 记录静态收益
             _addRewardRecord(order.user, address(0), RewardType.Static, userPart, userRewardHaf);
 
-            // 更新用户个人总静态产出，用于分享奖计算
             user.totalStaticOutput = user.totalStaticOutput.add(userPart);
-            // 向上递归更新分享奖
             _distributeShareRewards(order.user, userPart);
         }
     }
@@ -333,7 +339,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             totalGenesisShares = totalGenesisShares.sub(actualClaim);
             
             uint256 rewardHaf = actualClaim.mul(PRICE_PRECISION).div(hafPrice);
-            _mint(_node, rewardHaf); // 直接铸造给用户
+
+            // ========== MODIFIED: 从金库分发 ==========
+            _distributeHaf(_node, rewardHaf);
+            // =====================================
         }
     }
     
@@ -343,10 +352,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
 
-        // --- 直推奖 (最高6代) ---
         uint256[] memory directRewardRates = _getDirectRewardRates();
         for (uint i = 0; i < 6 && referrer != address(0); i++) {
-            // 计算烧伤
             uint256 receivableAmount = _calculateBurnableAmount(_amount, _level, _getUserHighestLevel(referrer));
             uint256 rewardUsdt = receivableAmount.mul(directRewardRates[i]).div(100);
             
@@ -357,16 +364,13 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 if (referrerUser.dynamicRewardStartTime == 0) {
                     referrerUser.dynamicRewardStartTime = block.timestamp;
                 }
-                // 记录直推收益
                 _addRewardRecord(referrer, _user, RewardType.Direct, rewardUsdt, rewardHaf);
-
             }
             
             currentUser = referrer;
             referrer = users[currentUser].referrer;
         }
 
-        // --- 团队业绩更新 ---
         currentUser = _user;
         referrer = users[currentUser].referrer;
         while(referrer != address(0)) {
@@ -382,19 +386,14 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
 
-        // --- 分享奖 (最高10代) ---
         for (uint i = 0; i < 10 && referrer != address(0); i++) {
             User storage referrerUser = users[referrer];
-            // 拿满10代条件：直推人数 >= 代数
             if (referrerUser.directReferrals.length > i) {
                 uint256 rewardUsdt = _staticRewardUsdt.mul(5).div(100);
-                // 分享奖烧伤 (与直推奖逻辑一致)
                 uint8 userLevel = _getUserHighestLevel(_user);
                 uint8 referrerLevel = _getUserHighestLevel(referrer);
                 uint256 burnableBase = _calculateBurnableAmount(users[_user].totalStakedAmount, userLevel, referrerLevel);
-                // 这里我们假设分享奖的烧伤基数是触发者总投资额，而不是本次静态收益
                 if(users[_user].totalStakedAmount > burnableBase){
-                    // 按比例减少
                     rewardUsdt = rewardUsdt.mul(burnableBase).div(users[_user].totalStakedAmount);
                 }
 
@@ -404,11 +403,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                     if (referrerUser.dynamicRewardStartTime == 0) {
                         referrerUser.dynamicRewardStartTime = block.timestamp;
                     }
-                    // 记录分享收益
                     _addRewardRecord(referrer, _user, RewardType.Share, rewardUsdt, rewardHaf);
                 }
             } else {
-                break; // 不满足拿代数条件，停止向上查找
+                break;
             }
             
             currentUser = referrer;
@@ -423,7 +421,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         if (user.directReferrals.length == 0) return;
         
         uint256 maxPerformance = 0;
-        // 团队总业绩包含自身投资额，需要减去
         uint256 directReferralsTotalPerformance = 0;
         for(uint i = 0; i < user.directReferrals.length; i++){
             address directChild = user.directReferrals[i];
@@ -435,7 +432,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
         
         uint256 smallAreaPerformance = directReferralsTotalPerformance.sub(maxPerformance);
-        // 从最高级别开始检查
         for(uint8 i = 5; i > user.teamLevel; i--){
             if(smallAreaPerformance >= teamLevels[i].requiredPerformance){
                 user.teamLevel = i;
@@ -463,7 +459,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         User storage u = users[_user];
         uint8 highestLevel = _getUserHighestLevel(_user);
         
-        // 计算小区业绩
         uint256 maxP = 0;
         uint256 totalP = 0;
         for(uint i = 0; i < u.directReferrals.length; i++){
@@ -482,9 +477,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
     
     function getClaimableRewards(address _user) public view returns (uint256 pendingStatic, uint256 pendingDynamic, uint256 pendingGenesis) {
-        // 1. 静态收益 (已直接mint到余额, 这里返回0, 前端直接读balanceOf)
         pendingStatic = 0;
-        // 2. 动态收益 (直推+分享)
+        
         User storage user = users[_user];
         if (user.dynamicRewardTotal > user.dynamicRewardClaimed) {
              uint256 timeSinceStart = block.timestamp.sub(user.dynamicRewardStartTime);
@@ -497,7 +491,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
              }
         }
 
-        // 3. 创世节点分红 (已直接mint到余额, 这里返回0, 前端直接读balanceOf)
         pendingGenesis = 0;
     }
     
@@ -510,12 +503,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         return userOrders;
     }
     
-    // 获取用户收益记录
     function getRewardRecords(address _user) external view returns (RewardRecord[] memory) {
         return users[_user].rewardRecords;
     }
     
-    // 获取团队成员详细信息
     function getDirectReferrals(address _user) external view returns (TeamMemberInfo[] memory) {
         address[] memory directReferrals = users[_user].directReferrals;
         TeamMemberInfo[] memory members = new TeamMemberInfo[](directReferrals.length);
@@ -534,6 +525,19 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     
     // --- 辅助与内部函数 ---
+
+    // ========== NEW: 金库分发函数 ==========
+    /**
+     * @dev 内部函数，用于从合约金库向指定地址分发HAF代币。
+     * @param _recipient 接收代币的地址
+     * @param _amount 要分发的代币数量
+     */
+    function _distributeHaf(address _recipient, uint256 _amount) internal {
+        uint256 treasuryBalance = balanceOf(address(this));
+        require(treasuryBalance >= _amount, "HashFi: Insufficient HAF in treasury for distribution");
+        _transfer(address(this), _recipient, _amount);
+    }
+    // =====================================
 
     function _getStakingLevelByAmount(uint256 _amount) internal view returns (uint8) {
         for (uint8 i = 1; i <= 4; i++) {
@@ -559,11 +563,9 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         if (_referrerLevel >= _investorLevel || _referrerLevel == 4) {
             return _originalAmount;
         }
-        // 如果投资额小于等于推荐人级别的最高投资额，也不烧伤
         if (_originalAmount <= stakingLevels[_referrerLevel].maxAmount) {
             return _originalAmount;
         }
-        // 否则，按推荐人级别的最高投资额作为奖励基数
         return stakingLevels[_referrerLevel].maxAmount;
     }
 
@@ -586,7 +588,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         withdrawalFeeRate = _newFeeRate;
     }
     
-    // 紧急暂停/恢复功能
     function pause() external onlyOwner {
         _pause();
     }
@@ -595,7 +596,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    // 管理员提取资金功能
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
         require(_tokenAddress != address(0), "Token address cannot be zero");
         IERC20 token = IERC20(_tokenAddress);
