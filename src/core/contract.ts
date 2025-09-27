@@ -1,0 +1,201 @@
+import { computed, type Ref } from 'vue';
+import { useAccount, useReadContract, useWriteContract, useSimulateContract } from '@wagmi/vue';
+import { parseEther, type Address } from 'viem';
+import abi from '../../contract/abi.json';
+
+
+const HASHFI_CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined;
+
+if (!HASHFI_CONTRACT_ADDRESS) {
+  throw new Error(
+    "VITE_CONTRACT_ADDRESS is not defined. Please check your .env files (.env.development, .env.production)"
+  );
+}
+
+// --- 类型定义 ---
+export interface Order { id: number; user: Address; level: number; amount: bigint; totalQuota: bigint; releasedQuota: bigint; startTime: bigint; lastSettleTime: bigint; isCompleted: boolean; }
+export interface TeamMemberInfo { memberAddress: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; }
+export interface RewardRecord { timestamp: bigint; fromUser: Address; rewardType: number; usdtAmount: bigint; hafAmount: bigint; }
+export interface UserInfo { referrer: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; directReferrals: Address[]; orderIds: bigint[]; isGenesisNode: boolean; genesisDividendsWithdrawn: bigint; dynamicRewardTotal: bigint; dynamicRewardReleased: bigint; dynamicRewardStartTime: bigint; dynamicRewardClaimed: bigint; totalStaticOutput: bigint; rewardRecords: RewardRecord[]; }
+export interface StakingLevelInfo { minAmount: bigint; maxAmount: bigint; multiplier: bigint; dailyRate: bigint; }
+export interface TeamLevelInfo { requiredPerformance: bigint; accelerationBonus: bigint; }
+
+
+/**
+ * =================================================================================================
+ * 合约读取 (Read Hooks)
+ * =================================================================================================
+ */
+
+// --- 用户数据读取 ---
+export function useUserInfo(userAddress?: Ref<Address | undefined>) {
+  const { address: connectedAddress } = useAccount();
+  const targetAddress = computed(() => userAddress?.value || connectedAddress.value);
+  return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getUserInfo', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
+}
+
+export function useUserOrders(userAddress?: Ref<Address | undefined>) {
+    const { address: connectedAddress } = useAccount();
+    const targetAddress = computed(() => userAddress?.value || connectedAddress.value);
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getUserOrders', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
+}
+
+export function useOrderInfo(orderId: Ref<number | undefined>) {
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getOrderInfo', args: computed(() => (orderId.value !== undefined ? [orderId.value] : undefined)), query: { enabled: () => orderId.value !== undefined } });
+}
+
+export function useRewardRecords(userAddress?: Ref<Address | undefined>) {
+    const { address: connectedAddress } = useAccount();
+    const targetAddress = computed(() => userAddress?.value || connectedAddress.value);
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getRewardRecords', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
+}
+
+export function useDirectReferrals(userAddress?: Ref<Address | undefined>) {
+    const { address: connectedAddress } = useAccount();
+    const targetAddress = computed(() => userAddress?.value || connectedAddress.value);
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getDirectReferrals', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
+}
+
+export function useClaimableRewards(userAddress?: Ref<Address | undefined>) {
+    const { address: connectedAddress } = useAccount();
+    const targetAddress = computed(() => userAddress?.value || connectedAddress.value);
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getClaimableRewards', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
+}
+
+// --- 全局配置读取 ---
+export function useHafPrice() {
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'hafPrice' });
+}
+
+export function useStakingLevelInfo(level: Ref<1 | 2 | 3 | 4>) {
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'stakingLevels', args: computed(() => [level.value]), query: { enabled: () => !!level.value } });
+}
+
+export function useTeamLevelInfo(level: Ref<0 | 1 | 2 | 3 | 4 | 5>) {
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'teamLevels', args: computed(() => [level.value]), query: { enabled: () => level.value !== undefined } });
+}
+
+export function useGlobalGenesisPool() {
+    return useReadContract({ abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'globalGenesisPool' });
+}
+
+
+/**
+ * =================================================================================================
+ * 合约写入 (Write Hooks)
+ * =================================================================================================
+ */
+
+export function useStake(amount: Ref<number | null>) {
+  const { data: config, error: simulateError, refetch } = useSimulateContract({
+    address: HASHFI_CONTRACT_ADDRESS,
+    abi,
+    functionName: 'stake',
+    args: computed(() => (amount.value && amount.value > 0 ? [parseEther(amount.value.toString())] : undefined)),
+    query: { enabled: !!amount.value && amount.value > 0 },
+  });
+  const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+  return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+}
+
+export function useBindReferrer(referrerAddress: Ref<Address | undefined>) {
+    const { data: config, error: simulateError, refetch } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'bindReferrer',
+        args: computed(() => (referrerAddress.value ? [referrerAddress.value] : undefined)),
+        query: { enabled: !!referrerAddress.value }
+    });
+    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+}
+
+export function useApplyForGenesisNode() {
+    const { data: config, error: simulateError, refetch } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'applyForGenesisNode',
+    });
+    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+}
+
+export function useWithdraw() {
+    const { data: config, error: simulateError, refetch } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'withdraw',
+    });
+    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+}
+
+export function useSwapUsdtToHaf(usdtAmount: Ref<number | null>) {
+    const { data: config, error: simulateError, refetch } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'swapUsdtToHaf',
+        args: computed(() => (usdtAmount.value && usdtAmount.value > 0 ? [parseEther(usdtAmount.value.toString())] : undefined)),
+        query: { enabled: !!usdtAmount.value && usdtAmount.value > 0 },
+    });
+    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+}
+
+export function useSwapHafToUsdt(hafAmount: Ref<number | null>) {
+    const { data: config, error: simulateError, refetch } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'swapHafToUsdt',
+        args: computed(() => (hafAmount.value && hafAmount.value > 0 ? [parseEther(hafAmount.value.toString())] : undefined)),
+        query: { enabled: !!hafAmount.value && hafAmount.value > 0 },
+    });
+    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+}
+
+/**
+ * =================================================================================================
+ * 合约管理 (Admin Hooks) - 仅限合约所有者调用
+ * =================================================================================================
+ */
+
+export function useSetHafPrice(newPrice: Ref<number | null>) {
+    const { data: config, error: simulateError } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'setHafPrice',
+        args: computed(() => (newPrice.value && newPrice.value > 0 ? [BigInt(Math.floor(newPrice.value * 1e6))] : undefined)), // 价格精度为 1e6
+        query: { enabled: !!newPrice.value && newPrice.value > 0 }
+    });
+    const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
+    return { config, simulateError, writeContract, isPending, isSuccess, writeError };
+}
+
+export function useSetWithdrawalFee(newFeeRate: Ref<number | null>) {
+    const { data: config, error: simulateError } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS,
+        abi,
+        functionName: 'setWithdrawalFee',
+        args: computed(() => (newFeeRate.value !== null ? [newFeeRate.value] : undefined)),
+        query: { enabled: newFeeRate.value !== null && newFeeRate.value >= 0 && newFeeRate.value <= 100 }
+    });
+    const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
+    return { config, simulateError, writeContract, isPending, isSuccess, writeError };
+}
+
+export function usePause() {
+    const { data: config, error: simulateError } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS, abi, functionName: 'pause'
+    });
+    const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
+    return { config, simulateError, writeContract, isPending, isSuccess, writeError };
+}
+
+export function useUnpause() {
+    const { data: config, error: simulateError } = useSimulateContract({
+        address: HASHFI_CONTRACT_ADDRESS, abi, functionName: 'unpause'
+    });
+    const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
+    return { config, simulateError, writeContract, isPending, isSuccess, writeError };
+}
