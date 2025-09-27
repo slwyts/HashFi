@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
     "@reown/appkit": "^1.8.7",
     "@reown/appkit-adapter-wagmi": "^1.8.7",
     "@tailwindcss/vite": "^4.1.13",
