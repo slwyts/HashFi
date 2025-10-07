@@ -7,12 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-/**
- * @title HashFi
- * @dev HashFi生态系统的核心智能合约（集成HAF代币）。
- * @notice 新版合约采用用户驱动的结算模式，优化了Gas消耗并修复了所有已知逻辑漏洞。
- * @notice V2版修改：采用固定供应量和金库模型。
- */
+
 contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     using SafeMath for uint256;
 
@@ -31,9 +26,13 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     event ReferrerBound(address indexed user, address indexed referrer);
     event Withdrawn(address indexed user, uint256 hafAmount, uint256 fee);
     event GenesisNodeApplied(address indexed user);
+    event GenesisNodeApproved(address indexed user);
+    event GenesisNodeRejected(address indexed user);
     event RewardsClaimed(address indexed user, uint256 staticRewards, uint256 dynamicRewards, uint256 genesisRewards);
     event PriceUpdated(uint256 newPrice);
     event Swapped(address indexed user, address indexed fromToken, address indexed toToken, uint256 fromAmount, uint256 toAmount);
+    event TokensBurned(address indexed user, uint256 hafAmount, uint256 usdtAmount);
+    event TeamLevelUpdated(address indexed user, uint8 oldLevel, uint8 newLevel);
 
     // 详细的收益记录事件
     enum RewardType { Static, Direct, Share, Team }
@@ -99,6 +98,30 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 accelerationBonus; // 静态收益加速释放比例 (%)
     }
     
+    // ========== NEW: BTC矿池数据结构 ==========
+    struct BtcMiningStats {
+        uint256 totalHashrate;      // 总算力 (H/s)
+        uint256 globalHashrate;     // 全网算力 (H/s)
+        uint256 dailyRewardPerT;    // 每T日收益 (使用6位小数)
+        uint256 currentDifficulty;  // 当前难度
+        uint256 btcPrice;           // BTC币价 (使用6位小数，如 50000.50 表示为 50000500000)
+        uint256 nextHalvingTime;    // 下次减产时间 (Unix timestamp)
+        uint256 totalMined;         // 累计已挖 (BTC数量，使用18位小数)
+        uint256 yesterdayMined;     // 昨日已挖 (BTC数量，使用18位小数)
+        uint256 lastUpdateTime;     // 最后更新时间
+    }
+    
+    // ========== NEW: 全局统计数据结构 ==========
+    struct GlobalStatistics {
+        uint256 totalDepositedUsdt;      // 总入金 (累计)
+        uint256 totalWithdrawnHaf;       // 总提现HAF数量
+        uint256 totalFeeCollectedHaf;    // 总手续费收入(HAF)
+        uint256 totalHafDistributed;     // 总HAF分发量
+        uint256 totalActiveUsers;        // 活跃用户数
+        uint256 totalCompletedOrders;    // 已完成订单数
+    }
+    // ================================================
+    
     // 团队成员信息结构体
     struct TeamMemberInfo {
         address memberAddress;
@@ -118,6 +141,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     uint256 public constant PRICE_PRECISION = 1e6;
     uint256 public withdrawalFeeRate = 5; // 提现手续费率, 5%
     uint256 public swapFeeRate = 1; // 闪兑手续费, 1%
+    
+    // ========== NEW: 价格自动上涨机制 ==========
+    uint256 public lastPriceUpdateTime; // 上次价格更新时间
+    uint256 public dailyPriceIncreaseRate = 1; // 每日涨幅 千分之一 = 0.1%
+    bool public autoPriceUpdateEnabled = true; // 是否启用自动涨价
+    // ================================================
 
     // 配置信息
     mapping(uint8 => StakingLevelInfo) public stakingLevels;
@@ -127,8 +156,19 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     uint256 public genesisNodeCost = 5000 * 1e18;
     uint256 public constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
     uint256 public globalGenesisPool; // 全局创世节点分红池 (USDT本位)
-    uint256 public totalGenesisShares; // 总分红权数 (用于计算每份分红)
+    uint256 public totalGenesisShares; // 总分红权数 (用于计算每份分红) - 已废弃，改用平均分配
     address[] public genesisNodes;
+    address[] public activeGenesisNodes; // ========== NEW: 活跃的创世节点列表 ==========
+    address[] public pendingGenesisApplications; // ========== NEW: 待审核申请列表 ==========
+    mapping(address => bool) public genesisNodeApplications; // 待审核的创世节点申请
+    mapping(address => bool) public isActiveGenesisNode; // ========== NEW: 节点是否活跃 ==========
+    
+    // ========== NEW: BTC矿池数据 ==========
+    BtcMiningStats public btcStats;
+    
+    // ========== NEW: 全局统计数据 ==========
+    GlobalStatistics public globalStats;
+    // ================================================
 
     // --- 构造函数 ---
     constructor(address _usdtAddress, address _initialOwner) ERC20("Hash Fi Token", "HAF") Ownable(_initialOwner) {
@@ -139,6 +179,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         usdtToken = IERC20(_usdtAddress);
         hafPrice = 1 * PRICE_PRECISION; // 初始价格: 1 HAF = 1 USDT
+        lastPriceUpdateTime = block.timestamp; // 初始化价格更新时间
 
         // 初始化质押级别
         stakingLevels[1] = StakingLevelInfo(100 * 1e18, 499 * 1e18, 150, 70);
@@ -153,21 +194,65 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         teamLevels.push(TeamLevelInfo(100000 * 1e18, 15)); // V3
         teamLevels.push(TeamLevelInfo(300000 * 1e18, 20)); // V4
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
+        
+        // ========== NEW: 初始化BTC矿池数据 ==========
+        // 初始值可以由管理员后续更新
+        btcStats = BtcMiningStats({
+            totalHashrate: 0,
+            globalHashrate: 0,
+            dailyRewardPerT: 0,
+            currentDifficulty: 0,
+            btcPrice: 0,
+            nextHalvingTime: 0,
+            totalMined: 0,
+            yesterdayMined: 0,
+            lastUpdateTime: block.timestamp
+        });
+        // ================================================
     }
 
     // --- 用户核心功能 ---
+    
+    // ========== NEW: 价格自动更新修饰器 ==========
+    /**
+     * @dev 在交易前自动检查并更新HAF价格(懒加载触发)
+     */
+    modifier autoUpdatePrice() {
+        _updatePriceIfNeeded();
+        _;
+    }
+    
+    /**
+     * @dev 内部函数:检查并更新价格
+     */
+    function _updatePriceIfNeeded() internal {
+        if (!autoPriceUpdateEnabled) return;
+        
+        uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / 1 days;
+        if (daysPassed > 0) {
+            // 计算复利:每天涨千分之一
+            for (uint i = 0; i < daysPassed; i++) {
+                uint256 increase = hafPrice.mul(dailyPriceIncreaseRate).div(1000);
+                hafPrice = hafPrice.add(increase);
+            }
+            lastPriceUpdateTime = lastPriceUpdateTime.add(daysPassed.mul(1 days));
+            emit PriceUpdated(hafPrice);
+        }
+    }
+    // ================================================
 
     function bindReferrer(address _referrer) external whenNotPaused {
         User storage user = users[msg.sender];
         require(user.referrer == address(0), "Referrer already bound");
-        require(users[_referrer].totalStakedAmount > 0, "Referrer does not exist");
+        // 允许绑定 owner 作为推荐人（即使没有投资），或者已经投资过的用户
+        require(_referrer == owner() || users[_referrer].totalStakedAmount > 0, "Referrer does not exist");
         require(_referrer != msg.sender, "Cannot refer yourself");
         user.referrer = _referrer;
         users[_referrer].directReferrals.push(msg.sender);
         emit ReferrerBound(msg.sender, _referrer);
     }
 
-    function stake(uint256 _amount) external nonReentrant whenNotPaused {
+    function stake(uint256 _amount) external nonReentrant whenNotPaused autoUpdatePrice {
         require(users[msg.sender].referrer != address(0), "Must bind a referrer first");
         uint8 level = _getStakingLevelByAmount(_amount);
         require(level > 0, "Invalid staking amount");
@@ -184,6 +269,14 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         user.orderIds.push(orderId);
         user.totalStakedAmount = user.totalStakedAmount.add(_amount);
 
+        // ========== NEW: 更新全局统计 ==========
+        globalStats.totalDepositedUsdt = globalStats.totalDepositedUsdt.add(_amount);
+        if (user.orderIds.length == 1) {
+            // 首次质押，增加活跃用户数
+            globalStats.totalActiveUsers = globalStats.totalActiveUsers.add(1);
+        }
+        // ================================================
+
         _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
         emit Staked(msg.sender, orderId, _amount, level);
     }
@@ -192,17 +285,19 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         User storage user = users[msg.sender];
         require(user.totalStakedAmount > 0, "User must stake first");
         require(!user.isGenesisNode, "Already a genesis node");
+        require(!genesisNodeApplications[msg.sender], "Application already pending");
 
         usdtToken.transferFrom(msg.sender, address(this), genesisNodeCost);
         
-        user.isGenesisNode = true;
-        genesisNodes.push(msg.sender);
-        totalGenesisShares = totalGenesisShares.add(genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER));
+        // ========== MODIFIED: 改为待审核状态 ==========
+        genesisNodeApplications[msg.sender] = true;
+        pendingGenesisApplications.push(msg.sender); // 添加到待审核列表
+        // ================================================
 
         emit GenesisNodeApplied(msg.sender);
     }
 
-    function withdraw() external nonReentrant whenNotPaused {
+    function withdraw() external nonReentrant whenNotPaused autoUpdatePrice {
         _settleUserRewards(msg.sender);
         
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
@@ -219,12 +314,17 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         // 不再是铸造，而是从合约金库转账给用户
         _distributeHaf(msg.sender, amountAfterFee);
         // =====================================
+        
+        // ========== NEW: 更新全局统计 ==========
+        globalStats.totalWithdrawnHaf = globalStats.totalWithdrawnHaf.add(amountAfterFee);
+        globalStats.totalFeeCollectedHaf = globalStats.totalFeeCollectedHaf.add(fee);
+        // ================================================
 
         emit Withdrawn(msg.sender, amountAfterFee, fee);
     }
     
     // --- 闪兑功能 ---
-    function swapUsdtToHaf(uint256 _usdtAmount) external nonReentrant whenNotPaused {
+    function swapUsdtToHaf(uint256 _usdtAmount) external nonReentrant whenNotPaused autoUpdatePrice {
         require(_usdtAmount > 0, "USDT amount must be positive");
         usdtToken.transferFrom(msg.sender, address(this), _usdtAmount);
         
@@ -239,7 +339,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         emit Swapped(msg.sender, address(usdtToken), address(this), _usdtAmount, finalHafAmount);
     }
 
-    function swapHafToUsdt(uint256 _hafAmount) external nonReentrant whenNotPaused {
+    function swapHafToUsdt(uint256 _hafAmount) external nonReentrant whenNotPaused autoUpdatePrice {
         require(_hafAmount > 0, "HAF amount must be positive");
         
         // ========== MODIFIED: 回收至金库 ==========
@@ -278,40 +378,64 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             return;
         }
 
-        uint256 timeElapsed = block.timestamp.sub(order.lastSettleTime);
-        if (timeElapsed == 0) return;
+        // ========== FIXED: 按天数计算，而非连续时间 ==========
+        uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(1 days);
+        if (daysPassed == 0) return;
 
         User storage user = users[order.user];
-        uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
+        uint256 baseDailyRate = stakingLevels[order.level].dailyRate; // 70/80/90/100 (万分之一)
         uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
         uint256 actualDailyRate = baseDailyRate.mul(uint256(100).add(accelerationBonus)).div(100);
         
-        uint256 rewardUsdt = order.amount.mul(actualDailyRate).mul(timeElapsed).div(10000).div(1 days);
+        // ✅ 正确逻辑: 每天释放总额度(USDT)的百分比
+        // 例: 总额度300U，钻石1%日释放率，每天释放 = 300 * 100 / 10000 = 3 USDT
+        uint256 dailyReleaseUsdt = order.totalQuota.mul(actualDailyRate).div(10000);
+        uint256 totalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
         
-        if (order.releasedQuota.add(rewardUsdt) >= order.totalQuota) {
-            rewardUsdt = order.totalQuota.sub(order.releasedQuota);
+        // 检查是否超过总额度（烧伤多余部分）
+        if (order.releasedQuota.add(totalReleaseUsdt) >= order.totalQuota) {
+            totalReleaseUsdt = order.totalQuota.sub(order.releasedQuota);
             order.isCompleted = true;
+            
+            // ========== NEW: 更新全局统计 ==========
+            globalStats.totalCompletedOrders = globalStats.totalCompletedOrders.add(1);
+            // ================================================
         }
 
-        order.releasedQuota = order.releasedQuota.add(rewardUsdt);
-        order.lastSettleTime = block.timestamp;
+        order.releasedQuota = order.releasedQuota.add(totalReleaseUsdt);
+        order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(1 days)); // 精确到天
+        // ================================================
 
-        if (rewardUsdt > 0) {
-            uint256 userPart = rewardUsdt.mul(90).div(100);
-            uint256 genesisPart = rewardUsdt.sub(userPart);
+        if (totalReleaseUsdt > 0) {
+            uint256 userPart = totalReleaseUsdt.mul(90).div(100); // 90%给用户
+            uint256 genesisPart = totalReleaseUsdt.sub(userPart); // 10%给创世节点池
             
             if (genesisPart > 0) {
                 globalGenesisPool = globalGenesisPool.add(genesisPart);
-                totalGenesisShares = totalGenesisShares.add(genesisPart);
             }
             
+            // ✅ HAF数量 = USDT金额 / 当前HAF价格
+            // 价格上涨时，同样的USDT换到的HAF数量会减少，这符合文档要求
             uint256 userRewardHaf = userPart.mul(PRICE_PRECISION).div(hafPrice);
             
-            // ========== MODIFIED: 从金库分发 ==========
+            // 从金库分发HAF给用户
             _distributeHaf(order.user, userRewardHaf);
-            // =====================================
-
-            _addRewardRecord(order.user, address(0), RewardType.Static, userPart, userRewardHaf);
+            
+            // 记录静态收益（基础部分）
+            uint256 baseStaticUsdt = userPart;
+            uint256 teamBonusUsdt = 0;
+            
+            // 如果有团队加速，单独记录团队奖励
+            if (accelerationBonus > 0) {
+                teamBonusUsdt = userPart.mul(accelerationBonus).div(uint256(100).add(accelerationBonus));
+                baseStaticUsdt = userPart.sub(teamBonusUsdt);
+                
+                uint256 teamBonusHaf = teamBonusUsdt.mul(PRICE_PRECISION).div(hafPrice);
+                _addRewardRecord(order.user, address(0), RewardType.Team, teamBonusUsdt, teamBonusHaf);
+            }
+            
+            uint256 baseStaticHaf = baseStaticUsdt.mul(PRICE_PRECISION).div(hafPrice);
+            _addRewardRecord(order.user, address(0), RewardType.Static, baseStaticUsdt, baseStaticHaf);
 
             user.totalStaticOutput = user.totalStaticOutput.add(userPart);
             _distributeShareRewards(order.user, userPart);
@@ -321,28 +445,61 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     function _settleGenesisRewardForNode(address _node) internal {
         User storage nodeUser = users[_node];
         uint256 maxDividend = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER);
-        if (nodeUser.genesisDividendsWithdrawn >= maxDividend) return;
-
-        uint256 nodeShare = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER).sub(nodeUser.genesisDividendsWithdrawn);
-        if (totalGenesisShares == 0) return;
         
-        uint256 claimableUsdt = globalGenesisPool.mul(nodeShare).div(totalGenesisShares);
+        // 检查节点是否已出局
+        if (nodeUser.genesisDividendsWithdrawn >= maxDividend) {
+            // ✅ 节点出局，从活跃列表移除
+            if (isActiveGenesisNode[_node]) {
+                _removeActiveGenesisNode(_node);
+            }
+            return;
+        }
 
+        if (globalGenesisPool == 0) return;
+        
+        // ✅ 计算活跃节点数量
+        uint256 activeNodesCount = activeGenesisNodes.length;
+        if (activeNodesCount == 0) return;
+        
+        // ✅ 平均分配分红池 - 每个节点分配相同金额
+        uint256 claimableUsdt = globalGenesisPool.div(activeNodesCount);
+        
         if (claimableUsdt > 0) {
             uint256 actualClaim = claimableUsdt;
+            
+            // 检查是否超过3倍上限（烧伤多余部分）
             if (nodeUser.genesisDividendsWithdrawn.add(claimableUsdt) > maxDividend) {
                 actualClaim = maxDividend.sub(nodeUser.genesisDividendsWithdrawn);
             }
 
             nodeUser.genesisDividendsWithdrawn = nodeUser.genesisDividendsWithdrawn.add(actualClaim);
             globalGenesisPool = globalGenesisPool.sub(actualClaim);
-            totalGenesisShares = totalGenesisShares.sub(actualClaim);
+            
+            // 如果达到上限，从活跃列表移除
+            if (nodeUser.genesisDividendsWithdrawn >= maxDividend) {
+                _removeActiveGenesisNode(_node);
+            }
             
             uint256 rewardHaf = actualClaim.mul(PRICE_PRECISION).div(hafPrice);
-
-            // ========== MODIFIED: 从金库分发 ==========
             _distributeHaf(_node, rewardHaf);
-            // =====================================
+        }
+    }
+    
+    /**
+     * @dev 内部函数: 从活跃节点列表中移除节点
+     */
+    function _removeActiveGenesisNode(address _node) internal {
+        if (!isActiveGenesisNode[_node]) return;
+        
+        isActiveGenesisNode[_node] = false;
+        
+        // 从数组中移除
+        for (uint i = 0; i < activeGenesisNodes.length; i++) {
+            if (activeGenesisNodes[i] == _node) {
+                activeGenesisNodes[i] = activeGenesisNodes[activeGenesisNodes.length - 1];
+                activeGenesisNodes.pop();
+                break;
+            }
         }
     }
     
@@ -354,7 +511,23 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         uint256[] memory directRewardRates = _getDirectRewardRates();
         for (uint i = 0; i < 6 && referrer != address(0); i++) {
-            uint256 receivableAmount = _calculateBurnableAmount(_amount, _level, _getUserHighestLevel(referrer));
+            uint8 referrerLevel = _getUserHighestLevel(referrer);
+            uint256 receivableAmount = _calculateBurnableAmount(_amount, _level, referrerLevel);
+            
+            // ========== NEW: 实现燃烧机制 ==========
+            if (receivableAmount < _amount && referrerLevel < 4) {
+                // 跨级推荐,超额部分需要燃烧
+                uint256 burnAmount = _amount.sub(receivableAmount);
+                uint256 burnHafAmount = burnAmount.mul(PRICE_PRECISION).div(hafPrice);
+                
+                // 从金库转移到黑洞地址(0x000...dead)实现燃烧
+                if (balanceOf(address(this)) >= burnHafAmount) {
+                    _transfer(address(this), address(0x000000000000000000000000000000000000dEaD), burnHafAmount);
+                    emit TokensBurned(_user, burnHafAmount, burnAmount);
+                }
+            }
+            // ================================================
+            
             uint256 rewardUsdt = receivableAmount.mul(directRewardRates[i]).div(100);
             
             if(rewardUsdt > 0) {
@@ -432,9 +605,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
         
         uint256 smallAreaPerformance = directReferralsTotalPerformance.sub(maxPerformance);
-        for(uint8 i = 5; i > user.teamLevel; i--){
+        uint8 oldLevel = user.teamLevel;
+        
+        for(uint8 i = 5; i > oldLevel; i--){
             if(smallAreaPerformance >= teamLevels[i].requiredPerformance){
                 user.teamLevel = i;
+                emit TeamLevelUpdated(_user, oldLevel, i);
                 break;
             }
         }
@@ -477,21 +653,94 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
     
     function getClaimableRewards(address _user) public view returns (uint256 pendingStatic, uint256 pendingDynamic, uint256 pendingGenesis) {
-        pendingStatic = 0;
-        
+        // ========== FIXED: 优化以避免Stack too deep错误 ==========
+        pendingStatic = _calculatePendingStatic(_user);
+        pendingDynamic = _calculatePendingDynamic(_user);
+        pendingGenesis = _calculatePendingGenesis(_user);
+    }
+    
+    /**
+     * @dev 内部函数: 计算待领取的静态收益
+     */
+    function _calculatePendingStatic(address _user) internal view returns (uint256) {
         User storage user = users[_user];
-        if (user.dynamicRewardTotal > user.dynamicRewardClaimed) {
-             uint256 timeSinceStart = block.timestamp.sub(user.dynamicRewardStartTime);
-             uint256 totalReleased = user.dynamicRewardTotal.mul(timeSinceStart).div(100 days);
-             if (totalReleased > user.dynamicRewardTotal) {
-                 totalReleased = user.dynamicRewardTotal;
-             }
-             if (totalReleased > user.dynamicRewardClaimed) {
-                pendingDynamic = totalReleased.sub(user.dynamicRewardClaimed);
-             }
-        }
+        uint256 total = 0;
+        
+        for (uint i = 0; i < user.orderIds.length; i++) {
+            Order storage order = orders[user.orderIds[i]];
+            if (order.isCompleted) continue;
+            
+            uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(1 days);
+            if (daysPassed == 0) continue;
 
-        pendingGenesis = 0;
+            uint256 actualRate = stakingLevels[order.level].dailyRate
+                .mul(uint256(100).add(teamLevels[user.teamLevel].accelerationBonus))
+                .div(100);
+            
+            uint256 releaseUsdt = order.totalQuota.mul(actualRate).div(10000).mul(daysPassed);
+            
+            if (order.releasedQuota.add(releaseUsdt) >= order.totalQuota) {
+                releaseUsdt = order.totalQuota.sub(order.releasedQuota);
+            }
+            
+            total = total.add(releaseUsdt.mul(90).div(100).mul(PRICE_PRECISION).div(hafPrice));
+        }
+        
+        return total;
+    }
+    
+    /**
+     * @dev 内部函数: 计算待领取的动态收益
+     */
+    function _calculatePendingDynamic(address _user) internal view returns (uint256) {
+        User storage user = users[_user];
+        
+        if (user.dynamicRewardTotal <= user.dynamicRewardClaimed) {
+            return 0;
+        }
+        
+        uint256 totalReleased = user.dynamicRewardTotal
+            .mul(block.timestamp.sub(user.dynamicRewardStartTime))
+            .div(100 days);
+            
+        if (totalReleased > user.dynamicRewardTotal) {
+            totalReleased = user.dynamicRewardTotal;
+        }
+        
+        if (totalReleased > user.dynamicRewardClaimed) {
+            return totalReleased.sub(user.dynamicRewardClaimed);
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * @dev 内部函数: 计算待领取的创世节点收益
+     */
+    function _calculatePendingGenesis(address _user) internal view returns (uint256) {
+        User storage user = users[_user];
+        
+        if (!user.isGenesisNode) {
+            return 0;
+        }
+        
+        uint256 maxDividend = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER);
+        if (user.genesisDividendsWithdrawn >= maxDividend || globalGenesisPool == 0) {
+            return 0;
+        }
+        
+        uint256 activeNodesCount = activeGenesisNodes.length;
+        if (activeNodesCount == 0) {
+            return 0;
+        }
+        
+        uint256 claimableUsdt = globalGenesisPool.div(activeNodesCount);
+        if (user.genesisDividendsWithdrawn.add(claimableUsdt) > maxDividend) {
+            claimableUsdt = maxDividend.sub(user.genesisDividendsWithdrawn);
+        }
+        
+        return claimableUsdt.mul(PRICE_PRECISION).div(hafPrice);
+        // ================================================
     }
     
     function getUserOrders(address _user) external view returns (Order[] memory) {
@@ -523,6 +772,147 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         return members;
     }
 
+    // ========== NEW: 懒加载查询函数 ==========
+    
+    /**
+     * @dev 获取某个订单的待释放静态收益(不结算,纯计算)
+     */
+    function getOrderPendingReward(uint256 _orderId) external view returns (uint256 pendingUsdt, uint256 pendingHaf) {
+        Order storage order = orders[_orderId];
+        if (order.isCompleted) {
+            return (0, 0);
+        }
+
+        User storage user = users[order.user];
+        // ✅ 按天数计算
+        uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(1 days);
+        if (daysPassed == 0) return (0, 0);
+
+        uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
+        uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
+        uint256 actualDailyRate = baseDailyRate.mul(uint256(100).add(accelerationBonus)).div(100);
+        
+        // ✅ 每天释放总额度的百分比
+        uint256 dailyReleaseUsdt = order.totalQuota.mul(actualDailyRate).div(10000);
+        uint256 totalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
+        
+        if (order.releasedQuota.add(totalReleaseUsdt) >= order.totalQuota) {
+            totalReleaseUsdt = order.totalQuota.sub(order.releasedQuota);
+        }
+
+        uint256 userPart = totalReleaseUsdt.mul(90).div(100);
+        uint256 rewardHaf = userPart.mul(PRICE_PRECISION).div(hafPrice);
+        
+        return (userPart, rewardHaf);
+    }
+    
+    /**
+     * @dev 获取用户的推荐人统计(按等级分类)
+     */
+    function getUserReferralStats(address _user) external view returns (
+        uint256 totalReferrals,
+        uint256 bronzeCount,
+        uint256 silverCount,
+        uint256 goldCount,
+        uint256 diamondCount
+    ) {
+        address[] memory directReferrals = users[_user].directReferrals;
+        totalReferrals = directReferrals.length;
+        
+        for (uint i = 0; i < directReferrals.length; i++) {
+            uint8 level = _getUserHighestLevel(directReferrals[i]);
+            if (level == 1) bronzeCount++;
+            else if (level == 2) silverCount++;
+            else if (level == 3) goldCount++;
+            else if (level == 4) diamondCount++;
+        }
+        
+        return (totalReferrals, bronzeCount, silverCount, goldCount, diamondCount);
+    }
+    
+    /**
+     * @dev 获取用户团队业绩详情
+     */
+    function getTeamPerformanceDetails(address _user) external view returns (
+        uint256 totalPerformance,
+        uint256 largestArea,
+        uint256 smallArea,
+        uint256 directReferralsCount
+    ) {
+        User storage user = users[_user];
+        directReferralsCount = user.directReferrals.length;
+        
+        uint256 maxP = 0;
+        uint256 totalP = 0;
+        for(uint i = 0; i < user.directReferrals.length; i++){
+            address child = user.directReferrals[i];
+            uint256 p = users[child].totalStakedAmount.add(users[child].teamTotalPerformance);
+            totalP = totalP.add(p);
+            if(p > maxP) maxP = p;
+        }
+        
+        return (user.teamTotalPerformance, maxP, totalP.sub(maxP), directReferralsCount);
+    }
+    
+    /**
+     * @dev 获取全局统计数据
+     */
+    function getGlobalStats() external view returns (
+        uint256 totalStakedUsdt,
+        uint256 totalOrders,
+        uint256 totalGenesisNodesCount,
+        uint256 currentHafPrice,
+        uint256 contractUsdtBalance,
+        uint256 contractHafBalance,
+        GlobalStatistics memory statistics
+    ) {
+        totalOrders = orders.length;
+        totalGenesisNodesCount = genesisNodes.length;
+        currentHafPrice = hafPrice;
+        contractUsdtBalance = usdtToken.balanceOf(address(this));
+        contractHafBalance = balanceOf(address(this));
+        
+        // 计算当前活跃质押金额(未完成订单)
+        for (uint i = 0; i < orders.length; i++) {
+            if (!orders[i].isCompleted) {
+                totalStakedUsdt = totalStakedUsdt.add(orders[i].amount);
+            }
+        }
+        
+        statistics = globalStats;
+        
+        return (totalStakedUsdt, totalOrders, totalGenesisNodesCount, currentHafPrice, contractUsdtBalance, contractHafBalance, statistics);
+    }
+    
+    /**
+     * @dev 获取按类型筛选的收益记录
+     */
+    function getRewardRecordsByType(address _user, RewardType _type) external view returns (RewardRecord[] memory) {
+        RewardRecord[] storage allRecords = users[_user].rewardRecords;
+        
+        // 先统计符合条件的数量
+        uint256 count = 0;
+        for (uint i = 0; i < allRecords.length; i++) {
+            if (allRecords[i].rewardType == _type) {
+                count++;
+            }
+        }
+        
+        // 创建结果数组
+        RewardRecord[] memory filteredRecords = new RewardRecord[](count);
+        uint256 index = 0;
+        for (uint i = 0; i < allRecords.length; i++) {
+            if (allRecords[i].rewardType == _type) {
+                filteredRecords[index] = allRecords[i];
+                index++;
+            }
+        }
+        
+        return filteredRecords;
+    }
+    
+    // ================================================
+
     
     // --- 辅助与内部函数 ---
 
@@ -536,6 +926,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 treasuryBalance = balanceOf(address(this));
         require(treasuryBalance >= _amount, "HashFi: Insufficient HAF in treasury for distribution");
         _transfer(address(this), _recipient, _amount);
+        
+        // ========== NEW: 更新全局统计 ==========
+        globalStats.totalHafDistributed = globalStats.totalHafDistributed.add(_amount);
+        // ================================================
     }
     // =====================================
 
@@ -577,16 +971,249 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     // --- 后台管理函数 ---
 
+    // 创世节点审核
+    function approveGenesisNode(address _applicant) external onlyOwner {
+        require(genesisNodeApplications[_applicant], "No pending application");
+        User storage user = users[_applicant];
+        require(!user.isGenesisNode, "Already approved");
+        
+        genesisNodeApplications[_applicant] = false;
+        _removeFromPendingApplications(_applicant);
+        
+        user.isGenesisNode = true;
+        genesisNodes.push(_applicant);
+        
+        // ✅ 添加到活跃节点列表
+        activeGenesisNodes.push(_applicant);
+        isActiveGenesisNode[_applicant] = true;
+        
+        // totalGenesisShares 不再使用，改为平均分配
+        
+        emit GenesisNodeApproved(_applicant);
+    }
+    
+    function rejectGenesisNode(address _applicant) external onlyOwner {
+        require(genesisNodeApplications[_applicant], "No pending application");
+        
+        genesisNodeApplications[_applicant] = false;
+        _removeFromPendingApplications(_applicant);
+        
+        // 退还申请费用
+        usdtToken.transfer(_applicant, genesisNodeCost);
+        
+        emit GenesisNodeRejected(_applicant);
+    }
+    
+    /**
+     * @dev 内部函数: 从待审核列表移除
+     */
+    function _removeFromPendingApplications(address _applicant) internal {
+        for (uint i = 0; i < pendingGenesisApplications.length; i++) {
+            if (pendingGenesisApplications[i] == _applicant) {
+                pendingGenesisApplications[i] = pendingGenesisApplications[pendingGenesisApplications.length - 1];
+                pendingGenesisApplications.pop();
+                break;
+            }
+        }
+    }
+
     function setHafPrice(uint256 _newPrice) external onlyOwner {
         require(_newPrice > 0, "Price must be positive");
         hafPrice = _newPrice;
+        lastPriceUpdateTime = block.timestamp; // 重置更新时间
         emit PriceUpdated(_newPrice);
+    }
+    
+    /**
+     * @dev 设置每日价格涨幅(千分比)
+     */
+    function setDailyPriceIncreaseRate(uint256 _rate) external onlyOwner {
+        require(_rate <= 100, "Rate too high"); // 最高10%每天
+        dailyPriceIncreaseRate = _rate;
+    }
+    
+    /**
+     * @dev 启用/禁用自动涨价
+     */
+    function setAutoPriceUpdate(bool _enabled) external onlyOwner {
+        autoPriceUpdateEnabled = _enabled;
+    }
+    
+    /**
+     * @dev 手动触发价格更新(公开函数,任何人都可调用)
+     */
+    function updatePrice() external {
+        _updatePriceIfNeeded();
     }
 
     function setWithdrawalFee(uint256 _newFeeRate) external onlyOwner {
         require(_newFeeRate <= 100, "Fee rate cannot exceed 100%");
         withdrawalFeeRate = _newFeeRate;
     }
+    
+    // ========== NEW: 管理员控制函数 ==========
+    
+    /**
+     * @dev 修改质押级别参数
+     */
+    function updateStakingLevel(
+        uint8 _level, 
+        uint256 _minAmount, 
+        uint256 _maxAmount, 
+        uint256 _multiplier, 
+        uint256 _dailyRate
+    ) external onlyOwner {
+        require(_level >= 1 && _level <= 4, "Invalid level");
+        require(_minAmount < _maxAmount, "Invalid amount range");
+        require(_multiplier > 0 && _dailyRate > 0, "Invalid parameters");
+        
+        stakingLevels[_level] = StakingLevelInfo(_minAmount, _maxAmount, _multiplier, _dailyRate);
+    }
+    
+    /**
+     * @dev 修改团队级别要求
+     */
+    function updateTeamLevel(
+        uint8 _level,
+        uint256 _requiredPerformance,
+        uint256 _accelerationBonus
+    ) external onlyOwner {
+        require(_level >= 0 && _level <= 5, "Invalid team level");
+        require(_accelerationBonus <= 100, "Bonus cannot exceed 100%");
+        
+        if (_level < teamLevels.length) {
+            teamLevels[_level] = TeamLevelInfo(_requiredPerformance, _accelerationBonus);
+        }
+    }
+    
+    /**
+     * @dev 强制结算某个用户的收益(管理员操作)
+     */
+    function forceSettleUser(address _user) external onlyOwner {
+        _settleUserRewards(_user);
+    }
+    
+    /**
+     * @dev 手动调整用户团队等级(特殊情况)
+     */
+    function setUserTeamLevel(address _user, uint8 _level) external onlyOwner {
+        require(_level >= 0 && _level <= 5, "Invalid team level");
+        uint8 oldLevel = users[_user].teamLevel;
+        users[_user].teamLevel = _level;
+        emit TeamLevelUpdated(_user, oldLevel, _level);
+    }
+    
+    /**
+     * @dev 获取所有创世节点的详细信息
+     */
+    function getAllGenesisNodesInfo() external view onlyOwner returns (
+        address[] memory nodes,
+        uint256[] memory totalDividends,
+        uint256[] memory withdrawn
+    ) {
+        uint256 length = genesisNodes.length;
+        nodes = new address[](length);
+        totalDividends = new uint256[](length);
+        withdrawn = new uint256[](length);
+        
+        uint256 maxDividend = genesisNodeCost.mul(GENESIS_NODE_EXIT_MULTIPLIER);
+        
+        for (uint i = 0; i < length; i++) {
+            nodes[i] = genesisNodes[i];
+            totalDividends[i] = maxDividend;
+            withdrawn[i] = users[genesisNodes[i]].genesisDividendsWithdrawn;
+        }
+        
+        return (nodes, totalDividends, withdrawn);
+    }
+    
+    /**
+     * @dev 设置创世节点费用
+     */
+    function setGenesisNodeCost(uint256 _newCost) external onlyOwner {
+        require(_newCost > 0, "Cost must be positive");
+        genesisNodeCost = _newCost;
+    }
+    
+    /**
+     * @dev 设置闪兑手续费率
+     */
+    function setSwapFee(uint256 _newFeeRate) external onlyOwner {
+        require(_newFeeRate <= 100, "Fee rate cannot exceed 100%");
+        swapFeeRate = _newFeeRate;
+    }
+    
+    // ========== NEW: BTC矿池数据管理 ==========
+    
+    /**
+     * @dev 更新BTC矿池统计数据（后台管理员调用）
+     */
+    function updateBtcStats(
+        uint256 _totalHashrate,
+        uint256 _globalHashrate,
+        uint256 _dailyRewardPerT,
+        uint256 _currentDifficulty,
+        uint256 _btcPrice,
+        uint256 _nextHalvingTime
+    ) external onlyOwner {
+        btcStats.totalHashrate = _totalHashrate;
+        btcStats.globalHashrate = _globalHashrate;
+        btcStats.dailyRewardPerT = _dailyRewardPerT;
+        btcStats.currentDifficulty = _currentDifficulty;
+        btcStats.btcPrice = _btcPrice;
+        btcStats.nextHalvingTime = _nextHalvingTime;
+        btcStats.lastUpdateTime = block.timestamp;
+    }
+    
+    /**
+     * @dev 更新累计已挖数量（后台每日自动增加）
+     */
+    function updateTotalMined(uint256 _increment) external onlyOwner {
+        btcStats.totalMined = btcStats.totalMined.add(_increment);
+        btcStats.yesterdayMined = _increment;
+        btcStats.lastUpdateTime = block.timestamp;
+    }
+    
+    /**
+     * @dev 获取BTC矿池数据
+     */
+    function getBtcStats() external view returns (BtcMiningStats memory) {
+        return btcStats;
+    }
+    
+    // ========== NEW: 创世节点查询函数 ==========
+    
+    /**
+     * @dev 获取所有待审核的创世节点申请
+     */
+    function getPendingGenesisApplications() external view onlyOwner returns (address[] memory) {
+        return pendingGenesisApplications;
+    }
+    
+    /**
+     * @dev 检查地址是否有待审核的申请
+     */
+    function isApplicationPending(address _user) external view returns (bool) {
+        return genesisNodeApplications[_user];
+    }
+    
+    /**
+     * @dev 获取活跃创世节点列表
+     */
+    function getActiveGenesisNodes() external view returns (address[] memory) {
+        return activeGenesisNodes;
+    }
+    
+    /**
+     * @dev 获取所有创世节点（包括已出局的）
+     */
+    function getAllGenesisNodes() external view returns (address[] memory) {
+        return genesisNodes;
+    }
+    
+    // ================================================
+    
+    // ================================================
     
     function pause() external onlyOwner {
         _pause();

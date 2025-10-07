@@ -1,23 +1,49 @@
 <template>
-  <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+  <header class="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-blue-100">
     <div>
-      <w3m-button v-if="!isConnected" />
+      <!-- 自定义连接钱包按钮 -->
+      <button 
+        v-if="!isConnected" 
+        @click="modal.open()"
+        class="relative px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 overflow-hidden group"
+      >
+        <!-- 背景动画效果 -->
+        <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+        
+        <!-- 按钮内容 -->
+        <div class="relative flex items-center space-x-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          <span>{{ t('topBar.connectWallet') }}</span>
+        </div>
+      </button>
       
-      <div v-else @click="openAccountModal" class="flex items-center space-x-2 cursor-pointer">
-        <span class="font-mono text-gray-800 font-semibold">{{ formattedAddress }}</span>
+      <!-- 已连接状态 -->
+      <div v-else @click="openAccountModal" class="flex items-center space-x-3 px-4 py-2 bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
+        <span class="font-mono text-white font-semibold text-sm">{{ formattedAddress }}</span>
         <img 
           src="/icons/copy.svg" 
           alt="Copy Address" 
-          class="w-4 h-4 copy-icon"
+          class="w-4 h-4 copy-icon-white"
           @click.stop="copyAddress" 
         />
       </div>
     </div>
 
-    <div @click="isModalVisible = true" class="flex items-center space-x-2 cursor-pointer">
-      <img src="/icons/language.svg" alt="Language" class="w-6 h-6" />
-      <span>{{ currentLanguageName }}</span>
-      <span class="text-xs">▼</span>
+    <!-- 语言切换按钮 - 现代化设计 -->
+    <div @click="isModalVisible = true" class="relative group cursor-pointer">
+      <div class="flex items-center space-x-2 px-4 py-2.5 bg-white rounded-xl border border-gray-200 hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-md">
+        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+          </svg>
+        </div>
+        <span class="text-gray-700 font-medium text-sm">{{ currentLanguageName }}</span>
+        <svg class="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
     </div>
   </header>
 
@@ -46,11 +72,10 @@ const copyAddress = async () => {
   if (address.value) {
     try {
       await navigator.clipboard.writeText(address.value);
-      // You can replace this with a more subtle notification component
-      alert('Address copied to clipboard!');
+      alert(t('topBar.addressCopied'));
     } catch (err) {
       console.error('Failed to copy address: ', err);
-      alert('Failed to copy address.');
+      alert(t('topBar.copyFailed'));
     }
   }
 };
@@ -61,7 +86,7 @@ const openAccountModal = () => {
 
 // --- Language Modal Logic ---
 const isModalVisible = ref(false);
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const languageNames: { [key: string]: string } = {
   'en': 'English',
@@ -74,9 +99,8 @@ const currentLanguageName = computed(() => {
 </script>
 
 <style scoped>
-/* Applies a blue color to the copy icon. 
-   This works best if the source SVG is black. */
-.copy-icon {
-  filter: invert(39%) sepia(80%) saturate(1413%) hue-rotate(205deg) brightness(90%) contrast(96%);
+/* White copy icon for gradient background */
+.copy-icon-white {
+  filter: brightness(0) invert(1);
 }
 </style>

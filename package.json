@@ -17,6 +17,7 @@
     "@tanstack/vue-query": "^5.90.2",
     "@wagmi/vue": "^0.2.8",
     "@web3modal/wagmi": "^5.1.11",
+    "marked": "^16.3.0",
     "pinia": "^3.0.3",
     "tailwindcss": "^4.1.13",
     "viem": "^2.37.8",

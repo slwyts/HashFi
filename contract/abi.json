@@ -1,67 +1,5 @@
 [
 	{
-		"inputs": [],
-		"name": "applyForGenesisNode",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "spender",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "value",
-				"type": "uint256"
-			}
-		],
-		"name": "approve",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_referrer",
-				"type": "address"
-			}
-		],
-		"name": "bindReferrer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_tokenAddress",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_amount",
-				"type": "uint256"
-			}
-		],
-		"name": "emergencyWithdrawToken",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -229,6 +167,32 @@
 			{
 				"indexed": true,
 				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "GenesisNodeApproved",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "GenesisNodeRejected",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
 				"name": "previousOwner",
 				"type": "address"
 			},
@@ -241,13 +205,6 @@
 		],
 		"name": "OwnershipTransferred",
 		"type": "event"
-	},
-	{
-		"inputs": [],
-		"name": "pause",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -293,13 +250,6 @@
 		],
 		"name": "ReferrerBound",
 		"type": "event"
-	},
-	{
-		"inputs": [],
-		"name": "renounceOwnership",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -370,45 +320,6 @@
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_newPrice",
-				"type": "uint256"
-			}
-		],
-		"name": "setHafPrice",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_newFeeRate",
-				"type": "uint256"
-			}
-		],
-		"name": "setWithdrawalFee",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_amount",
-				"type": "uint256"
-			}
-		],
-		"name": "stake",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -438,19 +349,6 @@
 		],
 		"name": "Staked",
 		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_hafAmount",
-				"type": "uint256"
-			}
-		],
-		"name": "swapHafToUsdt",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -490,41 +388,54 @@
 		"type": "event"
 	},
 	{
+		"anonymous": false,
 		"inputs": [
 			{
-				"internalType": "uint256",
-				"name": "_usdtAmount",
-				"type": "uint256"
-			}
-		],
-		"name": "swapUsdtToHaf",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
+				"indexed": true,
 				"internalType": "address",
-				"name": "to",
+				"name": "user",
 				"type": "address"
 			},
 			{
+				"indexed": false,
+				"internalType": "uint8",
+				"name": "oldLevel",
+				"type": "uint8"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint8",
+				"name": "newLevel",
+				"type": "uint8"
+			}
+		],
+		"name": "TeamLevelUpdated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": false,
 				"internalType": "uint256",
-				"name": "value",
+				"name": "hafAmount",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "usdtAmount",
 				"type": "uint256"
 			}
 		],
-		"name": "transfer",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
+		"name": "TokensBurned",
+		"type": "event"
 	},
 	{
 		"anonymous": false,
@@ -552,55 +463,6 @@
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "from",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "to",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "value",
-				"type": "uint256"
-			}
-		],
-		"name": "transferFrom",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "newOwner",
-				"type": "address"
-			}
-		],
-		"name": "transferOwnership",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "unpause",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -612,13 +474,6 @@
 		],
 		"name": "Unpaused",
 		"type": "event"
-	},
-	{
-		"inputs": [],
-		"name": "withdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -646,6 +501,64 @@
 		"type": "event"
 	},
 	{
+		"inputs": [],
+		"name": "GENESIS_NODE_EXIT_MULTIPLIER",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "PRICE_PRECISION",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "TOTAL_SUPPLY",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "activeGenesisNodes",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -664,6 +577,63 @@
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "applyForGenesisNode",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "spender",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "value",
+				"type": "uint256"
+			}
+		],
+		"name": "approve",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_applicant",
+				"type": "address"
+			}
+		],
+		"name": "approveGenesisNode",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "autoPriceUpdateEnabled",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -689,6 +659,85 @@
 		"type": "function"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_referrer",
+				"type": "address"
+			}
+		],
+		"name": "bindReferrer",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "btcStats",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "totalHashrate",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "globalHashrate",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "dailyRewardPerT",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "currentDifficulty",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "btcPrice",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "nextHalvingTime",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalMined",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "yesterdayMined",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "lastUpdateTime",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "dailyPriceIncreaseRate",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "decimals",
 		"outputs": [
@@ -702,13 +751,50 @@
 		"type": "function"
 	},
 	{
-		"inputs": [],
-		"name": "GENESIS_NODE_EXIT_MULTIPLIER",
-		"outputs": [
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_tokenAddress",
+				"type": "address"
+			},
 			{
 				"internalType": "uint256",
-				"name": "",
+				"name": "_amount",
 				"type": "uint256"
+			}
+		],
+		"name": "emergencyWithdrawToken",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			}
+		],
+		"name": "forceSettleUser",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "genesisNodeApplications",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
@@ -741,6 +827,115 @@
 				"internalType": "address",
 				"name": "",
 				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getActiveGenesisNodes",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "",
+				"type": "address[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getAllGenesisNodes",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "",
+				"type": "address[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getAllGenesisNodesInfo",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "nodes",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "totalDividends",
+				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "withdrawn",
+				"type": "uint256[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getBtcStats",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "totalHashrate",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "globalHashrate",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "dailyRewardPerT",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "currentDifficulty",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "btcPrice",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "nextHalvingTime",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalMined",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "yesterdayMined",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "lastUpdateTime",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct HashFi.BtcMiningStats",
+				"name": "",
+				"type": "tuple"
 			}
 		],
 		"stateMutability": "view",
@@ -817,6 +1012,81 @@
 		"type": "function"
 	},
 	{
+		"inputs": [],
+		"name": "getGlobalStats",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "totalStakedUsdt",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalOrders",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalGenesisNodesCount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "currentHafPrice",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "contractUsdtBalance",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "contractHafBalance",
+				"type": "uint256"
+			},
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "totalDepositedUsdt",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalWithdrawnHaf",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalFeeCollectedHaf",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalHafDistributed",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalActiveUsers",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "totalCompletedOrders",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct HashFi.GlobalStatistics",
+				"name": "statistics",
+				"type": "tuple"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "uint256",
@@ -885,6 +1155,43 @@
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "_orderId",
+				"type": "uint256"
+			}
+		],
+		"name": "getOrderPendingReward",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "pendingUsdt",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "pendingHaf",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getPendingGenesisApplications",
+		"outputs": [
+			{
+				"internalType": "address[]",
+				"name": "",
+				"type": "address[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "address",
 				"name": "_user",
 				"type": "address"
@@ -923,6 +1230,91 @@
 				"internalType": "struct HashFi.RewardRecord[]",
 				"name": "",
 				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			},
+			{
+				"internalType": "enum HashFi.RewardType",
+				"name": "_type",
+				"type": "uint8"
+			}
+		],
+		"name": "getRewardRecordsByType",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "fromUser",
+						"type": "address"
+					},
+					{
+						"internalType": "enum HashFi.RewardType",
+						"name": "rewardType",
+						"type": "uint8"
+					},
+					{
+						"internalType": "uint256",
+						"name": "usdtAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "hafAmount",
+						"type": "uint256"
+					}
+				],
+				"internalType": "struct HashFi.RewardRecord[]",
+				"name": "",
+				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			}
+		],
+		"name": "getTeamPerformanceDetails",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "totalPerformance",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "largestArea",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "smallArea",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "directReferralsCount",
+				"type": "uint256"
 			}
 		],
 		"stateMutability": "view",
@@ -1128,6 +1520,45 @@
 		"type": "function"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			}
+		],
+		"name": "getUserReferralStats",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "totalReferrals",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "bronzeCount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "silverCount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "goldCount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "diamondCount",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "globalGenesisPool",
 		"outputs": [
@@ -1142,7 +1573,96 @@
 	},
 	{
 		"inputs": [],
+		"name": "globalStats",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "totalDepositedUsdt",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalWithdrawnHaf",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalFeeCollectedHaf",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalHafDistributed",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalActiveUsers",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalCompletedOrders",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "hafPrice",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "isActiveGenesisNode",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			}
+		],
+		"name": "isApplicationPending",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "lastPriceUpdateTime",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -1240,6 +1760,13 @@
 	},
 	{
 		"inputs": [],
+		"name": "pause",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "paused",
 		"outputs": [
 			{
@@ -1252,16 +1779,151 @@
 		"type": "function"
 	},
 	{
-		"inputs": [],
-		"name": "PRICE_PRECISION",
-		"outputs": [
+		"inputs": [
 			{
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
 			}
 		],
+		"name": "pendingGenesisApplications",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_applicant",
+				"type": "address"
+			}
+		],
+		"name": "rejectGenesisNode",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "renounceOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bool",
+				"name": "_enabled",
+				"type": "bool"
+			}
+		],
+		"name": "setAutoPriceUpdate",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_rate",
+				"type": "uint256"
+			}
+		],
+		"name": "setDailyPriceIncreaseRate",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_newCost",
+				"type": "uint256"
+			}
+		],
+		"name": "setGenesisNodeCost",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_newPrice",
+				"type": "uint256"
+			}
+		],
+		"name": "setHafPrice",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_newFeeRate",
+				"type": "uint256"
+			}
+		],
+		"name": "setSwapFee",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_user",
+				"type": "address"
+			},
+			{
+				"internalType": "uint8",
+				"name": "_level",
+				"type": "uint8"
+			}
+		],
+		"name": "setUserTeamLevel",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_newFeeRate",
+				"type": "uint256"
+			}
+		],
+		"name": "setWithdrawalFee",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_amount",
+				"type": "uint256"
+			}
+		],
+		"name": "stake",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -1312,6 +1974,32 @@
 		"type": "function"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_hafAmount",
+				"type": "uint256"
+			}
+		],
+		"name": "swapHafToUsdt",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_usdtAmount",
+				"type": "uint256"
+			}
+		],
+		"name": "swapUsdtToHaf",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "symbol",
 		"outputs": [
@@ -1350,19 +2038,6 @@
 	},
 	{
 		"inputs": [],
-		"name": "TOTAL_SUPPLY",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
 		"name": "totalGenesisShares",
 		"outputs": [
 			{
@@ -1385,6 +2060,193 @@
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "value",
+				"type": "uint256"
+			}
+		],
+		"name": "transfer",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "from",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "to",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "value",
+				"type": "uint256"
+			}
+		],
+		"name": "transferFrom",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "transferOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "unpause",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_totalHashrate",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_globalHashrate",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_dailyRewardPerT",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_currentDifficulty",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_btcPrice",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_nextHalvingTime",
+				"type": "uint256"
+			}
+		],
+		"name": "updateBtcStats",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "updatePrice",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint8",
+				"name": "_level",
+				"type": "uint8"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_minAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_maxAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_multiplier",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_dailyRate",
+				"type": "uint256"
+			}
+		],
+		"name": "updateStakingLevel",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint8",
+				"name": "_level",
+				"type": "uint8"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_requiredPerformance",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_accelerationBonus",
+				"type": "uint256"
+			}
+		],
+		"name": "updateTeamLevel",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_increment",
+				"type": "uint256"
+			}
+		],
+		"name": "updateTotalMined",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -1467,6 +2329,13 @@
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "withdraw",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{

@@ -1,24 +1,40 @@
 <template>
-  <footer class="bg-white shadow-inner">
-    <nav class="flex justify-around items-center h-16">
+  <footer class="glass border-t border-blue-100">
+    <nav class="flex justify-around items-center h-16 relative">
       <router-link
         v-for="item in navItems"
         :key="item.path"
         :to="item.path"
-        class="flex flex-col items-center justify-center w-full h-full text-gray-500"
+        class="flex flex-col items-center justify-center w-full h-full text-gray-500 relative group"
         v-slot="{ isActive }"
       >
-        <img 
-          :src="isActive ? item.activeIcon : item.icon" 
-          :alt="t(item.label)" 
-          class="w-5 h-5 mb-0.5"
-        />
-        <span
-          class="text-xs font-medium"
-          :class="{ 'text-blue-600': isActive }"
-        >
-          {{ t(item.label) }}
-        </span>
+        <!-- 活动指示器 -->
+        <div 
+          v-if="isActive" 
+          class="absolute top-0 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-blue-500 rounded-b-full"
+        ></div>
+        
+        <div class="flex flex-col items-center transition-all duration-200" :class="{ 'transform -translate-y-0.5': isActive }">
+          <div class="relative">
+            <img 
+              :src="isActive ? item.activeIcon : item.icon" 
+              :alt="t(item.label)" 
+              class="w-6 h-6 mb-1 transition-all duration-200"
+              :class="{ 'scale-110': isActive }"
+            />
+            <!-- 图标发光效果 -->
+            <div 
+              v-if="isActive" 
+              class="absolute inset-0 bg-blue-400 blur-md opacity-30 rounded-full"
+            ></div>
+          </div>
+          <span
+            class="text-xs font-medium transition-all duration-200"
+            :class="isActive ? 'text-blue-600 font-semibold' : 'text-gray-500 group-hover:text-gray-700'"
+          >
+            {{ t(item.label) }}
+          </span>
+        </div>
       </router-link>
     </nav>
   </footer>
@@ -40,5 +56,8 @@ const navItems = computed(() => [
 </script>
 
 <style scoped>
-/* 移除了之前的 filter 样式，因为现在我们直接切换图标文件 */
+/* 导航项悬停效果 */
+.group:hover {
+  background: linear-gradient(180deg, transparent 0%, rgba(59, 130, 246, 0.05) 100%);
+}
 </style>
