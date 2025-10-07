@@ -120,7 +120,7 @@
     <BindReferrerModal
       :visible="showBindReferrerModal"
       :owner-address="ownerAddress as string"
-      :current-referrer="userInfo ? (userInfo as any).referrer : undefined"
+      :current-referrer="userInfo ? (userInfo as any[])[0] : undefined"
       @close="showBindReferrerModal = false"
       @success="handleBindSuccess"
     />
@@ -224,8 +224,9 @@ const formattedAddress = computed(() => {
 const userLevel = computed(() => {
   if (!userInfo.value) return '';
   
-  const info = userInfo.value as any;
-  const totalInvested = Number(formatEther(info.totalInvestedUsdt || 0n));
+  // userInfo 是数组: [referrer, teamLevel, totalStakedAmount, ...]
+  const info = userInfo.value as any[];
+  const totalInvested = Number(formatEther(info[2] || 0n)); // index 2 是 totalStakedAmount
   
   // 根据投资金额判断等级
   if (totalInvested >= 50000) return 'stakingPage.diamond';
@@ -239,12 +240,16 @@ const referrerDisplay = computed(() => {
   if (!userInfo.value) return t('profilePage.notBound');
   
   const info = userInfo.value as any;
-  const referrer = info.referrer as string;
+  const referrer = (info[0] || info.referrer) as string;
   
-  if (!referrer || referrer === '0x0000000000000000000000000000000000000000') {
+  // 检查是否为零地址
+  if (!referrer || 
+      referrer === '0x0000000000000000000000000000000000000000' ||
+      referrer === '0x0') {
     return t('profilePage.notBound');
   }
   
+  // 返回缩短的地址
   return `${referrer.substring(0, 6)}...${referrer.substring(referrer.length - 4)}`;
 });
 

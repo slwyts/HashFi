@@ -1,6 +1,6 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["env.d.ts", "src/**/*", "src/**/*.vue"],
+  "include": ["env.d.ts", "src/**/*", "src/**/*.vue", "contract/**/*.json"],
   "exclude": ["src/**/__tests__/*"],
   "compilerOptions": {
     "composite": true,
@@ -13,5 +13,7 @@
     },
     "target": "es2024",
     "lib": ["dom", "dom.iterable", "es2024"],
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
   }
 }

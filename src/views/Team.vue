@@ -16,8 +16,11 @@
           <h3 class="font-bold text-lg">{{ t('teamPage.inviteTitle') }}</h3>
         </div>
         <div class="bg-white/15 backdrop-blur-sm p-4 rounded-xl flex justify-between items-center">
-          <span class="text-sm font-mono truncate mr-4 opacity-90">https://hashfidefi.com/invite/{{ userAddress }}</span>
-          <button class="bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-gray-50 transition-colors flex-shrink-0 shadow-lg">
+          <span class="text-sm font-mono truncate mr-4 opacity-90">https://hashfidefi.com/invite/{{ address || '---' }}</span>
+          <button 
+            @click="copyInviteLink"
+            class="bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-gray-50 transition-colors flex-shrink-0 shadow-lg"
+          >
             {{ t('teamPage.copy') }}
           </button>
         </div>
@@ -35,7 +38,7 @@
           </div>
         </div>
         <p class="text-sm text-gray-500 mb-1">{{ t('teamPage.totalMembers') }}</p>
-        <p class="text-3xl font-bold text-gray-800">128</p>
+        <p class="text-3xl font-bold text-gray-800">{{ totalMembers }}</p>
       </div>
       <div class="bg-white p-5 rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100">
         <div class="flex items-center mb-2">
@@ -46,7 +49,7 @@
           </div>
         </div>
         <p class="text-sm text-gray-500 mb-1">{{ t('teamPage.directReferrals') }}</p>
-        <p class="text-3xl font-bold text-gray-800">15</p>
+        <p class="text-3xl font-bold text-gray-800">{{ directReferralsCount }}</p>
       </div>
       <div class="bg-white p-5 rounded-2xl shadow-md hover:shadow-lg transition-shadow col-span-2 border border-gray-100">
         <div class="flex items-center mb-2">
@@ -57,7 +60,7 @@
           </div>
         </div>
         <p class="text-sm text-gray-500 mb-1">{{ t('teamPage.totalPerformance') }} (USDT)</p>
-        <p class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">125,340.50</p>
+        <p class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ teamTotalPerformance }}</p>
       </div>
     </div>
     
@@ -68,14 +71,13 @@
         <span class="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-2 px-4 rounded-full text-sm shadow-md">{{ teamLevel.current }}</span>
       </div>
       <div class="flex justify-between text-sm mb-3 text-gray-600">
-        <p>{{ t('teamPage.largeDistrict') }}: <span class="font-semibold text-gray-800">80,100 USDT</span></p>
-        <p>{{ t('teamPage.smallDistrict') }}: <span class="font-semibold text-gray-800">45,240.50 USDT</span></p>
+        <p>{{ t('teamPage.currentPerformance') }}: <span class="font-semibold text-gray-800">{{ teamLevel.currentPerformance }} USDT</span></p>
       </div>
       <div class="w-full bg-gray-200 rounded-full h-3 mb-3 overflow-hidden">
         <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-inner" :style="{ width: teamLevel.progress + '%' }"></div>
       </div>
       <div class="text-xs text-gray-500 bg-blue-50 p-2 rounded-lg">
-        {{ t('teamPage.nextLevelMsg', { amount: teamLevel.nextTarget - teamLevel.currentPerformance, level: teamLevel.next }) }}
+        {{ t('teamPage.nextLevelMsg', { amount: (teamLevel.nextTarget - teamLevel.currentPerformance).toFixed(2), level: teamLevel.next }) }}
       </div>
     </div>
 
@@ -108,27 +110,119 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAccount, useReadContract } from '@wagmi/vue';
+import { formatUnits } from 'viem';
+import abi from '../../contract/abi.json';
+import { useToast } from '@/composables/useToast';
 
 const { t } = useI18n();
+const { address } = useAccount();
+const toast = useToast();
 
-const userAddress = ref('0x1a2b...c3d4');
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
-// 模拟团队等级和业绩数据
-const teamLevel = reactive({
-  current: 'V2' as string,
-  next: 'V3' as string,
-  currentPerformance: 45240.50 as number, // 小区业绩
-  nextTarget: 100000 as number,
-  progress: computed((): number => (teamLevel.currentPerformance / teamLevel.nextTarget) * 100),
+// ========== 1. 获取用户数据 ==========
+const userArgs = computed(() => address.value ? [address.value] as const : undefined);
+
+const { data: userData } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'users',
+  args: userArgs,
+  query: {
+    enabled: !!address.value,
+  }
 });
 
-// 模拟团队成员数据
-const teamMembers = reactive([
-  { address: '0xabc...def', joinDate: '2025-09-24', level: '钻石', performance: 35000 },
-  { address: '0x123...456', joinDate: '2025-09-23', level: '黄金', performance: 12000 },
-  { address: '0x789...abc', joinDate: '2025-09-22', level: '白银', performance: 8000 },
-  { address: '0x456...789', joinDate: '2025-09-21', level: '青铜', performance: 500 },
-]);
+// 团队总业绩
+const teamTotalPerformance = computed(() => {
+  if (!userData.value) return '0.00';
+  return parseFloat(formatUnits((userData.value as any)[5] as bigint, 18)).toFixed(2);
+});
+
+// 直推人数
+const directReferralsCount = computed(() => {
+  if (!userData.value) return 0;
+  const referrals = (userData.value as any)[7];
+  return Array.isArray(referrals) ? referrals.length : 0;
+});
+
+// 用户等级
+const userLevel = computed(() => {
+  if (!userData.value) return 0;
+  return Number((userData.value as any)[4]); // currentLevel
+});
+
+const levelNames = ['青铜', '白银', '黄金', '钻石', 'V1', 'V2', 'V3', 'V4', 'V5'];
+
+const currentLevelName = computed(() => {
+  const level = userLevel.value;
+  return levelNames[level] || '青铜';
+});
+
+const nextLevelName = computed(() => {
+  const level = userLevel.value;
+  return levelNames[level + 1] || 'V5';
+});
+
+// ========== 2. 计算团队成员总数 ==========
+// 注意：这需要递归查询所有下级，链上难以实现
+// 这里简化处理，显示直推人数作为团队成员数
+const totalMembers = computed(() => directReferralsCount.value);
+
+// ========== 3. 获取直推列表 ==========
+const directReferrals = computed(() => {
+  if (!userData.value) return [];
+  const referrals = (userData.value as any)[7];
+  return Array.isArray(referrals) ? referrals : [];
+});
+
+// ========== 4. 获取每个直推成员的详细信息 ==========
+const teamMembers = computed(() => {
+  if (!Array.isArray(directReferrals.value)) return [];
+  return directReferrals.value.map((memberAddress) => ({
+    address: memberAddress,
+    // 这些数据需要单独查询每个成员的 users 信息
+    // 暂时返回占位符，实际应该用 multicall 批量查询
+    joinDate: '---',
+    level: '---',
+    performance: '---'
+  }));
+});
+
+// ========== 5. 等级进度 ==========
+// 简化处理，根据当前等级显示进度
+const teamLevel = computed(() => {
+  const level = userLevel.value;
+  const performance = parseFloat(teamTotalPerformance.value);
+  
+  // 等级目标（简化）
+  const targets = [0, 1000, 5000, 20000, 50000, 100000, 200000, 500000, 1000000];
+  const currentTarget = targets[level] || 0;
+  const nextTarget = targets[level + 1] || 1000000;
+  
+  const progress = nextTarget > 0 ? ((performance - currentTarget) / (nextTarget - currentTarget)) * 100 : 0;
+  
+  return {
+    current: currentLevelName.value,
+    next: nextLevelName.value,
+    currentPerformance: performance,
+    nextTarget: nextTarget,
+    progress: Math.min(Math.max(progress, 0), 100).toFixed(1)
+  };
+});
+
+// ========== 6. 复制邀请链接 ==========
+const copyInviteLink = () => {
+  if (!address.value) return;
+  
+  const inviteLink = `https://hashfidefi.com/invite/${address.value}`;
+  navigator.clipboard.writeText(inviteLink).then(() => {
+    toast.success(t('common.copySuccess'));
+  }).catch(() => {
+    toast.error(t('common.copyFailed'));
+  });
+};
 </script>

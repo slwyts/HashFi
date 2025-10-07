@@ -137,8 +137,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     Order[] public orders;
 
     // 价格与费用
-    uint256 public hafPrice; // HAF的USDT价格, 使用6位小数精度 (例如, 1.5 USDT 表示为 1500000)
-    uint256 public constant PRICE_PRECISION = 1e6;
+    uint256 public hafPrice; // HAF的USDT价格, 使用18位小数精度
+    uint256 public constant PRICE_PRECISION = 1e18;
     uint256 public withdrawalFeeRate = 5; // 提现手续费率, 5%
     uint256 public swapFeeRate = 1; // 闪兑手续费, 1%
     

@@ -1,7 +1,7 @@
 <template>
   <div class="p-4 bg-white min-h-screen">
     <div class="flex items-center mb-6">
-      <button @click="$router.back()" class="mr-4 p-1">
+      <button @click="router.back()" class="mr-4 p-1">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
       </button>
       <h2 class="text-xl font-bold">{{ t('orderDetail.title') }}</h2>
@@ -54,16 +54,23 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRoute } from 'vue-router';
-import { findOrderById } from '@/store/temp-orders';
+import { useRoute, useRouter } from 'vue-router';
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const order = ref<any>(null);
 
 onMounted(() => {
-  const orderId = Number(route.params.id);
-  order.value = findOrderById(orderId);
+  // 从路由 state 获取订单数据
+  const orderData = window.history.state?.order;
+  
+  if (orderData) {
+    order.value = orderData;
+  } else {
+    // 如果没有数据，返回上一页
+    console.error('No order data found in route state');
+  }
 });
 
 const getMultiplier = (plan: string) => {

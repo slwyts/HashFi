@@ -32,7 +32,9 @@
     "stakeNow": "Subscribe Now",
     "currentStaking": "Current Subscription",
     "ecoStaking": "Eco Subscription",
+    "historyStaking": "History",
     "noData": "No Data",
+    "noHistoryData": "No history records",
     "bronze": "Bronze",
     "silver": "Silver",
     "gold": "Gold",
@@ -40,6 +42,7 @@
     "totalQuota": "Total Quota",
     "released": "Released",
     "releasedHAF": "Released HAF",
+    "dailyOutput": "Daily Output",
     "stakingTime": "Subscription Time",
     "invalidAmount": "Please enter a valid subscription amount",
     "approving": "Approving USDT...",
@@ -58,29 +61,47 @@
     "to": "To",
     "balance": "Balance",
     "rate": "Rate",
-    "swap": "Confirm",
-    "enterAmount": "0.0",
+    "swap": "Confirm Swap",
+    "enterAmount": "Enter amount",
     "receivingAddress": "Receiving Address",
-    "minSwapAmount": "Minimum swap amount: {amount} {token}"
+    "minSwapAmount": "Minimum swap amount: {amount} {token}",
+    "approve": "Approve USDT",
+    "approveUnlimited": "Approve USDT",
+    "approving": "Approving...",
+    "swapping": "Swapping...",
+    "approveSuccess": "Approve Success",
+    "swapSuccess": "Swap Success",
+    "insufficientBalance": "Insufficient Balance",
+    "minSwapAmountError": "Minimum 10 USDT"
   },
   "incomePage": {
     "totalIncome": "Total Income",
+    "totalClaimable": "Claimable Rewards",
     "todayIncome": "Today's Income",
     "staticIncome": "Static Income",
     "dynamicIncome": "Dynamic Income",
+    "staticReward": "Static Reward",
+    "dynamicReward": "Dynamic Reward",
+    "genesisReward": "Genesis Node",
+    "withdraw": "Withdraw Now",
+    "noClaimable": "No Claimable",
+    "withdrawSuccess": "Withdraw Success",
+    "from": "From",
     "incomeRecords": "Income Records",
     "tabs": {
       "all": "All",
       "static": "Static",
       "direct": "Direct",
       "share": "Share",
-      "team": "Team"
+      "team": "Team",
+      "genesis": "Genesis"
     },
     "types": {
       "static": "Static Income",
       "direct": "Direct Referral Income",
       "share": "Share Income",
-      "team": "Team Income"
+      "team": "Team Income",
+      "genesis": "Genesis Node Dividend"
     }
   },
   "teamPage": {
@@ -90,6 +111,7 @@
     "directReferrals": "Direct Referrals",
     "totalPerformance": "Total Performance",
     "teamLevel": "Team Level",
+    "currentPerformance": "Current Performance",
     "largeDistrict": "Large District",
     "smallDistrict": "Small District",
     "nextLevelMsg": "{amount} USDT to next level {level}",
@@ -121,6 +143,8 @@
     "title": "Genesis Node Center",
     "applyTitle": "Become Genesis Node",
     "applyDesc": "Join the network core and share platform dividends.",
+    "applicationFee": "Application Fee",
+    "yourBalance": "Your Balance",
     "condition": "Application Conditions",
     "conditionDesc": "Consume 5000 USDT to become a genesis node.",
     "rights": "Node Rights",
@@ -128,11 +152,23 @@
     "exit": "Exit Mechanism",
     "exitDesc": "Exit when cumulative dividends reach 15,000 USDT (3x).",
     "applyNow": "Apply Now",
-    "myDividends": "My Node Dividends",
+    "approveUSDT": "Approve USDT (Unlimited)",
+    "approving": "Approving...",
+    "applying": "Applying...",
+    "mustStakeFirst": "Please stake first",
+    "alreadyNode": "Already a genesis node",
+    "pendingApproval": "Pending admin approval",
+    "insufficientBalance": "Insufficient USDT balance",
+    "applySuccess": "Application submitted, waiting for approval",
+    "applicationSubmitted": "Application Submitted",
+    "pendingReview": "Your genesis node application is under review",
+    "reviewNote": "Admin will complete the review within 24 hours, please be patient",
+    "myDividends": "My Dividends",
     "nodeActive": "Node Active",
     "totalReceived": "Total Received",
+    "dailyDividend": "Daily Dividend",
     "dividendRecords": "Dividend Records",
-    "dailyDividend": "Daily Node Dividend"
+    "noRecords": "No dividend records"
   },
   "profilePage": {
     "totalAssets": "Total Assets",
@@ -237,5 +273,18 @@
     "withdrawFailed": "Withdraw failed",
     "contractPaused": "Contract paused",
     "contractUnpaused": "Contract unpaused"
+  },
+  "announcement": {
+    "viewAll": "View All",
+    "viewDetails": "View Details",
+    "dontShowAgain": "Don't Show Again",
+    "title": "Announcements",
+    "latest": "Latest",
+    "important": "Important",
+    "all": "All Announcements",
+    "noAnnouncements": "No announcements",
+    "publishTime": "Publish Time",
+    "onChain": "On-Chain",
+    "local": "Platform"
   }
 }

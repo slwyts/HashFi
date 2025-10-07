@@ -33,7 +33,7 @@
 
     <!-- 语言切换按钮 - 现代化设计 -->
     <div @click="isModalVisible = true" class="relative group cursor-pointer">
-      <div class="flex items-center space-x-2 px-4 py-2.5 bg-white rounded-xl border border-gray-200 hover:border-blue-500 transition-all duration-300 shadow-sm hover:shadow-md">
+      <div class="flex items-center space-x-2 px-4 py-2.5 rounded-lg hover:bg-gray-100 transition-colors">
         <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
           <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />

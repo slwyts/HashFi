@@ -1,20 +1,13 @@
 <template>
   <div class="p-6 min-h-screen">
-    <!-- Banner with modern overlay -->
-    <div class="relative w-full overflow-hidden rounded-2xl mb-6 shadow-xl">
-      <img src="/banner_01.png" alt="Banner" class="w-full">
-      <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-    </div>
+    <!-- Banner 轮播 -->
+    <BannerCarousel :banners="banners" :auto-play-interval="5000" />
 
+    <!-- 公告轮播 -->
+    <AnnouncementBanner :announcements="latestAnnouncements" :interval="5000" />
+
+    <!-- BTC 矿池统计 -->
     <BtcPoolStats />
-
-    <!-- Notice Card with gradient accent -->
-    <div class="card p-4 flex items-center text-sm mb-6 border-l-4 border-blue-500">
-      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mr-3 flex-shrink-0">
-        <img src="/icons/notice.png" alt="notice icon" class="w-5 h-5 invert brightness-0" style="filter: brightness(0) invert(1);">
-      </div>
-      <p class="flex-grow text-gray-700">重要公告：关于Aifeex升级AI-DeFi质押协议</p>
-    </div>
 
     <!-- Staking Plans -->
     <div class="mb-8">
@@ -112,17 +105,17 @@
           ></div>
         </button>
         <button 
-          @click="activeTab = 'eco'"
+          @click="activeTab = 'history'"
           :class="[
             'flex-1 py-4 text-center font-bold transition-all duration-300 relative',
-            activeTab === 'eco' 
+            activeTab === 'history' 
               ? 'text-blue-600' 
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           ]"
         >
-          {{ t('stakingPage.ecoStaking') }}
+          {{ t('stakingPage.historyStaking') }}
           <div 
-            v-if="activeTab === 'eco'"
+            v-if="activeTab === 'history'"
             class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-indigo-600"
           ></div>
         </button>
@@ -171,16 +164,52 @@
         </div>
       </div>
 
-      <div v-else-if="activeTab === 'eco'" class="p-4 text-center py-16">
-        <img src="/icons/no_data.png" alt="No data" class="mx-auto w-32 h-32 opacity-50" />
-        <p class="text-gray-400 mt-4 text-lg">{{ t('stakingPage.noData') }}</p>
+      <div v-else-if="activeTab === 'history'" class="p-4 space-y-4">
+        <template v-if="historyStakes.length > 0">
+          <div 
+            v-for="stake in historyStakes" 
+            :key="stake.id" 
+            @click="openOrderDetail(stake)" 
+            class="card p-5 cursor-pointer hover:ring-2 hover:ring-gray-400 transition-all duration-300 opacity-75"
+          >
+            <div class="flex justify-between items-center mb-4">
+              <span class="font-bold text-lg">{{ t(stake.plan) }} - <span class="text-gray-600">{{ stake.amount }} USDT</span></span>
+              <span class="px-3 py-1 text-xs rounded-full font-bold bg-gray-200 text-gray-600">
+                {{ t('orderDetail.statusFinished') }}
+              </span>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500">{{ t('stakingPage.dailyOutput') }}:</span>
+                <span class="font-mono text-gray-800">{{ stake.released }} USDT + {{ stake.releasedHAF }} HAF</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-gray-500">{{ t('stakingPage.stakingTime') }}:</span>
+                <span class="font-mono text-gray-800">{{ stake.time }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+        <div v-else class="text-center py-16">
+          <img src="/icons/no_data.png" alt="No data" class="mx-auto w-32 h-32 opacity-50" />
+          <p class="text-gray-400 mt-4 text-lg">{{ t('stakingPage.noHistoryData') }}</p>
+        </div>
       </div>
     </div>
+
+    <!-- 公告弹窗 -->
+    <AnnouncementModal
+      v-if="currentAnnouncement"
+      :announcement="currentAnnouncement"
+      :visible="showAnnouncementModal"
+      @close="handleCloseAnnouncementModal"
+      @dont-show-again="handleDontShowAgain"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useWriteContract, useBalance, useWaitForTransactionReceipt } from '@wagmi/vue';
@@ -188,10 +217,37 @@ import { formatEther, formatUnits, parseEther, parseUnits, maxUint256 } from 'vi
 import BtcPoolStats from '@/components/BtcPoolStats.vue';
 import abi from '../../contract/abi.json';
 import { toast } from '@/composables/useToast';
+import BannerCarousel from '@/components/BannerCarousel.vue';
+import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
+import AnnouncementModal from '@/components/AnnouncementModal.vue';
+import { useAnnouncements } from '@/composables/useAnnouncements';
 
 const { t } = useI18n();
 const router = useRouter();
 const { address } = useAccount();
+
+// 公告系统
+const { banners, latestAnnouncements, getUnreadAnnouncements, markAsRead } = useAnnouncements();
+const showAnnouncementModal = ref(false);
+const currentAnnouncement = ref<any>(null);
+
+// 检查未读公告
+onMounted(() => {
+  const unreadAnnouncements = getUnreadAnnouncements();
+  if (unreadAnnouncements.length > 0) {
+    currentAnnouncement.value = unreadAnnouncements[0];
+    showAnnouncementModal.value = true;
+  }
+});
+
+const handleCloseAnnouncementModal = () => {
+  showAnnouncementModal.value = false;
+};
+
+const handleDontShowAgain = (id: number) => {
+  markAsRead(id);
+  showAnnouncementModal.value = false;
+};
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
@@ -251,7 +307,7 @@ const { data: userInfo } = useReadContract({
 const { data: userOrdersData, refetch: refetchOrders } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
-  functionName: 'getUserStakingOrders',
+  functionName: 'getUserOrders',
   args: address.value ? [address.value] : undefined,
   query: {
     enabled: !!address.value,
@@ -278,35 +334,78 @@ const usdtBalance = computed(() => {
   return Number(formatEther(usdtBalanceData.value.value)).toFixed(2);
 });
 
-// 用户质押订单列表
+// 用户质押订单列表（进行中的订单）
 const currentStakes = computed(() => {
   if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
   
-  return (userOrdersData.value as any[]).map((order, index) => {
-    const investedUsdt = Number(formatEther(order.investedUsdt || 0n));
-    const totalQuota = Number(formatEther(order.totalQuota || 0n));
-    const releasedUsdt = Number(formatEther(order.releasedUsdt || 0n));
-    const withdrawnHaf = Number(formatEther(order.withdrawnHaf || 0n));
-    const isActive = order.isActive || false;
-    const startTime = Number(order.startTime || 0n);
-    
-    // 判断方案等级
-    let planName = 'stakingPage.bronze';
-    if (investedUsdt >= 3000) planName = 'stakingPage.diamond';
-    else if (investedUsdt >= 1000) planName = 'stakingPage.gold';
-    else if (investedUsdt >= 500) planName = 'stakingPage.silver';
-    
-    return {
-      id: index,
-      plan: planName,
-      amount: investedUsdt.toFixed(2),
-      totalQuota: totalQuota.toFixed(2),
-      released: releasedUsdt.toFixed(2),
-      releasedHAF: withdrawnHaf.toFixed(2),
-      status: isActive ? '进行中' : '已完成',
-      time: new Date(startTime * 1000).toLocaleString('zh-CN'),
-    };
-  });
+  return (userOrdersData.value as any[])
+    .map((order, index) => {
+      // 合约 Order 结构体字段映射
+      const orderId = Number(order.id || 0n);
+      const level = Number(order.level || 0);
+      const amount = Number(formatEther(order.amount || 0n));
+      const totalQuota = Number(formatEther(order.totalQuota || 0n));
+      const releasedQuota = Number(formatEther(order.releasedQuota || 0n));
+      const startTime = Number(order.startTime || 0n);
+      const isCompleted = order.isCompleted || false;
+      
+      // 根据 level 判断方案等级
+      let planName = 'stakingPage.bronze';
+      if (level === 4) planName = 'stakingPage.diamond';
+      else if (level === 3) planName = 'stakingPage.gold';
+      else if (level === 2) planName = 'stakingPage.silver';
+      else if (level === 1) planName = 'stakingPage.bronze';
+      
+      return {
+        id: orderId,
+        plan: planName,
+        amount: amount.toFixed(2),
+        totalQuota: totalQuota.toFixed(2),
+        released: releasedQuota.toFixed(2),
+        releasedHAF: '0.00', // HAF 释放暂时显示0，实际需要计算
+        status: isCompleted ? '已完成' : '进行中',
+        isActive: !isCompleted,
+        time: new Date(startTime * 1000).toLocaleString('zh-CN'),
+      };
+    })
+    .filter(order => order.isActive); // 只显示进行中的订单
+});
+
+// 历史认购订单列表（已完成的订单）
+const historyStakes = computed(() => {
+  if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
+  
+  return (userOrdersData.value as any[])
+    .map((order, index) => {
+      // 合约 Order 结构体字段映射
+      const orderId = Number(order.id || 0n);
+      const level = Number(order.level || 0);
+      const amount = Number(formatEther(order.amount || 0n));
+      const totalQuota = Number(formatEther(order.totalQuota || 0n));
+      const releasedQuota = Number(formatEther(order.releasedQuota || 0n));
+      const startTime = Number(order.startTime || 0n);
+      const isCompleted = order.isCompleted || false;
+      
+      // 根据 level 判断方案等级
+      let planName = 'stakingPage.bronze';
+      if (level === 4) planName = 'stakingPage.diamond';
+      else if (level === 3) planName = 'stakingPage.gold';
+      else if (level === 2) planName = 'stakingPage.silver';
+      else if (level === 1) planName = 'stakingPage.bronze';
+      
+      return {
+        id: orderId,
+        plan: planName,
+        amount: amount.toFixed(2),
+        totalQuota: totalQuota.toFixed(2),
+        released: releasedQuota.toFixed(2),
+        releasedHAF: '0.00', // HAF 释放暂时显示0，实际需要计算
+        status: isCompleted ? '已完成' : '进行中',
+        isActive: !isCompleted,
+        time: new Date(startTime * 1000).toLocaleString('zh-CN'),
+      };
+    })
+    .filter(order => !order.isActive); // 只显示已完成的订单
 });
 
 // 检查是否需要授权
@@ -336,7 +435,10 @@ const handleStake = async () => {
   
   try {
     // 0. 检查是否绑定推荐人
-    const referrer = (userInfo.value as any)?.referrer || '0x0000000000000000000000000000000000000000';
+    // userInfo 是数组: [referrer, teamLevel, totalStakedAmount, ...]
+    const info = userInfo.value as any[];
+    const referrer = info?.[0] || '0x0000000000000000000000000000000000000000';
+    
     if (referrer === '0x0000000000000000000000000000000000000000') {
       toast.warning(t('stakingPage.bindReferrerFirst'));
       isProcessing.value = false;
@@ -400,7 +502,11 @@ const handleStake = async () => {
 
 // 页面跳转逻辑
 const openOrderDetail = (order: any) => {
-  router.push(`/staking/order/${order.id}`);
+  // 通过 state 传递订单数据
+  router.push({
+    path: `/staking/order/${order.id}`,
+    state: { order }
+  });
 };
 </script>
 

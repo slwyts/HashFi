@@ -51,10 +51,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { marked } from 'marked';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 // 页面数据
 const title = ref('');
@@ -89,14 +91,89 @@ onMounted(() => {
     contentType.value = route.query.type as 'markdown' | 'html' | 'pdf' | 'text';
   }
 
-  // 或者从路由 state 获取数据（更适合大量内容）
+  // 或者从路由 params.data 获取数据（支持base64编码的JSON）
   if (route.params.data) {
-    const data = JSON.parse(route.params.data as string);
-    title.value = data.title || '';
-    content.value = data.content || '';
-    contentType.value = data.type || 'text';
+    try {
+      const decodedData = atob(route.params.data as string);
+      const data = JSON.parse(decodedData);
+      
+      // 检查是否是公告相关的类型
+      if (data.type === 'announcement' && data.id) {
+        // 加载特定公告详情
+        loadAnnouncementDetail(data.id);
+      } else if (data.type === 'announcement-list') {
+        // 加载公告列表
+        loadAnnouncementList();
+      } else {
+        // 普通内容
+        title.value = data.title || '';
+        content.value = data.content || '';
+        contentType.value = data.contentType || 'text';
+      }
+    } catch (e) {
+      console.error('Failed to parse route data:', e);
+    }
   }
 });
+
+// 加载公告详情
+const loadAnnouncementDetail = async (id: number) => {
+  const { useAnnouncements } = await import('@/composables/useAnnouncements');
+  const { getAnnouncementById } = useAnnouncements();
+  const announcement = getAnnouncementById(id);
+  
+  if (announcement) {
+    title.value = announcement.title;
+    content.value = announcement.content;
+    contentType.value = 'html';
+  } else {
+    title.value = '公告未找到';
+    content.value = '<p class="text-gray-500 text-center py-8">该公告不存在或已被删除</p>';
+    contentType.value = 'html';
+  }
+};
+
+// 加载公告列表
+const loadAnnouncementList = async () => {
+  const { useAnnouncements } = await import('@/composables/useAnnouncements');
+  const { announcements } = useAnnouncements();
+  
+  title.value = t('announcement.all');
+  
+  // 生成公告列表 HTML
+  let html = '<div class="space-y-4">';
+  
+  if (announcements.value.length === 0) {
+    html += `<div class="text-center py-12"><p class="text-gray-500">${t('announcement.noAnnouncements')}</p></div>`;
+  } else {
+    for (const announcement of announcements.value) {
+      const date = new Date(announcement.timestamp * 1000).toLocaleDateString();
+      const badge = announcement.isOnChain 
+        ? `<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">${t('announcement.onChain')}</span>`
+        : `<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">${t('announcement.local')}</span>`;
+      
+      html += `
+        <div class="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100" onclick="window.location.href='#/content/${btoa(JSON.stringify({ type: 'announcement', id: announcement.id }))} '">
+          <div class="flex items-start justify-between mb-2">
+            <h3 class="font-bold text-lg text-gray-800 flex-1">${announcement.title}</h3>
+            ${badge}
+          </div>
+          <p class="text-gray-600 text-sm mb-3">${announcement.summary}</p>
+          <div class="flex items-center text-xs text-gray-400">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            ${date}
+          </div>
+        </div>
+      `;
+    }
+  }
+  
+  html += '</div>';
+  content.value = html;
+  contentType.value = 'html';
+};
 </script>
 
 <style scoped>
