@@ -49,7 +49,7 @@
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
           </li>
-          <li class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
+          <li @click="showBindReferrerModal = true" class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
             <div class="flex items-center">
               <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-3 shadow-md group-hover:shadow-lg transition-shadow">
                 <img src="/icons/link.svg" class="w-5 h-5 brightness-0 invert" alt="link icon">
@@ -115,6 +115,15 @@
           {{ t('profilePage.disconnect') }}
         </button>
     </div>
+
+    <!-- 绑定推荐人模态框 -->
+    <BindReferrerModal
+      :visible="showBindReferrerModal"
+      :owner-address="ownerAddress as string"
+      :current-referrer="userInfo ? (userInfo as any).referrer : undefined"
+      @close="showBindReferrerModal = false"
+      @success="handleBindSuccess"
+    />
   </div>
 </template>
 
@@ -125,6 +134,7 @@ import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
 import abi from '../../contract/abi.json';
+import BindReferrerModal from '@/components/BindReferrerModal.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -237,6 +247,15 @@ const referrerDisplay = computed(() => {
   
   return `${referrer.substring(0, 6)}...${referrer.substring(referrer.length - 4)}`;
 });
+
+// 绑定推荐人模态框
+const showBindReferrerModal = ref(false);
+
+// 绑定成功回调
+const handleBindSuccess = () => {
+  // 重新获取用户信息
+  window.location.reload();
+};
 
 // Modal 控制逻辑（保留用于其他用途）
 const isModalVisible = ref(false);

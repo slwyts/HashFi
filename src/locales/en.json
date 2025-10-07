@@ -146,7 +146,18 @@
     "helpCenter": "Help Center",
     "aboutUs": "About Us",
     "disconnect": "Disconnect",
-    "adminPanel": "Admin Panel"
+    "adminPanel": "Admin Panel",
+    "bindReferrerTitle": "Bind Referrer",
+    "referrerAddress": "Referrer Address",
+    "enterReferrerAddress": "Enter referrer address",
+    "useDefaultReferrer": "Use Default Referrer",
+    "defaultReferrerHint": "Don't have a referrer? You can use the platform default referrer",
+    "bindSuccess": "Bind successful!",
+    "bindFailed": "Bind failed",
+    "alreadyBound": "You have already bound a referrer and cannot change it",
+    "referrerNotExist": "Referrer does not exist, please confirm the user has subscribed",
+    "cannotReferSelf": "Cannot refer yourself",
+    "binding": "Binding..."
   },
   "admin": {
     "title": "Admin Panel",

@@ -146,7 +146,18 @@
     "helpCenter": "帮助中心",
     "aboutUs": "关于我们",
     "disconnect": "断开连接",
-    "adminPanel": "管理员面板"
+    "adminPanel": "管理员面板",
+    "bindReferrerTitle": "绑定推荐人",
+    "referrerAddress": "推荐人地址",
+    "enterReferrerAddress": "请输入推荐人地址",
+    "useDefaultReferrer": "使用默认推荐人",
+    "defaultReferrerHint": "没有推荐人？可以使用平台默认推荐人",
+    "bindSuccess": "绑定成功！",
+    "bindFailed": "绑定失败",
+    "alreadyBound": "您已经绑定过推荐人，无法更改",
+    "referrerNotExist": "推荐人不存在，请确认该用户已经参与过认购",
+    "cannotReferSelf": "不能推荐自己",
+    "binding": "正在绑定..."
   },
   "admin": {
     "title": "管理员面板",
