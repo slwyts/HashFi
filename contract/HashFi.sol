@@ -147,6 +147,11 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     uint256 public dailyPriceIncreaseRate = 1; // 每日涨幅 千分之一 = 0.1%
     bool public autoPriceUpdateEnabled = true; // 是否启用自动涨价
     // ================================================
+    
+    // ========== NEW: 测试网时间单位配置 ==========
+    uint256 public TIME_UNIT; // 时间单位 (生产: 1 days, 测试: 3 minutes)
+    uint256 public DYNAMIC_RELEASE_PERIOD; // 动态奖励释放周期 (生产: 100 days, 测试: 500 minutes)
+    // ================================================
 
     // 配置信息
     mapping(uint8 => StakingLevelInfo) public stakingLevels;
@@ -180,6 +185,18 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         usdtToken = IERC20(_usdtAddress);
         hafPrice = 1 * PRICE_PRECISION; // 初始价格: 1 HAF = 1 USDT
         lastPriceUpdateTime = block.timestamp; // 初始化价格更新时间
+        
+        // ========== NEW: 根据chainID设置时间单位 ==========
+        // Sepolia Testnet (chainID: 11155111) 使用3分钟作为时间单位
+        // 主网使用1天作为时间单位
+        if (block.chainid == 11155111) {
+            TIME_UNIT = 3 minutes; // 测试网: 3分钟
+            DYNAMIC_RELEASE_PERIOD = 50 minutes; // 测试网: 500分钟 (约8.3小时, 相当于100天的比例)
+        } else {
+            TIME_UNIT = 1 days; // 主网: 1天
+            DYNAMIC_RELEASE_PERIOD = 100 days; // 主网: 100天
+        }
+        // ================================================
 
         // 初始化质押级别
         stakingLevels[1] = StakingLevelInfo(100 * 1e18, 499 * 1e18, 150, 70);
@@ -228,14 +245,14 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     function _updatePriceIfNeeded() internal {
         if (!autoPriceUpdateEnabled) return;
         
-        uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / 1 days;
+        uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / TIME_UNIT;
         if (daysPassed > 0) {
             // 计算复利:每天涨千分之一
             for (uint i = 0; i < daysPassed; i++) {
                 uint256 increase = hafPrice.mul(dailyPriceIncreaseRate).div(1000);
                 hafPrice = hafPrice.add(increase);
             }
-            lastPriceUpdateTime = lastPriceUpdateTime.add(daysPassed.mul(1 days));
+            lastPriceUpdateTime = lastPriceUpdateTime.add(daysPassed.mul(TIME_UNIT));
             emit PriceUpdated(hafPrice);
         }
     }
@@ -379,7 +396,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
 
         // ========== FIXED: 按天数计算，而非连续时间 ==========
-        uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(1 days);
+        uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
         if (daysPassed == 0) return;
 
         User storage user = users[order.user];
@@ -403,7 +420,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
 
         order.releasedQuota = order.releasedQuota.add(totalReleaseUsdt);
-        order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(1 days)); // 精确到天
+        order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(TIME_UNIT)); // 精确到天
         // ================================================
 
         if (totalReleaseUsdt > 0) {
@@ -414,12 +431,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 globalGenesisPool = globalGenesisPool.add(genesisPart);
             }
             
-            // ✅ HAF数量 = USDT金额 / 当前HAF价格
-            // 价格上涨时，同样的USDT换到的HAF数量会减少，这符合文档要求
-            uint256 userRewardHaf = userPart.mul(PRICE_PRECISION).div(hafPrice);
-            
-            // 从金库分发HAF给用户
-            _distributeHaf(order.user, userRewardHaf);
+            // ========== FIXED: 只更新状态，不直接分发代币 ==========
+            // 结算函数只负责计算收益并更新订单状态
+            // 实际的代币分发由 withdraw() 函数统一处理
+            // ================================================
             
             // 记录静态收益（基础部分）
             uint256 baseStaticUsdt = userPart;
@@ -480,8 +495,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 _removeActiveGenesisNode(_node);
             }
             
-            uint256 rewardHaf = actualClaim.mul(PRICE_PRECISION).div(hafPrice);
-            _distributeHaf(_node, rewardHaf);
+            // ========== FIXED: 只更新状态，不直接分发代币 ==========
+            // 结算函数只负责计算收益并更新状态
+            // 实际的代币分发由 withdraw() 函数统一处理
+            // ================================================
         }
     }
     
@@ -670,7 +687,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             Order storage order = orders[user.orderIds[i]];
             if (order.isCompleted) continue;
             
-            uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(1 days);
+            uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
             if (daysPassed == 0) continue;
 
             uint256 actualRate = stakingLevels[order.level].dailyRate
@@ -701,7 +718,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         
         uint256 totalReleased = user.dynamicRewardTotal
             .mul(block.timestamp.sub(user.dynamicRewardStartTime))
-            .div(100 days);
+            .div(DYNAMIC_RELEASE_PERIOD);
             
         if (totalReleased > user.dynamicRewardTotal) {
             totalReleased = user.dynamicRewardTotal;
@@ -785,7 +802,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         User storage user = users[order.user];
         // ✅ 按天数计算
-        uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(1 days);
+        uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
         if (daysPassed == 0) return (0, 0);
 
         uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
