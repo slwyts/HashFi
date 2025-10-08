@@ -106,7 +106,7 @@
           </div>
         </div>
         
-        <div v-if="filteredRecords.length === 0" class="text-center py-10">
+        <div v-if="!filteredRecords || filteredRecords.length === 0" class="text-center py-10">
           <img src="/icons/no_data.png" alt="No data" class="mx-auto w-24 h-24 opacity-50" />
           <p class="text-gray-400 mt-2">{{ t('stakingPage.noData') }}</p>
         </div>
@@ -129,8 +129,8 @@ const toast = useToast();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
-// RewardType 枚举对应: 0=Static, 1=Direct, 2=Share, 3=Team, 4=Genesis
-type RewardType = 0 | 1 | 2 | 3 | 4;
+// RewardType 枚举对应: 0=Static, 1=Direct, 2=Share, 3=Team
+type RewardType = 0 | 1 | 2 | 3;
 
 interface FormattedRewardRecord {
   timestamp: bigint;
@@ -157,38 +157,68 @@ const { data: claimableRewards, isLoading: isLoadingRewards, refetch: refetchRew
 // 待领取收益显示
 const pendingStaticDisplay = computed(() => {
   if (!claimableRewards.value) return '0.00';
-  const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-  const value = formatUnits(rewards[0], 18);
-  return parseFloat(value).toFixed(2);
+  try {
+    const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    const value = formatUnits(rewards[0], 18);
+    return parseFloat(value).toFixed(2);
+  } catch (error) {
+    console.error('Error calculating pendingStatic:', error);
+    return '0.00';
+  }
 });
 
 const pendingDynamicDisplay = computed(() => {
   if (!claimableRewards.value) return '0.00';
-  const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-  const value = formatUnits(rewards[1], 18);
-  return parseFloat(value).toFixed(2);
+  try {
+    const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    const value = formatUnits(rewards[1], 18);
+    return parseFloat(value).toFixed(2);
+  } catch (error) {
+    console.error('Error calculating pendingDynamic:', error);
+    return '0.00';
+  }
 });
 
 const pendingGenesisDisplay = computed(() => {
   if (!claimableRewards.value) return '0.00';
-  const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-  const value = formatUnits(rewards[2], 18);
-  return parseFloat(value).toFixed(2);
+  try {
+    const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    const value = formatUnits(rewards[2], 18);
+    return parseFloat(value).toFixed(2);
+  } catch (error) {
+    console.error('Error calculating pendingGenesis:', error);
+    return '0.00';
+  }
 });
 
 const totalClaimableDisplay = computed(() => {
   if (!claimableRewards.value) return '0.00';
-  const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-  const total = rewards[0] + rewards[1] + rewards[2];
-  const value = formatUnits(total, 18);
-  return parseFloat(value).toFixed(2);
+  try {
+    const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    const total = rewards[0] + rewards[1] + rewards[2];
+    const value = formatUnits(total, 18);
+    return parseFloat(value).toFixed(2);
+  } catch (error) {
+    console.error('Error calculating totalClaimable:', error);
+    return '0.00';
+  }
 });
 
 const canWithdraw = computed(() => {
   if (!claimableRewards.value) return false;
-  const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-  const total = rewards[0] + rewards[1] + rewards[2];
-  return total > 0n;
+  try {
+    const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return false;
+    const total = rewards[0] + rewards[1] + rewards[2];
+    return total > 0n;
+  } catch (error) {
+    console.error('Error checking canWithdraw:', error);
+    return false;
+  }
 });
 
 // ========== 2. 提现功能 ==========
@@ -234,31 +264,74 @@ const { data: rewardRecords, isLoading: isLoadingRecords, refetch: refetchRecord
   }
 });
 
+// 调试：查看原始数据
+watch(() => rewardRecords.value, (newVal) => {
+  console.log('Raw rewardRecords from contract:', newVal);
+  console.log('Type:', typeof newVal);
+  console.log('Is Array:', Array.isArray(newVal));
+  if (Array.isArray(newVal)) {
+    console.log('Length:', newVal.length);
+    console.log('First item:', newVal[0]);
+  }
+}, { immediate: true });
+
 // 格式化收益记录
 const formattedRecords = computed<FormattedRewardRecord[]>(() => {
   if (!rewardRecords.value) return [];
   
-  return (rewardRecords.value as any[]).map((record) => {
-    const timestamp = record[0] as bigint;
-    const date = new Date(Number(timestamp) * 1000);
+  try {
+    const records = rewardRecords.value as any[];
     
-    return {
-      timestamp,
-      fromUser: record[1] as string,
-      rewardType: record[2] as RewardType,
-      usdtAmount: record[3] as bigint,
-      hafAmount: record[4] as bigint,
-      formattedDate: date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      usdtDisplay: parseFloat(formatUnits(record[3] as bigint, 6)).toFixed(2),
-      hafDisplay: parseFloat(formatUnits(record[4] as bigint, 18)).toFixed(4),
-    };
-  }).sort((a, b) => Number(b.timestamp) - Number(a.timestamp)); // 按时间倒序
+    // ✅ 第1层验证: 检查是否为有效数组
+    if (!Array.isArray(records) || records.length === 0) {
+      return [];
+    }
+    
+    // ✅ 第2层: 映射并验证每条记录
+    const mappedRecords = records.map((record: any) => {
+      // 检查 record 是否有必需的字段
+      if (!record || typeof record !== 'object') {
+        console.warn('Invalid record structure:', record);
+        return null;
+      }
+      
+      // 检查每个字段是否存在
+      if (record.timestamp === undefined || record.fromUser === undefined || 
+          record.rewardType === undefined || record.usdtAmount === undefined || 
+          record.hafAmount === undefined) {
+        console.warn('Record has undefined fields:', record);
+        return null;
+      }
+      
+      const timestamp = record.timestamp as bigint;
+      const date = new Date(Number(timestamp) * 1000);
+      
+      return {
+        timestamp,
+        fromUser: record.fromUser as string,
+        rewardType: record.rewardType as RewardType,
+        usdtAmount: record.usdtAmount as bigint,
+        hafAmount: record.hafAmount as bigint,
+        formattedDate: date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        usdtDisplay: parseFloat(formatUnits(record.usdtAmount as bigint, 18)).toFixed(2), // ✅ USDT 是 18 位小数
+        hafDisplay: parseFloat(formatUnits(record.hafAmount as bigint, 18)).toFixed(4),
+      };
+    });
+    
+    // ✅ 第3层: 过滤掉 null 值并按时间排序
+    return mappedRecords
+      .filter((record): record is FormattedRewardRecord => record !== null)
+      .sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+  } catch (error) {
+    console.error('Error formatting reward records:', error);
+    return [];
+  }
 });
 
 // ========== 4. 标签页筛选 ==========
@@ -270,37 +343,41 @@ const tabs = [
   { key: 1 as const, name: 'incomePage.tabs.direct' },
   { key: 2 as const, name: 'incomePage.tabs.share' },
   { key: 3 as const, name: 'incomePage.tabs.team' },
-  { key: 4 as const, name: 'incomePage.tabs.genesis' },
 ];
 
 const filteredRecords = computed(() => {
-  if (activeTab.value === 'all') {
-    return formattedRecords.value;
+  try {
+    if (!formattedRecords.value || formattedRecords.value.length === 0) return [];
+    
+    if (activeTab.value === 'all') {
+      return formattedRecords.value;
+    }
+    return formattedRecords.value.filter(record => record.rewardType === activeTab.value);
+  } catch (error) {
+    console.error('Error filtering records:', error);
+    return [];
   }
-  return formattedRecords.value.filter(record => record.rewardType === activeTab.value);
 });
 
 // ========== 5. 辅助函数 ==========
 const getRewardTypeName = (type: RewardType): string => {
-  const typeMap = {
+  const typeMap: Record<RewardType, string> = {
     0: 'incomePage.types.static',
     1: 'incomePage.types.direct',
     2: 'incomePage.types.share',
     3: 'incomePage.types.team',
-    4: 'incomePage.types.genesis',
   };
-  return typeMap[type];
+  return typeMap[type] || 'incomePage.types.static';
 };
 
 const getRewardTypeColor = (type: RewardType): string => {
-  const colorMap = {
+  const colorMap: Record<RewardType, string> = {
     0: 'bg-gradient-to-br from-blue-500 to-blue-600',      // 静态 - 蓝色
     1: 'bg-gradient-to-br from-green-500 to-green-600',    // 直推 - 绿色
     2: 'bg-gradient-to-br from-purple-500 to-purple-600',  // 分享 - 紫色
     3: 'bg-gradient-to-br from-orange-500 to-orange-600',  // 团队 - 橙色
-    4: 'bg-gradient-to-br from-pink-500 to-pink-600',      // 创世节点 - 粉色
   };
-  return colorMap[type];
+  return colorMap[type] || 'bg-gradient-to-br from-gray-500 to-gray-600';
 };
 
 const formatAddress = (addr: string): string => {

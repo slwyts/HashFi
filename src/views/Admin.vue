@@ -21,14 +21,6 @@
 
     <!-- 管理员面板 -->
     <div v-else class="space-y-6">
-      <!-- Toast 提示 -->
-      <div 
-        v-if="showToast"
-        class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl z-50 animate-slide-down"
-      >
-        {{ statusMessage }}
-      </div>
-
       <!-- Tab 导航 -->
       <div class="flex bg-white rounded-xl p-2 shadow-sm overflow-x-auto gap-2">
         <button
@@ -489,14 +481,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAccount, useReadContract, useWriteContract } from '@wagmi/vue';
 import { parseEther, parseUnits, formatEther, formatUnits } from 'viem';
 import abi from '../../contract/abi.json';
+import { useToast } from '../composables/useToast';
 
 const { t } = useI18n();
 const { address } = useAccount();
+const toast = useToast();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -515,17 +509,6 @@ const tabs = [
 
 // 处理状态
 const isProcessing = ref(false);
-const statusMessage = ref('');
-const showToast = ref(false);
-
-// Toast 提示函数
-const showMessage = (message: string) => {
-  statusMessage.value = message;
-  showToast.value = true;
-  setTimeout(() => {
-    showToast.value = false;
-  }, 3000);
-};
 
 // 表单数据
 const btcForm = ref({
@@ -563,11 +546,37 @@ const { data: ownerAddress } = useReadContract({
   functionName: 'owner',
 });
 
-const { data: pendingApps, refetch: refetchPending } = useReadContract({
+const { data: pendingApps, refetch: refetchPending, error: pendingError } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'getPendingGenesisApplications',
+  account: address, // ✅ 指定调用账户
+  query: {
+    enabled: !!address.value, // ✅ 添加 enabled 条件
+  }
 });
+
+// 🔍 调试日志
+watch(() => pendingApps.value, (newVal) => {
+  console.log('===== Admin pendingApps Debug =====');
+  console.log('pendingApps.value:', newVal);
+  console.log('Type:', typeof newVal);
+  console.log('Is Array:', Array.isArray(newVal));
+  if (Array.isArray(newVal)) {
+    console.log('Length:', newVal.length);
+    console.log('Items:', newVal);
+  }
+  console.log('==================================');
+}, { immediate: true });
+
+// 🔍 调试错误
+watch(() => pendingError.value, (error) => {
+  if (error) {
+    console.error('===== pendingApps Error =====');
+    console.error('Error:', error);
+    console.error('============================');
+  }
+}, { immediate: true });
 
 const { data: activeNodesData, refetch: refetchActive } = useReadContract({
   address: CONTRACT_ADDRESS,
@@ -605,12 +614,21 @@ const isAdmin = computed(() => {
          address.value.toLowerCase() === (ownerAddress.value as string).toLowerCase();
 });
 
+// 🔍 调试 isAdmin（必须放在 isAdmin 定义之后）
+watch(() => isAdmin.value, (newVal) => {
+  console.log('===== isAdmin Debug =====');
+  console.log('isAdmin:', newVal);
+  console.log('address:', address.value);
+  console.log('ownerAddress:', ownerAddress.value);
+  console.log('========================');
+}, { immediate: true });
+
 const pendingApplications = computed(() => (pendingApps.value as string[]) || []);
 const activeNodes = computed(() => (activeNodesData.value as string[]) || []);
 
 const currentHafPrice = computed(() => {
   if (!hafPriceData.value) return '1.000000';
-  return formatUnits(hafPriceData.value as bigint, 6);
+  return formatUnits(hafPriceData.value as bigint, 18); // ✅ 18 位精度
 });
 
 const dailyIncreaseRate = computed(() => {
@@ -652,7 +670,7 @@ const { writeContractAsync } = useWriteContract();
 const approveNode = async (applicant: string) => {
   isProcessing.value = true;
   try {
-    showMessage(t('admin.approving'));
+    toast.show(t('admin.approving'));
     
     await writeContractAsync({
       address: CONTRACT_ADDRESS,
@@ -661,12 +679,12 @@ const approveNode = async (applicant: string) => {
       args: [applicant as `0x${string}`],
     });
     
-    showMessage(t('admin.approveSuccess'));
+    toast.show(t('admin.approveSuccess'));
     await refetchPending();
     await refetchActive();
   } catch (error: any) {
     console.error('Approve error:', error);
-    showMessage(error.shortMessage || t('admin.approveFailed'));
+    toast.show(error.shortMessage || t('admin.approveFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -675,7 +693,7 @@ const approveNode = async (applicant: string) => {
 const rejectNode = async (applicant: string) => {
   isProcessing.value = true;
   try {
-    showMessage(t('admin.rejecting'));
+    toast.show(t('admin.rejecting'));
     
     await writeContractAsync({
       address: CONTRACT_ADDRESS,
@@ -684,11 +702,11 @@ const rejectNode = async (applicant: string) => {
       args: [applicant as `0x${string}`],
     });
     
-    showMessage(t('admin.rejectSuccess'));
+    toast.show(t('admin.rejectSuccess'));
     await refetchPending();
   } catch (error: any) {
     console.error('Reject error:', error);
-    showMessage(error.shortMessage || t('admin.rejectFailed'));
+    toast.show(error.shortMessage || t('admin.rejectFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -723,11 +741,11 @@ const updateBtcData = async () => {
       });
     }
 
-    showMessage(t('admin.updateSuccess'));
+    toast.show(t('admin.updateSuccess'));
     refetchStats();
   } catch (error: any) {
     console.error('Update BTC error:', error);
-    showMessage(error?.message || t('admin.updateFailed'));
+    toast.show(error?.message || t('admin.updateFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -736,7 +754,7 @@ const updateBtcData = async () => {
 // 更新HAF价格
 const updatePrice = async () => {
   if (!priceForm.value.newPrice && !priceForm.value.dailyRate) {
-    showMessage(t('admin.fillAtLeastOne'));
+    toast.show(t('admin.fillAtLeastOne'));
     return;
   }
 
@@ -760,10 +778,10 @@ const updatePrice = async () => {
       });
     }
 
-    showMessage(t('admin.updateSuccess'));
+    toast.show(t('admin.updateSuccess'));
   } catch (error: any) {
     console.error('Update price error:', error);
-    showMessage(error?.message || t('admin.updateFailed'));
+    toast.show(error?.message || t('admin.updateFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -778,10 +796,10 @@ const triggerPriceUpdate = async () => {
       abi,
       functionName: 'updatePrice',
     });
-    showMessage(t('admin.priceUpdated'));
+    toast.show(t('admin.priceUpdated'));
   } catch (error: any) {
     console.error('Trigger price update error:', error);
-    showMessage(error?.message || t('admin.updateFailed'));
+    toast.show(error?.message || t('admin.updateFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -818,10 +836,10 @@ const updateFeeSettings = async () => {
       });
     }
 
-    showMessage(t('admin.updateSuccess'));
+    toast.show(t('admin.updateSuccess'));
   } catch (error: any) {
     console.error('Update fee settings error:', error);
-    showMessage(error?.message || t('admin.updateFailed'));
+    toast.show(error?.message || t('admin.updateFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -837,11 +855,11 @@ const toggleAutoPriceUpdate = async () => {
       functionName: 'setAutoPriceUpdate',
       args: [!autoPriceUpdateEnabled.data?.value],
     });
-    showMessage(t('admin.updateSuccess'));
+    toast.show(t('admin.updateSuccess'));
     autoPriceUpdateEnabled.refetch?.();
   } catch (error: any) {
     console.error('Toggle auto price update error:', error);
-    showMessage(error?.message || t('admin.updateFailed'));
+    toast.show(error?.message || t('admin.updateFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -850,7 +868,7 @@ const toggleAutoPriceUpdate = async () => {
 // 强制结算用户
 const forceSettleUser = async () => {
   if (!advancedForm.value.settleUserAddress) {
-    showMessage(t('admin.enterAddress'));
+    toast.show(t('admin.enterAddress'));
     return;
   }
 
@@ -862,11 +880,11 @@ const forceSettleUser = async () => {
       functionName: 'forceSettleUser',
       args: [advancedForm.value.settleUserAddress as `0x${string}`],
     });
-    showMessage(t('admin.operationSuccess'));
+    toast.show(t('admin.operationSuccess'));
     advancedForm.value.settleUserAddress = '';
   } catch (error: any) {
     console.error('Force settle user error:', error);
-    showMessage(error?.message || t('admin.operationFailed'));
+    toast.show(error?.message || t('admin.operationFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -875,12 +893,12 @@ const forceSettleUser = async () => {
 // 设置用户团队等级
 const setUserTeamLevel = async () => {
   if (!advancedForm.value.teamLevelAddress) {
-    showMessage(t('admin.enterAddress'));
+    toast.show(t('admin.enterAddress'));
     return;
   }
 
   if (advancedForm.value.teamLevel < 0 || advancedForm.value.teamLevel > 5) {
-    showMessage(t('admin.invalidTeamLevel'));
+    toast.show(t('admin.invalidTeamLevel'));
     return;
   }
 
@@ -895,11 +913,11 @@ const setUserTeamLevel = async () => {
         advancedForm.value.teamLevel,
       ],
     });
-    showMessage(t('admin.operationSuccess'));
+    toast.show(t('admin.operationSuccess'));
     advancedForm.value.teamLevelAddress = '';
   } catch (error: any) {
     console.error('Set user team level error:', error);
-    showMessage(error?.message || t('admin.operationFailed'));
+    toast.show(error?.message || t('admin.operationFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -908,7 +926,7 @@ const setUserTeamLevel = async () => {
 // 紧急提现
 const emergencyWithdraw = async () => {
   if (!advancedForm.value.withdrawAmount) {
-    showMessage(t('admin.enterAmount'));
+    toast.show(t('admin.enterAmount'));
     return;
   }
 
@@ -927,11 +945,11 @@ const emergencyWithdraw = async () => {
         parseUnits(String(advancedForm.value.withdrawAmount), 6),
       ],
     });
-    showMessage(t('admin.withdrawSuccess'));
+    toast.show(t('admin.withdrawSuccess'));
     advancedForm.value.withdrawAmount = '';
   } catch (error: any) {
     console.error('Emergency withdraw error:', error);
-    showMessage(error?.message || t('admin.withdrawFailed'));
+    toast.show(error?.message || t('admin.withdrawFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -946,10 +964,10 @@ const pauseContract = async () => {
       abi,
       functionName: 'pause',
     });
-    showMessage(t('admin.contractPaused'));
+    toast.show(t('admin.contractPaused'));
   } catch (error: any) {
     console.error('Pause contract error:', error);
-    showMessage(error?.message || t('admin.operationFailed'));
+    toast.show(error?.message || t('admin.operationFailed'));
   } finally {
     isProcessing.value = false;
   }
@@ -964,10 +982,10 @@ const unpauseContract = async () => {
       abi,
       functionName: 'unpause',
     });
-    showMessage(t('admin.contractUnpaused'));
+    toast.show(t('admin.contractUnpaused'));
   } catch (error: any) {
     console.error('Unpause contract error:', error);
-    showMessage(error?.message || t('admin.operationFailed'));
+    toast.show(error?.message || t('admin.operationFailed'));
   } finally {
     isProcessing.value = false;
   }

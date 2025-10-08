@@ -166,16 +166,53 @@ const { data: userData, refetch: refetchUser } = useReadContract({
   }
 });
 
+// ========== 调试：读取用户订单 ==========
+const { data: userOrdersData } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'getUserOrders',
+  args: userArgs,
+  query: {
+    enabled: !!address.value,
+  }
+});
+
 // 用户是否是创世节点
 const userIsNode = computed(() => {
   if (!userData.value) return false;
-  return (userData.value as any)[14]; // isGenesisNode 是第15个字段 (索引14)
+  return (userData.value as any).isGenesisNode; // ✅ 使用字段名访问
 });
 
 // 用户是否已质押
 const hasStaked = computed(() => {
   if (!userData.value) return false;
-  return (userData.value as any)[1] > 0n; // totalStakedAmount
+  
+  // 🔍 调试日志
+  console.log('===== GenesisNode Debug =====');
+  console.log('userData.value:', userData.value);
+  console.log('Type of userData:', typeof userData.value);
+  console.log('Is Array:', Array.isArray(userData.value));
+  console.log('Keys:', Object.keys(userData.value || {}));
+  console.log('userOrders:', userOrdersData.value);
+  console.log('userOrders length:', Array.isArray(userOrdersData.value) ? userOrdersData.value.length : 'not array');
+  
+  const totalStaked = (userData.value as any).totalStakedAmount; // ✅ 使用字段名访问
+  console.log('totalStakedAmount:', totalStaked);
+  console.log('totalStakedAmount type:', typeof totalStaked);
+  console.log('totalStakedAmount > 0:', totalStaked && totalStaked > 0n);
+  
+  // 方法1: 检查 totalStakedAmount
+  const method1 = totalStaked && totalStaked > 0n;
+  
+  // 方法2: 检查是否有订单
+  const hasOrders = userOrdersData.value && Array.isArray(userOrdersData.value) && userOrdersData.value.length > 0;
+  console.log('Has orders:', hasOrders);
+  
+  console.log('Final result - method1:', method1, 'method2:', hasOrders);
+  console.log('============================');
+  
+  // 使用订单数量作为判断依据（更可靠）
+  return hasOrders || method1;
 });
 
 // ========== 3. 获取申请状态 ==========
@@ -193,21 +230,13 @@ const { data: applicationPending } = useReadContract({
 
 const isPendingApproval = computed(() => !!applicationPending.value);
 
-// ========== 4. 获取创世节点用户信息 ==========
-const { data: genesisUserData, refetch: refetchGenesisData } = useReadContract({
-  address: CONTRACT_ADDRESS,
-  abi,
-  functionName: 'genesisNodeUsers',
-  args: userArgs,
-  query: {
-    enabled: computed(() => !!address.value && userIsNode.value),
-  }
-});
-
+// ========== 4. 已提取分红（从 users 读取）==========
 // 已提取分红
 const withdrawnDividends = computed(() => {
-  if (!genesisUserData.value) return '0.00';
-  return parseFloat(formatUnits((genesisUserData.value as any)[0] as bigint, 18)).toFixed(2);
+  if (!userData.value) return '0.00';
+  const withdrawn = (userData.value as any).genesisDividendsWithdrawn; // ✅ 使用字段名访问
+  if (!withdrawn) return '0.00';
+  return parseFloat(formatUnits(withdrawn as bigint, 18)).toFixed(2);
 });
 
 // 最大分红额度 (3倍)

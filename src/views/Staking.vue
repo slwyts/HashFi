@@ -314,6 +314,17 @@ const { data: userOrdersData, refetch: refetchOrders } = useReadContract({
   },
 });
 
+// ========== NEW: 读取 HAF 价格 ==========
+const { data: hafPriceData } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'hafPrice',
+  query: {
+    enabled: true,
+  },
+});
+// =======================================
+
 // 读取 USDT 授权额度
 const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
   address: USDT_ADDRESS,
@@ -337,6 +348,9 @@ const usdtBalance = computed(() => {
 // 用户质押订单列表（进行中的订单）
 const currentStakes = computed(() => {
   if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
+  if (!hafPriceData.value) return []; // 需要 hafPrice 才能计算
+  
+  const currentHafPrice = Number(formatUnits(hafPriceData.value as bigint, 18)); // HAF 价格是 18 位精度
   
   return (userOrdersData.value as any[])
     .map((order, index) => {
@@ -348,6 +362,11 @@ const currentStakes = computed(() => {
       const releasedQuota = Number(formatEther(order.releasedQuota || 0n));
       const startTime = Number(order.startTime || 0n);
       const isCompleted = order.isCompleted || false;
+      
+      // ========== 计算已释放的 HAF ==========
+      // 公式: releasedHAF = releasedQuota (USDT) / hafPrice
+      const releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+      // =====================================
       
       // 根据 level 判断方案等级
       let planName = 'stakingPage.bronze';
@@ -362,7 +381,7 @@ const currentStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        releasedHAF: '0.00', // HAF 释放暂时显示0，实际需要计算
+        releasedHAF: releasedHAF.toFixed(4), // ✅ 修复：根据价格计算 HAF
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),
@@ -374,6 +393,9 @@ const currentStakes = computed(() => {
 // 历史认购订单列表（已完成的订单）
 const historyStakes = computed(() => {
   if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
+  if (!hafPriceData.value) return []; // 需要 hafPrice 才能计算
+  
+  const currentHafPrice = Number(formatUnits(hafPriceData.value as bigint, 18)); // HAF 价格是 18 位精度
   
   return (userOrdersData.value as any[])
     .map((order, index) => {
@@ -385,6 +407,11 @@ const historyStakes = computed(() => {
       const releasedQuota = Number(formatEther(order.releasedQuota || 0n));
       const startTime = Number(order.startTime || 0n);
       const isCompleted = order.isCompleted || false;
+      
+      // ========== 计算已释放的 HAF ==========
+      // 公式: releasedHAF = releasedQuota (USDT) / hafPrice
+      const releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+      // =====================================
       
       // 根据 level 判断方案等级
       let planName = 'stakingPage.bronze';
@@ -399,7 +426,7 @@ const historyStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        releasedHAF: '0.00', // HAF 释放暂时显示0，实际需要计算
+        releasedHAF: releasedHAF.toFixed(4), // ✅ 修复：根据价格计算 HAF
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),

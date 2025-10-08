@@ -209,7 +209,7 @@ const totalUsdValue = computed(() => {
   if (!hafPriceData.value) return '0.00';
   
   const hafAmount = parseFloat(totalHafBalance.value);
-  const hafPrice = Number(formatUnits(hafPriceData.value as bigint, 6));
+  const hafPrice = Number(formatUnits(hafPriceData.value as bigint, 18)); // ✅ 18 位精度
   
   return (hafAmount * hafPrice).toFixed(2);
 });

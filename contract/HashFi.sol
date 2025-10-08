@@ -327,6 +327,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 fee = totalClaimableHaf.mul(withdrawalFeeRate).div(100);
         uint256 amountAfterFee = totalClaimableHaf.sub(fee);
         
+        // ========== FIXED: 提现成功后才更新结算时间 ==========
+        _updateOrderSettleTimes(msg.sender);
+        // ================================================
+        
         // ========== MODIFIED: 从金库分发 ==========
         // 不再是铸造，而是从合约金库转账给用户
         _distributeHaf(msg.sender, amountAfterFee);
@@ -420,7 +424,9 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
 
         order.releasedQuota = order.releasedQuota.add(totalReleaseUsdt);
-        order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(TIME_UNIT)); // 精确到天
+        // ========== FIXED: 不在结算时更新时间，等提现成功后再更新 ==========
+        // order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(TIME_UNIT));
+        // 这样 getClaimableRewards() 才能正确计算待提现金额
         // ================================================
 
         if (totalReleaseUsdt > 0) {
@@ -516,6 +522,23 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 activeGenesisNodes[i] = activeGenesisNodes[activeGenesisNodes.length - 1];
                 activeGenesisNodes.pop();
                 break;
+            }
+        }
+    }
+    
+    /**
+     * @dev 内部函数: 提现成功后更新订单的结算时间
+     */
+    function _updateOrderSettleTimes(address _user) internal {
+        uint256[] memory orderIds = users[_user].orderIds;
+        
+        for (uint i = 0; i < orderIds.length; i++) {
+            Order storage order = orders[orderIds[i]];
+            if (!order.isCompleted) {
+                uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
+                if (daysPassed > 0) {
+                    order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(TIME_UNIT));
+                }
             }
         }
     }

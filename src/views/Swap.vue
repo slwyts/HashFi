@@ -148,10 +148,10 @@ const { data: hafPrice, refetch: refetchPrice } = useReadContract({
   }
 });
 
-// HAF 价格显示 (6 decimals)
+// HAF 价格显示 (18 decimals - 合约使用 PRICE_PRECISION = 1e18)
 const hafPriceDisplay = computed(() => {
   if (!hafPrice.value) return '0.00';
-  return parseFloat(formatUnits(hafPrice.value as bigint, 6)).toFixed(4);
+  return parseFloat(formatUnits(hafPrice.value as bigint, 18)).toFixed(4);
 });
 
 // ========== 2. 获取 USDT 余额 ==========
@@ -215,7 +215,7 @@ watch(() => tokens.value, (newTokens) => {
 // ========== 5. 计算汇率 ==========
 const currentRate = computed(() => {
   if (!hafPrice.value) return '0';
-  const price = parseFloat(formatUnits(hafPrice.value as bigint, 6));
+  const price = parseFloat(formatUnits(hafPrice.value as bigint, 18)); // ✅ 18 位精度
   
   if (fromToken.name === 'USDT') {
     // USDT → HAF: 1 USDT = 1/hafPrice HAF
