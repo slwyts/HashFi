@@ -75,10 +75,10 @@
               </button>
               <button
                 @click="handleBind"
-                :disabled="!referrerAddress || isBinding"
+                :disabled="!referrerAddress || isProcessing()"
                 class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all shadow-lg hover:shadow-xl"
               >
-                {{ isBinding ? t('profilePage.binding') : t('common.confirm') }}
+                {{ isProcessing() ? t('profilePage.binding') : t('common.confirm') }}
               </button>
             </div>
           </div>
@@ -91,8 +91,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useWriteContract } from '@wagmi/vue';
 import { toast } from '@/composables/useToast';
+import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import abi from '../../contract/abi.json';
 
 const { t } = useI18n();
@@ -101,6 +101,7 @@ interface Props {
   visible: boolean;
   ownerAddress?: string;
   currentReferrer?: string;
+  inviteAddress?: string; // 新增：来自邀请链接的地址
 }
 
 const props = defineProps<Props>();
@@ -110,10 +111,9 @@ const emit = defineEmits<{
 }>();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
-const { writeContractAsync } = useWriteContract();
+const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 
 const referrerAddress = ref('');
-const isBinding = ref(false);
 
 // 检查是否已绑定推荐人
 const isReferrerBound = computed(() => {
@@ -154,21 +154,23 @@ const handleBind = async () => {
     return;
   }
 
-  isBinding.value = true;
-
   try {
-    toast.info(t('profilePage.binding'));
-
-    await writeContractAsync({
-      address: CONTRACT_ADDRESS,
-      abi,
-      functionName: 'bindReferrer',
-      args: [referrerAddress.value as `0x${string}`],
-    });
-
-    toast.success(t('profilePage.bindSuccess'));
-    emit('success');
-    emit('close');
+    await callContractWithRefresh(
+      {
+        address: CONTRACT_ADDRESS,
+        abi,
+        functionName: 'bindReferrer',
+        args: [referrerAddress.value as `0x${string}`],
+        pendingMessage: t('profilePage.binding'),
+        successMessage: t('profilePage.bindSuccess'),
+        operation: 'Bind Referrer',
+        onConfirmed: () => {
+          emit('success');
+          emit('close');
+        }
+      },
+      {} // 不需要数据刷新，因为父组件会处理
+    );
 
   } catch (error: any) {
     console.error('Bind referrer error:', error);
@@ -180,19 +182,23 @@ const handleBind = async () => {
       toast.error(t('profilePage.referrerNotExist'));
     } else if (error.message?.includes('Cannot refer yourself')) {
       toast.error(t('profilePage.cannotReferSelf'));
-    } else {
-      toast.error(error.shortMessage || error.message || t('profilePage.bindFailed'));
     }
-  } finally {
-    isBinding.value = false;
+    // 其他错误已经在 useEnhancedContract 中处理
   }
 };
 
-// 监听 visible 变化，打开时尝试填充默认推荐人
+// 监听 visible 变化，打开时尝试填充推荐人地址
 watch(() => props.visible, (newVal) => {
-  if (newVal && !isReferrerBound.value && !referrerAddress.value && props.ownerAddress) {
-    // 不自动填充，让用户选择
-    // referrerAddress.value = props.ownerAddress;
+  if (newVal && !isReferrerBound.value) {
+    // 优先使用来自邀请链接的地址
+    if (props.inviteAddress) {
+      referrerAddress.value = props.inviteAddress;
+      toast.info('已从邀请链接自动填入推荐人地址');
+      return;
+    }
+    
+    // 如果没有邀请链接，不自动填充默认推荐人，让用户选择
+    referrerAddress.value = '';
   }
 });
 </script>

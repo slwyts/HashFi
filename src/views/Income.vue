@@ -34,9 +34,9 @@
           :disabled="isProcessing() || !canWithdraw"
           class="w-full mt-6 py-3.5 rounded-xl font-bold transition-all duration-200"
           :class="{
-            'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800':
+            'bg-white text-blue-600 hover:bg-blue-50 active:scale-95':
             canWithdraw && !isProcessing(),
-            'bg-gray-400 cursor-not-allowed': !canWithdraw || isProcessing()
+            'bg-white/30 text-white/50 cursor-not-allowed': !canWithdraw || isProcessing()
           }"
         >
           <span v-if="isProcessing()">{{ t('common.processing') }}...</span>
@@ -240,7 +240,11 @@ const handleWithdraw = async () => {
       },
       {
         refreshBalance: async () => {
-          await refetchRewards();
+          // 刷新所有相关数据
+          await Promise.all([
+            refetchRewards(),
+            refetchRecords(),
+          ]);
         },
       }
     );
@@ -303,7 +307,7 @@ const formattedRecords = computed<FormattedRewardRecord[]>(() => {
       const timestamp = record.timestamp as bigint;
       const date = new Date(Number(timestamp) * 1000);
       
-      return {
+      const formattedRecord = {
         timestamp,
         fromUser: record.fromUser as string,
         rewardType: record.rewardType as RewardType,
@@ -319,6 +323,8 @@ const formattedRecords = computed<FormattedRewardRecord[]>(() => {
         usdtDisplay: parseFloat(formatUnits(record.usdtAmount as bigint, 18)).toFixed(2), // ✅ USDT 是 18 位小数
         hafDisplay: parseFloat(formatUnits(record.hafAmount as bigint, 18)).toFixed(4),
       };
+      
+      return formattedRecord;
     });
     
     // ✅ 第3层: 过滤掉 null 值并按时间排序
@@ -356,7 +362,50 @@ const filteredRecords = computed(() => {
   }
 });
 
+// 计算重复记录数量
+const duplicateRecordsCount = computed(() => {
+  if (!formattedRecords.value) return 0;
+  const duplicates = detectDuplicateRecords(formattedRecords.value);
+  return duplicates.reduce((total, group) => total + (group.length - 1), 0);
+});
+
 // ========== 5. 辅助函数 ==========
+
+// 获取重复记录数量
+const getDuplicateCount = () => {
+  if (!formattedRecords.value) return 0;
+  const duplicates = detectDuplicateRecords(formattedRecords.value);
+  return duplicates.reduce((total, group) => total + (group.length - 1), 0);
+};
+
+// 检查是否为可能的重复记录
+const isDuplicateRecord = (record: FormattedRewardRecord, allRecords: FormattedRewardRecord[]) => {
+  return allRecords.filter(r => 
+    r.timestamp === record.timestamp && 
+    r.rewardType === record.rewardType && 
+    r.usdtDisplay === record.usdtDisplay
+  ).length > 1;
+};
+// 检测可能的重复记录（简化版）
+const detectDuplicateRecords = (records: FormattedRewardRecord[]) => {
+  const groups: { [key: string]: FormattedRewardRecord[] } = {};
+  
+  records.forEach(record => {
+    // 检查相同时间点和相同类型的记录
+    const timeKey = Math.floor(Number(record.timestamp) / 60) * 60; // 按分钟分组
+    const amountRange = Math.floor(parseFloat(record.usdtDisplay)); // 按整数金额分组
+    const key = `${timeKey}_${record.rewardType}_${amountRange}`;
+    
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(record);
+  });
+  
+  // 返回有多条记录的组
+  return Object.values(groups).filter(group => group.length > 1);
+};
+
 const getRewardTypeName = (type: RewardType): string => {
   const typeMap: Record<RewardType, string> = {
     0: 'incomePage.types.static',

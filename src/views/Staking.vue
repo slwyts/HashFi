@@ -209,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
@@ -285,7 +285,7 @@ const activeTab = ref('current');
 
 // 读取 USDT 余额
 const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
-  address: address.value,
+  address: address,
   token: USDT_ADDRESS,
   query: {
     enabled: !!address.value,
@@ -293,22 +293,26 @@ const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
 });
 
 // 读取用户信息
+const userArgs = computed(() => address.value ? [address.value] as const : undefined);
+
 const { data: userInfo, refetch: refetchUserInfo } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'users',
-  args: address.value ? [address.value] : undefined,
+  args: userArgs,
   query: {
     enabled: !!address.value,
   },
 });
 
 // 读取用户质押订单
+const orderArgs = computed(() => address.value ? [address.value] as const : undefined);
+
 const { data: userOrdersData, refetch: refetchOrders } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'getUserOrders',
-  args: address.value ? [address.value] : undefined,
+  args: orderArgs,
   query: {
     enabled: !!address.value,
   },
@@ -326,11 +330,15 @@ const { data: hafPriceData } = useReadContract({
 // =======================================
 
 // 读取 USDT 授权额度
+const allowanceArgs = computed(() => 
+  address.value ? [address.value, CONTRACT_ADDRESS] as const : undefined
+);
+
 const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
   address: USDT_ADDRESS,
   abi: erc20Abi,
   functionName: 'allowance',
-  args: address.value ? [address.value, CONTRACT_ADDRESS] : undefined,
+  args: allowanceArgs,
   query: {
     enabled: !!address.value,
   },
@@ -338,6 +346,15 @@ const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
 
 // 增强的合约交互
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
+
+// 调试授权数据
+watch(() => allowanceData.value, (newVal) => {
+  console.log('Allowance data changed:', {
+    value: newVal?.toString(),
+    address: address.value,
+    isConnected: !!address.value
+  });
+}, { immediate: true });
 
 // USDT 余额（格式化）
 const usdtBalance = computed(() => {
@@ -454,6 +471,15 @@ const needsApproval = computed(() => {
   if (!stakeAmount.value) return false;
   const amount = parseEther(stakeAmount.value.toString());
   const currentAllowance = allowanceData.value as bigint || 0n;
+  
+  // 添加调试信息
+  console.log('Approval check:', {
+    stakeAmount: stakeAmount.value,
+    amount: amount.toString(),
+    currentAllowance: currentAllowance.toString(),
+    needsApproval: currentAllowance < amount
+  });
+  
   return currentAllowance < amount;
 });
 

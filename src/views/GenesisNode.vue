@@ -111,7 +111,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useWriteContract, useBalance, useWaitForTransactionReceipt } from '@wagmi/vue';
-import { formatUnits, parseUnits, maxUint256 } from 'viem';
+import { formatEther, formatUnits, maxUint256 } from 'viem';
 import abi from '../../contract/abi.json';
 import { useToast } from '@/composables/useToast';
 

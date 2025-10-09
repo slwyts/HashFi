@@ -276,7 +276,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint8 level = _getStakingLevelByAmount(_amount);
         require(level > 0, "Invalid staking amount");
 
-        _settleUserRewards(msg.sender);
+        // ✅ 修改：移除质押时的自动结算，减少重复记录产生
+        // _settleUserRewards(msg.sender);  // 注释掉这一行
 
         usdtToken.transferFrom(msg.sender, address(this), _amount);
 

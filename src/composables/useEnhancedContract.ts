@@ -29,21 +29,31 @@ export const useEnhancedContract = () => {
   
   const currentTxHash = ref<string | null>(null);
   
-  // 监听交易收据
+  // 监听交易收据 - 修复：使用响应式的 currentTxHash
   const { data: receipt, isLoading, isSuccess, isError, error: receiptError } = useWaitForTransactionReceipt({
-    hash: currentTxHash.value as `0x${string}` | undefined,
+    hash: currentTxHash as any, // 传入响应式引用
   });
 
   // 监听交易状态变化
   watch([isSuccess, isError, receipt], async ([success, error, receiptData]) => {
+    console.log('Transaction status change:', {
+      success,
+      error,
+      receipt: receiptData,
+      currentTxHash: currentTxHash.value
+    });
+    
     if (success && receiptData) {
+      console.log('✅ Transaction confirmed successfully:', receiptData);
       // 交易确认成功
       transaction.setSuccess();
       
       // 执行成功回调
       if (currentOptions.value?.onConfirmed) {
         try {
+          console.log('Executing success callback...');
           await currentOptions.value.onConfirmed(receiptData);
+          console.log('Success callback completed');
         } catch (err) {
           console.error('Success callback error:', err);
         }
@@ -53,6 +63,7 @@ export const useEnhancedContract = () => {
       currentTxHash.value = null;
       currentOptions.value = null;
     } else if (error && receiptError.value) {
+      console.log('❌ Transaction failed:', receiptError.value);
       // 交易确认失败
       transaction.setError(receiptError.value.message || '交易失败');
       

@@ -121,6 +121,7 @@
       :visible="showBindReferrerModal"
       :owner-address="ownerAddress as string"
       :current-referrer="userInfo ? (userInfo as any[])[0] : undefined"
+      :invite-address="inviteAddress"
       @close="showBindReferrerModal = false"
       @success="handleBindSuccess"
     />
@@ -128,17 +129,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
 import abi from '../../contract/abi.json';
 import BindReferrerModal from '@/components/BindReferrerModal.vue';
+import { parseInviteCode, formatAddress } from '@/utils/invite';
+import { toast } from '@/composables/useToast';
 
 const { t } = useI18n();
 const router = useRouter();
-const { address } = useAccount();
+const route = useRoute();
+const { address, isConnected } = useAccount();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const HAF_TOKEN_ADDRESS = CONTRACT_ADDRESS; // HAF 代币就是合约本身
@@ -157,11 +161,13 @@ const isAdmin = computed(() => {
 });
 
 // 读取用户信息
-const { data: userInfo } = useReadContract({
+const userArgs = computed(() => address.value ? [address.value] as const : undefined);
+
+const { data: userInfo, refetch: refetchUserInfo } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'users',
-  args: address.value ? [address.value] : undefined,
+  args: userArgs,
   query: {
     enabled: !!address.value,
   },
@@ -169,7 +175,7 @@ const { data: userInfo } = useReadContract({
 
 // 读取 HAF 余额
 const { data: hafBalance } = useBalance({
-  address: address.value,
+  address: address,
   token: HAF_TOKEN_ADDRESS,
   query: {
     enabled: !!address.value,
@@ -256,11 +262,105 @@ const referrerDisplay = computed(() => {
 // 绑定推荐人模态框
 const showBindReferrerModal = ref(false);
 
+// 邀请人地址（从URL参数获取）
+const inviteAddress = ref<string>('');
+
 // 绑定成功回调
-const handleBindSuccess = () => {
-  // 重新获取用户信息
-  window.location.reload();
+const handleBindSuccess = async () => {
+  // 重新获取用户信息，不需要刷新页面
+  try {
+    await refetchUserInfo();
+    showBindReferrerModal.value = false;
+    
+    // 清除URL中的invite参数
+    if (route.query.invite) {
+      router.replace({ path: '/profile' });
+    }
+  } catch (error) {
+    console.error('Failed to refresh user info:', error);
+  }
 };
+
+// 检测URL中的邀请参数并处理
+const checkInviteFromUrl = () => {
+  const inviteParam = route.query.invite as string;
+  if (inviteParam) {
+    try {
+      // 如果是邀请码，解析成地址；如果已经是地址，直接使用
+      let inviterAddress = '';
+      if (inviteParam.startsWith('0x') && inviteParam.length === 42) {
+        // 已经是地址格式
+        inviterAddress = inviteParam;
+      } else {
+        // 是邀请码，需要解析
+        inviterAddress = parseInviteCode(inviteParam);
+      }
+      
+      inviteAddress.value = inviterAddress;
+      console.log('Detected invite from URL:', inviterAddress);
+      
+      return true;
+    } catch (error) {
+      console.error('Invalid invite parameter:', inviteParam, error);
+      toast.error('邀请链接无效');
+      return false;
+    }
+  }
+  return false;
+};
+
+// 处理邀请绑定逻辑
+const handleInviteBinding = () => {
+  // 如果没有连接钱包，提示连接
+  if (!isConnected.value) {
+    toast.info('请先连接钱包以接受邀请');
+    return;
+  }
+  
+  // 如果已经绑定了推荐人，不需要处理
+  if (isReferrerBound.value) {
+    toast.info('您已经绑定了推荐人');
+    // 清除URL中的invite参数
+    if (route.query.invite) {
+      router.replace({ path: '/profile' });
+    }
+    return;
+  }
+  
+  // 如果有邀请地址，自动弹出绑定框
+  if (inviteAddress.value) {
+    showBindReferrerModal.value = true;
+    toast.success(`检测到邀请，邀请人：${formatAddress(inviteAddress.value)}`);
+  }
+};
+
+// 判断是否已绑定推荐人
+const isReferrerBound = computed(() => {
+  if (!userInfo.value) return false;
+  
+  const info = userInfo.value as any[];
+  const referrer = info[0] as string;
+  
+  return referrer && 
+         referrer !== '0x0000000000000000000000000000000000000000' &&
+         referrer !== '0x0';
+});
+
+// 监听钱包连接状态和用户信息变化
+watch([isConnected, userInfo], () => {
+  if (inviteAddress.value) {
+    handleInviteBinding();
+  }
+}, { immediate: false });
+
+// 组件挂载时检测邀请参数
+onMounted(() => {
+  if (checkInviteFromUrl()) {
+    handleInviteBinding();
+  }
+});
+
+// Modal 控制逻辑（保留用于其他用途）
 
 // Modal 控制逻辑（保留用于其他用途）
 const isModalVisible = ref(false);
