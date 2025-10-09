@@ -1,6 +1,6 @@
 import { reactive } from 'vue';
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'waiting';
 
 interface ToastState {
   visible: boolean;
@@ -55,6 +55,10 @@ export const useToast = () => {
     show(message, 'info', duration);
   };
 
+  const waiting = (message: string, duration = 0) => {
+    show(message, 'waiting', duration);
+  };
+
   const close = () => {
     state.visible = false;
     if (closeTimer) {
@@ -70,6 +74,7 @@ export const useToast = () => {
     error,
     warning,
     info,
+    waiting,
     close,
   };
 };

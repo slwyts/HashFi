@@ -286,5 +286,12 @@
     "publishTime": "Publish Time",
     "onChain": "On-Chain",
     "local": "Platform"
+  },
+  "transaction": {
+    "waitingConfirmation": "Waiting for block confirmation...",
+    "success": "Transaction successful",
+    "failed": "Transaction failed",
+    "pending": "Sending transaction...",
+    "confirmationRequired": "Block confirmation required"
   }
 }

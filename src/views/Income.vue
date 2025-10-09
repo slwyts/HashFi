@@ -29,17 +29,17 @@
         </div>
 
         <!-- 提现按钮 -->
-        <button
+                <button
           @click="handleWithdraw"
-          :disabled="isWithdrawing || !canWithdraw"
-          :class="[
-            'w-full mt-6 py-3.5 rounded-xl font-bold transition-all duration-200',
-            canWithdraw && !isWithdrawing
-              ? 'bg-white text-blue-600 hover:bg-blue-50 active:scale-95'
-              : 'bg-white/30 text-white/50 cursor-not-allowed'
-          ]"
+          :disabled="isProcessing() || !canWithdraw"
+          class="w-full mt-6 py-3.5 rounded-xl font-bold transition-all duration-200"
+          :class="{
+            'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800':
+            canWithdraw && !isProcessing(),
+            'bg-gray-400 cursor-not-allowed': !canWithdraw || isProcessing()
+          }"
         >
-          <span v-if="isWithdrawing">{{ t('common.processing') }}...</span>
+          <span v-if="isProcessing()">{{ t('common.processing') }}...</span>
           <span v-else-if="!canWithdraw">{{ t('incomePage.noClaimable') }}</span>
           <span v-else>{{ t('incomePage.withdraw') }}</span>
         </button>
@@ -118,10 +118,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from '@wagmi/vue';
+import { useAccount, useReadContract } from '@wagmi/vue';
 import { formatUnits } from 'viem';
 import abi from '../../contract/abi.json';
 import { useToast } from '@/composables/useToast';
+import { useEnhancedContract } from '@/composables/useEnhancedContract';
 
 const { t } = useI18n();
 const { address } = useAccount();
@@ -222,36 +223,32 @@ const canWithdraw = computed(() => {
 });
 
 // ========== 2. 提现功能 ==========
-const { data: withdrawHash, writeContract: withdraw, isPending: isWithdrawing } = useWriteContract();
-
-const { isLoading: isWithdrawConfirming, isSuccess: isWithdrawSuccess } = useWaitForTransactionReceipt({
-  hash: withdrawHash,
-});
+const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 
 const handleWithdraw = async () => {
   if (!address || !canWithdraw.value) return;
 
   try {
-    await withdraw({
-      address: CONTRACT_ADDRESS,
-      abi,
-      functionName: 'withdraw',
-    });
+    await callContractWithRefresh(
+      {
+        address: CONTRACT_ADDRESS,
+        abi,
+        functionName: 'withdraw',
+        pendingMessage: t('incomePage.withdrawing'),
+        successMessage: t('incomePage.withdrawSuccess'),
+        operation: 'Withdraw Income',
+      },
+      {
+        refreshBalance: async () => {
+          await refetchRewards();
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Withdraw error:', error);
-    toast.error(error.message || t('common.error'));
+    // 错误已经在 useEnhancedContract 中处理
   }
 };
-
-// 监听提现成功
-watch(() => isWithdrawSuccess, (success) => {
-  if (success) {
-    toast.success(t('incomePage.withdrawSuccess'));
-    // 刷新数据
-    refetchRewards();
-    refetchRecords();
-  }
-});
 
 // ========== 3. 获取收益记录 ==========
 const { data: rewardRecords, isLoading: isLoadingRecords, refetch: refetchRecords } = useReadContract({

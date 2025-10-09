@@ -84,6 +84,7 @@
     "dynamicReward": "动态收益",
     "genesisReward": "创世节点",
     "withdraw": "立即提现",
+    "withdrawing": "提现中...",
     "noClaimable": "暂无可提现",
     "withdrawSuccess": "提现成功",
     "from": "来自",
@@ -286,5 +287,12 @@
     "publishTime": "发布时间",
     "onChain": "链上公告",
     "local": "平台公告"
+  },
+  "transaction": {
+    "waitingConfirmation": "等待区块确认...",
+    "success": "交易成功",
+    "failed": "交易失败",
+    "pending": "交易发送中...",
+    "confirmationRequired": "需要区块确认"
   }
 }

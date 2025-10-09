@@ -94,10 +94,10 @@
         @click="handleButtonClick"
         class="w-full text-white font-bold py-4 rounded-2xl text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
         :class="{
-          'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700': canSwap && !isApproving && !isSwapping,
-          'bg-gradient-to-r from-blue-300 to-blue-400 cursor-not-allowed': !canSwap || isApproving || isSwapping
+          'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700': canSwap && !isProcessing(),
+          'bg-gradient-to-r from-blue-300 to-blue-400 cursor-not-allowed': !canSwap || isProcessing()
         }"
-        :disabled="!canSwap || isApproving || isSwapping"
+        :disabled="!canSwap || isProcessing()"
       >
         {{ buttonText }}
       </button>
@@ -108,10 +108,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAccount, useReadContract, useWriteContract, useBalance, useWaitForTransactionReceipt } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatUnits, parseUnits, maxUint256 } from 'viem';
 import abi from '../../contract/abi.json';
 import { useToast } from '@/composables/useToast';
+import { useEnhancedContract } from '@/composables/useEnhancedContract';
 
 const { t } = useI18n();
 const { address } = useAccount();
@@ -317,46 +318,32 @@ const needsApproval = computed(() => {
   return needApproval;
 });
 
-// 授权
-const { data: approveHash, writeContract: approve, isPending: isApproving } = useWriteContract();
-
-const { isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({
-  hash: approveHash,
-});
+// 增强的合约交互
+const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 
 const handleApprove = async () => {
   if (!fromAmount.value || !address.value) return;
 
   try {
-    // 授权无限额度 (uint256 最大值)
-    console.log('📝 发起授权 (无限):', maxUint256.toString());
-    
-    await approve({
-      address: USDT_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [CONTRACT_ADDRESS, maxUint256],
-    });
+    await callContractWithRefresh(
+      {
+        address: USDT_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESS, maxUint256],
+        pendingMessage: t('swapPage.approving'),
+        successMessage: t('swapPage.approveSuccess'),
+        operation: 'USDT Approval for Swap',
+      },
+      {
+        refreshAllowance: refetchAllowance,
+      }
+    );
   } catch (error: any) {
     console.error('Approve error:', error);
-    toast.error(error.message || t('common.error'));
+    // 错误已经在 useEnhancedContract 中处理
   }
 };
-
-// 监听授权成功
-watch(() => isApproveSuccess, (success) => {
-  if (success) {
-    toast.success(t('swapPage.approveSuccess'));
-    refetchAllowance();
-  }
-});
-
-// ========== 9. 兑换功能 ==========
-const { data: swapHash, writeContract: swap, isPending: isSwapping } = useWriteContract();
-
-const { isSuccess: isSwapSuccess } = useWaitForTransactionReceipt({
-  hash: swapHash,
-});
 
 const handleSwap = async () => {
   if (!fromAmount.value || !address.value) return;
@@ -371,12 +358,28 @@ const handleSwap = async () => {
         预计获得HAF: toAmount.value
       });
       
-      await swap({
-        address: CONTRACT_ADDRESS,
-        abi,
-        functionName: 'swapUsdtToHaf',
-        args: [amount],
-      });
+      await callContractWithRefresh(
+        {
+          address: CONTRACT_ADDRESS,
+          abi,
+          functionName: 'swapUsdtToHaf',
+          args: [amount],
+          pendingMessage: t('swapPage.swapping'),
+          successMessage: t('swapPage.swapSuccess'),
+          operation: 'USDT to HAF Swap',
+          onConfirmed: () => {
+            // 清空输入
+            fromAmount.value = null;
+            toAmount.value = null;
+          }
+        },
+        {
+          refreshBalance: async () => {
+            await refetchUsdtBalance();
+            await refetchHafBalance();
+          },
+        }
+      );
     } else {
       // HAF → USDT (HAF是18位精度)
       const amount = parseUnits(fromAmount.value.toString(), 18);
@@ -386,32 +389,34 @@ const handleSwap = async () => {
         预计获得USDT: toAmount.value
       });
       
-      await swap({
-        address: CONTRACT_ADDRESS,
-        abi,
-        functionName: 'swapHafToUsdt',
-        args: [amount],
-      });
+      await callContractWithRefresh(
+        {
+          address: CONTRACT_ADDRESS,
+          abi,
+          functionName: 'swapHafToUsdt',
+          args: [amount],
+          pendingMessage: t('swapPage.swapping'),
+          successMessage: t('swapPage.swapSuccess'),
+          operation: 'HAF to USDT Swap',
+          onConfirmed: () => {
+            // 清空输入
+            fromAmount.value = null;
+            toAmount.value = null;
+          }
+        },
+        {
+          refreshBalance: async () => {
+            await refetchUsdtBalance();
+            await refetchHafBalance();
+          },
+        }
+      );
     }
   } catch (error: any) {
     console.error('Swap error:', error);
-    toast.error(error.message || t('common.error'));
+    // 错误已经在 useEnhancedContract 中处理
   }
 };
-
-// 监听兑换成功
-watch(() => isSwapSuccess, (success) => {
-  if (success) {
-    toast.success(t('swapPage.swapSuccess'));
-    // 刷新余额
-    refetchUsdtBalance();
-    refetchHafBalance();
-    refetchPrice();
-    // 清空输入
-    fromAmount.value = null;
-    toAmount.value = null;
-  }
-});
 
 // ========== 10. 按钮状态 ==========
 const canSwap = computed(() => {
@@ -435,9 +440,8 @@ const buttonText = computed(() => {
   if (fromAmount.value > parseFloat(fromToken.balance)) return t('swapPage.insufficientBalance');
   
   // 优先显示授权按钮（如果需要授权）
-  if (needsApproval.value && !isApproving.value) return t('swapPage.approveUnlimited');
-  if (isApproving.value) return t('swapPage.approving');
-  if (isSwapping.value) return t('swapPage.swapping');
+  if (needsApproval.value && !isProcessing()) return t('swapPage.approveUnlimited');
+  if (isProcessing()) return t('swapPage.processing');
   
   return t('swapPage.swap');
 });

@@ -80,7 +80,7 @@
       <button 
         @click="handleStake"
         class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl mt-6 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 disabled:from-blue-200 disabled:to-blue-300 disabled:cursor-not-allowed disabled:opacity-80 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
-        :disabled="!address || !stakeAmount || stakeAmount < (selectedPlan?.minStake ?? 0) || isProcessing"
+        :disabled="!address || !stakeAmount || stakeAmount < (selectedPlan?.minStake ?? 0) || isProcessing()"
       >
         {{ buttonText }}
       </button>
@@ -212,11 +212,12 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { useAccount, useReadContract, useWriteContract, useBalance, useWaitForTransactionReceipt } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatEther, formatUnits, parseEther, parseUnits, maxUint256 } from 'viem';
 import BtcPoolStats from '@/components/BtcPoolStats.vue';
 import abi from '../../contract/abi.json';
 import { toast } from '@/composables/useToast';
+import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import BannerCarousel from '@/components/BannerCarousel.vue';
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
 import AnnouncementModal from '@/components/AnnouncementModal.vue';
@@ -281,7 +282,6 @@ const stakingPlans = reactive([
 const selectedPlan = ref(stakingPlans[0]);
 const stakeAmount = ref<number | null>(null);
 const activeTab = ref('current');
-const isProcessing = ref(false);
 
 // 读取 USDT 余额
 const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
@@ -293,7 +293,7 @@ const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
 });
 
 // 读取用户信息
-const { data: userInfo } = useReadContract({
+const { data: userInfo, refetch: refetchUserInfo } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'users',
@@ -336,8 +336,8 @@ const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
   },
 });
 
-// 写合约
-const { writeContractAsync } = useWriteContract();
+// 增强的合约交互
+const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 
 // USDT 余额（格式化）
 const usdtBalance = computed(() => {
@@ -460,7 +460,7 @@ const needsApproval = computed(() => {
 // 按钮文本
 const buttonText = computed(() => {
   if (!address.value) return t('stakingPage.connectWallet');
-  if (isProcessing.value) return t('stakingPage.processing');
+  if (isProcessing()) return t('stakingPage.processing');
   if (needsApproval.value) return t('stakingPage.approveUsdt');
   return t('stakingPage.stakeNow');
 });
@@ -471,19 +471,14 @@ const handleStake = async () => {
     toast.error(t('stakingPage.invalidAmount'));
     return;
   }
-  
-  isProcessing.value = true;
-  
+
   try {
     // 0. 检查是否绑定推荐人
-    // userInfo 是数组: [referrer, teamLevel, totalStakedAmount, ...]
     const info = userInfo.value as any[];
     const referrer = info?.[0] || '0x0000000000000000000000000000000000000000';
     
     if (referrer === '0x0000000000000000000000000000000000000000') {
       toast.warning(t('stakingPage.bindReferrerFirst'));
-      isProcessing.value = false;
-      // 跳转到个人页面绑定推荐人
       router.push('/profile');
       return;
     }
@@ -493,39 +488,47 @@ const handleStake = async () => {
     // 1. 检查授权
     const currentAllowance = allowanceData.value as bigint || 0n;
     if (currentAllowance < amount) {
-      toast.info(t('stakingPage.approving'));
-      
-      await writeContractAsync({
-        address: USDT_ADDRESS,
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [CONTRACT_ADDRESS, maxUint256],
-      });
-      
-      toast.success(t('stakingPage.approveSuccess'));
-      await refetchAllowance();
+      // 执行授权
+      await callContractWithRefresh(
+        {
+          address: USDT_ADDRESS,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [CONTRACT_ADDRESS, maxUint256],
+          pendingMessage: t('stakingPage.approving'),
+          successMessage: t('stakingPage.approveSuccess'),
+          operation: 'USDT Approval',
+        },
+        {
+          refreshAllowance: refetchAllowance,
+        }
+      );
       
       // 授权成功后，等待用户再次点击质押
-      isProcessing.value = false;
       return;
     }
     
     // 2. 执行质押
-    toast.info(t('stakingPage.staking'));
-    
-    await writeContractAsync({
-      address: CONTRACT_ADDRESS,
-      abi,
-      functionName: 'stake',
-      args: [amount],
-    });
-    
-    toast.success(t('stakingPage.stakeSuccess'));
-    
-    // 3. 刷新数据
-    stakeAmount.value = null;
-    await refetchOrders();
-    await refetchUsdtBalance();
+    await callContractWithRefresh(
+      {
+        address: CONTRACT_ADDRESS,
+        abi,
+        functionName: 'stake',
+        args: [amount],
+        pendingMessage: t('stakingPage.staking'),
+        successMessage: t('stakingPage.stakeSuccess'),
+        operation: 'Staking',
+        onConfirmed: () => {
+          // 清空输入
+          stakeAmount.value = null;
+        }
+      },
+      {
+        refreshBalance: refetchUsdtBalance,
+        refreshOrders: refetchOrders,
+        refreshUserInfo: refetchUserInfo,
+      }
+    );
     
   } catch (error: any) {
     console.error('Stake error:', error);
@@ -533,11 +536,8 @@ const handleStake = async () => {
     if (error.message?.includes('Must bind a referrer first')) {
       toast.error(t('stakingPage.bindReferrerFirst'));
       router.push('/profile');
-    } else {
-      toast.error(error.shortMessage || error.message || t('stakingPage.stakeFailed'));
     }
-  } finally {
-    isProcessing.value = false;
+    // 其他错误已经在 useEnhancedContract 中处理
   }
 };
 
