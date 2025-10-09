@@ -348,9 +348,8 @@ const usdtBalance = computed(() => {
 // 用户质押订单列表（进行中的订单）
 const currentStakes = computed(() => {
   if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
-  if (!hafPriceData.value) return []; // 需要 hafPrice 才能计算
-  
-  const currentHafPrice = Number(formatUnits(hafPriceData.value as bigint, 18)); // HAF 价格是 18 位精度
+  // HAF价格用于向后兼容，如果合约没有releasedHaf字段时使用
+  const currentHafPrice = hafPriceData.value ? Number(formatUnits(hafPriceData.value as bigint, 18)) : 1;
   
   return (userOrdersData.value as any[])
     .map((order, index) => {
@@ -363,9 +362,17 @@ const currentStakes = computed(() => {
       const startTime = Number(order.startTime || 0n);
       const isCompleted = order.isCompleted || false;
       
-      // ========== 计算已释放的 HAF ==========
-      // 公式: releasedHAF = releasedQuota (USDT) / hafPrice
-      const releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+      // ========== ✅ 优先使用合约存储的releasedHaf字段 ==========
+      // 如果合约已更新（包含releasedHaf字段），直接读取
+      // 否则降级为计算方式（向后兼容旧版本）
+      let releasedHAF = 0;
+      if (order.releasedHaf !== undefined) {
+        // 新版合约：直接读取releasedHaf字段
+        releasedHAF = Number(formatEther(order.releasedHaf || 0n));
+      } else {
+        // 旧版合约兼容：通过releasedQuota / hafPrice计算
+        releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+      }
       // =====================================
       
       // 根据 level 判断方案等级
@@ -381,7 +388,7 @@ const currentStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        releasedHAF: releasedHAF.toFixed(4), // ✅ 修复：根据价格计算 HAF
+        releasedHAF: releasedHAF.toFixed(4),
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),
@@ -393,9 +400,8 @@ const currentStakes = computed(() => {
 // 历史认购订单列表（已完成的订单）
 const historyStakes = computed(() => {
   if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
-  if (!hafPriceData.value) return []; // 需要 hafPrice 才能计算
-  
-  const currentHafPrice = Number(formatUnits(hafPriceData.value as bigint, 18)); // HAF 价格是 18 位精度
+  // HAF价格用于向后兼容，如果合约没有releasedHaf字段时使用
+  const currentHafPrice = hafPriceData.value ? Number(formatUnits(hafPriceData.value as bigint, 18)) : 1;
   
   return (userOrdersData.value as any[])
     .map((order, index) => {
@@ -408,9 +414,17 @@ const historyStakes = computed(() => {
       const startTime = Number(order.startTime || 0n);
       const isCompleted = order.isCompleted || false;
       
-      // ========== 计算已释放的 HAF ==========
-      // 公式: releasedHAF = releasedQuota (USDT) / hafPrice
-      const releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+      // ========== ✅ 优先使用合约存储的releasedHaf字段 ==========
+      // 如果合约已更新（包含releasedHaf字段），直接读取
+      // 否则降级为计算方式（向后兼容旧版本）
+      let releasedHAF = 0;
+      if (order.releasedHaf !== undefined) {
+        // 新版合约：直接读取releasedHaf字段
+        releasedHAF = Number(formatEther(order.releasedHaf || 0n));
+      } else {
+        // 旧版合约兼容：通过releasedQuota / hafPrice计算
+        releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+      }
       // =====================================
       
       // 根据 level 判断方案等级
@@ -426,7 +440,7 @@ const historyStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        releasedHAF: releasedHAF.toFixed(4), // ✅ 修复：根据价格计算 HAF
+        releasedHAF: releasedHAF.toFixed(4),
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),

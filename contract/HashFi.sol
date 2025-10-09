@@ -81,6 +81,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 amount; // 质押的USDT数量 (18位小数)
         uint256 totalQuota; // 总释放额度 (USDT本位)
         uint256 releasedQuota; // 已释放额度 (USDT本位)
+        uint256 totalQuotaHaf; // 总释放额度 (HAF数量) - 用于准确判断出局
+        uint256 releasedHaf; // 已释放HAF数量 - 用于准确判断出局
         uint256 startTime;
         uint256 lastSettleTime; // 上次结算收益的时间
         bool isCompleted;
@@ -281,7 +283,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 orderId = orders.length;
         uint256 quota = _amount.mul(stakingLevels[level].multiplier).div(100);
         
-        orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, block.timestamp, block.timestamp, false));
+        // 计算总释放HAF额度：quota(USDT) / 当前HAF价格
+        uint256 quotaHaf = quota.mul(PRICE_PRECISION).div(hafPrice);
+        
+        orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, quotaHaf, 0, block.timestamp, block.timestamp, false));
         User storage user = users[msg.sender];
         user.orderIds.push(orderId);
         user.totalStakedAmount = user.totalStakedAmount.add(_amount);
@@ -406,31 +411,28 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         User storage user = users[order.user];
         uint256 baseDailyRate = stakingLevels[order.level].dailyRate; // 70/80/90/100 (万分之一)
         
-        // ✅ 修复1: 每天释放投资额(amount)的百分比，而不是总额度(totalQuota)
+        // ✅ 修复1: 每天释放投资额的百分比，计算USDT额度
         // 例: 投资3000U钻石，1%日释放率，每天释放 = 3000 * 100 / 10000 = 30 USDT
-        // 而不是按总额度4500U * 1% = 45 USDT
-        uint256 baseDailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
-        uint256 baseTotalReleaseUsdt = baseDailyReleaseUsdt.mul(daysPassed);
+        uint256 dailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
         
-        // 团队加速是额外奖励，不影响订单出局额度
-        uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
-        uint256 accelerationReleaseUsdt = 0;
-        if (accelerationBonus > 0) {
-            accelerationReleaseUsdt = baseTotalReleaseUsdt.mul(accelerationBonus).div(100);
-        }
+        // ✅ 修复1: 将每日USDT额度转换为HAF数量
+        // 例: 30 USDT ÷ HAF价格(假设10U) = 3 HAF
+        uint256 dailyReleaseHaf = dailyReleaseUsdt.mul(PRICE_PRECISION).div(hafPrice);
         
-        // 基础释放用于检查订单是否出局
-        uint256 totalReleaseUsdt = baseTotalReleaseUsdt;
+        // 累计天数的基础释放
+        uint256 baseTotalReleaseHaf = dailyReleaseHaf.mul(daysPassed);
+        uint256 baseTotalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
         
-        // 基础释放用于检查订单是否出局
-        uint256 totalReleaseUsdt = baseTotalReleaseUsdt;
+        // ✅ 修复2: 检查HAF数量是否超过总额度（避免价格上涨导致提前出局）
+        uint256 actualBaseReleaseHaf = baseTotalReleaseHaf;
+        uint256 actualBaseReleaseUsdt = baseTotalReleaseUsdt;
         
-        // 检查是否超过总额度（烧伤多余部分）
-        if (order.releasedQuota.add(totalReleaseUsdt) >= order.totalQuota) {
-            totalReleaseUsdt = order.totalQuota.sub(order.releasedQuota);
-            // 如果基础释放已达上限，加速部分也需要按比例调整
-            if (totalReleaseUsdt < baseTotalReleaseUsdt) {
-                accelerationReleaseUsdt = totalReleaseUsdt.mul(accelerationBonus).div(100);
+        if (order.releasedHaf.add(baseTotalReleaseHaf) >= order.totalQuotaHaf) {
+            // 烧伤多余部分
+            actualBaseReleaseHaf = order.totalQuotaHaf.sub(order.releasedHaf);
+            // 按比例调整USDT额度
+            if (baseTotalReleaseHaf > 0) {
+                actualBaseReleaseUsdt = baseTotalReleaseUsdt.mul(actualBaseReleaseHaf).div(baseTotalReleaseHaf);
             }
             order.isCompleted = true;
             
@@ -438,47 +440,51 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             globalStats.totalCompletedOrders = globalStats.totalCompletedOrders.add(1);
             // ================================================
         }
-
-        order.releasedQuota = order.releasedQuota.add(totalReleaseUsdt);
-        // ========== FIXED: 不在结算时更新时间，等提现成功后再更新 ==========
-        // order.lastSettleTime = order.lastSettleTime.add(daysPassed.mul(TIME_UNIT));
-        // 这样 getClaimableRewards() 才能正确计算待提现金额
-        // ================================================
-
-        if (totalReleaseUsdt > 0) {
-            // 90%给用户，10%给创世节点池（只从基础释放中扣除）
-            uint256 userBasePart = totalReleaseUsdt.mul(90).div(100);
-            uint256 genesisPart = totalReleaseUsdt.sub(userBasePart); // 10%给创世节点池
+        
+        // 更新已释放的HAF数量和USDT额度
+        order.releasedHaf = order.releasedHaf.add(actualBaseReleaseHaf);
+        order.releasedQuota = order.releasedQuota.add(actualBaseReleaseUsdt);
+        
+        // ✅ 修复3: 团队加速是额外奖励，基于实际释放的基础部分计算
+        uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
+        uint256 accelerationReleaseUsdt = 0;
+        uint256 accelerationReleaseHaf = 0;
+        
+        if (accelerationBonus > 0 && !order.isCompleted) {
+            // 加速基于实际释放的基础部分
+            accelerationReleaseUsdt = actualBaseReleaseUsdt.mul(accelerationBonus).div(100);
+            accelerationReleaseHaf = actualBaseReleaseHaf.mul(accelerationBonus).div(100);
+        }
+        
+        // ✅ 修复3: 统一分配 - 基础释放90%给用户，10%给创世节点
+        if (actualBaseReleaseUsdt > 0) {
+            uint256 userBasePart = actualBaseReleaseUsdt.mul(90).div(100);
+            uint256 genesisPart = actualBaseReleaseUsdt.sub(userBasePart); // 10%给创世节点池
             
             if (genesisPart > 0) {
                 globalGenesisPool = globalGenesisPool.add(genesisPart);
             }
             
-            // ========== FIXED: 只更新状态，不直接分发代币 ==========
-            // 结算函数只负责计算收益并更新订单状态
-            // 实际的代币分发由 withdraw() 函数统一处理
-            // ================================================
-            
             // 记录基础静态收益
-            uint256 baseStaticHaf = userBasePart.mul(PRICE_PRECISION).div(hafPrice);
+            uint256 baseStaticHaf = actualBaseReleaseHaf.mul(90).div(100);
             _addRewardRecord(order.user, address(0), RewardType.Static, userBasePart, baseStaticHaf);
             
-            // 如果有团队加速，单独记录团队奖励（这是额外的，不从订单额度扣除）
-            if (accelerationReleaseUsdt > 0) {
-                uint256 teamBonusUsdt = accelerationReleaseUsdt.mul(90).div(100); // 加速部分也是90%给用户
-                uint256 teamGenesisUsdt = accelerationReleaseUsdt.sub(teamBonusUsdt); // 10%给创世节点
-                
-                if (teamGenesisUsdt > 0) {
-                    globalGenesisPool = globalGenesisPool.add(teamGenesisUsdt);
-                }
-                
-                uint256 teamBonusHaf = teamBonusUsdt.mul(PRICE_PRECISION).div(hafPrice);
-                _addRewardRecord(order.user, address(0), RewardType.Team, teamBonusUsdt, teamBonusHaf);
-            }
-
             // 更新用户总静态产出（用于计算分享奖）
             user.totalStaticOutput = user.totalStaticOutput.add(userBasePart);
             _distributeShareRewards(order.user, userBasePart);
+        }
+        
+        // ✅ 修复3: 团队加速部分也是90%给用户，10%给创世节点
+        if (accelerationReleaseUsdt > 0) {
+            uint256 teamBonusUsdt = accelerationReleaseUsdt.mul(90).div(100);
+            uint256 teamGenesisUsdt = accelerationReleaseUsdt.sub(teamBonusUsdt); // 10%给创世节点
+            
+            if (teamGenesisUsdt > 0) {
+                globalGenesisPool = globalGenesisPool.add(teamGenesisUsdt);
+            }
+            
+            uint256 teamBonusHaf = accelerationReleaseHaf.mul(90).div(100);
+            _addRewardRecord(order.user, address(0), RewardType.Team, teamBonusUsdt, teamBonusHaf);
         }
     }
     
@@ -619,16 +625,23 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
 
-        // ✅ 修复2: 实现"推几人拿几代"机制
-        // 获取推荐人的直推人数，决定能拿几代分享奖
+        // ✅ 修复4: 实现"推几人拿几代"机制
+        // 计算推荐人的有效直推人数（已投资的用户）
         for (uint i = 0; i < 10 && referrer != address(0); i++) {
             User storage referrerUser = users[referrer];
-            uint256 referrerDirectCount = referrerUser.directReferrals.length;
             
-            // 推几人拿几代：如果推荐人的直推人数 <= 当前代数，则停止
-            // 例如：推荐人只推了3个人，那只能拿到第1、2、3代的分享奖
-            if (referrerDirectCount <= i) {
-                break; // 推荐人直推人数不足，无法获得更深层的分享奖
+            // ✅ 统计有效直推人数（已投资的用户）
+            uint256 activeDirectCount = 0;
+            for (uint j = 0; j < referrerUser.directReferrals.length; j++) {
+                if (users[referrerUser.directReferrals[j]].totalStakedAmount > 0) {
+                    activeDirectCount++;
+                }
+            }
+            
+            // 推几人拿几代：如果推荐人的有效直推人数 <= 当前代数，则停止
+            // 例如：推荐人只推了3个已投资的人，那只能拿到第1、2、3代的分享奖
+            if (activeDirectCount <= i) {
+                break; // 推荐人有效直推人数不足，无法获得更深层的分享奖
             }
             
             // 计算分享奖：伞下静态收益的5%
@@ -752,36 +765,41 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
             if (daysPassed == 0) continue;
 
-            // ✅ 基础释放：按投资额计算
+            // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF
             uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
-            uint256 baseDailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
-            uint256 baseTotalReleaseUsdt = baseDailyReleaseUsdt.mul(daysPassed);
+            uint256 dailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
+            uint256 dailyReleaseHaf = dailyReleaseUsdt.mul(PRICE_PRECISION).div(hafPrice);
             
-            // 团队加速是额外奖励
-            uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
-            uint256 accelerationReleaseUsdt = 0;
-            if (accelerationBonus > 0) {
-                accelerationReleaseUsdt = baseTotalReleaseUsdt.mul(accelerationBonus).div(100);
-            }
+            uint256 baseTotalReleaseHaf = dailyReleaseHaf.mul(daysPassed);
+            uint256 baseTotalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
             
-            // 检查基础释放是否超过额度
-            uint256 releaseUsdt = baseTotalReleaseUsdt;
-            if (order.releasedQuota.add(releaseUsdt) >= order.totalQuota) {
-                releaseUsdt = order.totalQuota.sub(order.releasedQuota);
-                // 如果基础释放已达上限，加速部分也需要按比例调整
-                if (releaseUsdt < baseTotalReleaseUsdt) {
-                    accelerationReleaseUsdt = releaseUsdt.mul(accelerationBonus).div(100);
+            // 检查HAF数量是否超过总额度
+            uint256 actualReleaseHaf = baseTotalReleaseHaf;
+            uint256 actualReleaseUsdt = baseTotalReleaseUsdt;
+            
+            if (order.releasedHaf.add(baseTotalReleaseHaf) >= order.totalQuotaHaf) {
+                actualReleaseHaf = order.totalQuotaHaf.sub(order.releasedHaf);
+                if (baseTotalReleaseHaf > 0) {
+                    actualReleaseUsdt = baseTotalReleaseUsdt.mul(actualReleaseHaf).div(baseTotalReleaseHaf);
                 }
             }
             
-            // 计算总HAF收益（基础90% + 加速90%）
-            uint256 baseHaf = releaseUsdt.mul(90).div(100).mul(PRICE_PRECISION).div(hafPrice);
+            // 团队加速是额外奖励
+            uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
             uint256 accelerationHaf = 0;
-            if (accelerationReleaseUsdt > 0) {
-                accelerationHaf = accelerationReleaseUsdt.mul(90).div(100).mul(PRICE_PRECISION).div(hafPrice);
+            
+            if (accelerationBonus > 0) {
+                accelerationHaf = actualReleaseHaf.mul(accelerationBonus).div(100);
             }
             
-            total = total.add(baseHaf).add(accelerationHaf);
+            // 计算总HAF收益（基础90% + 加速90%）
+            uint256 baseHaf = actualReleaseHaf.mul(90).div(100);
+            uint256 bonusHaf = 0;
+            if (accelerationHaf > 0) {
+                bonusHaf = accelerationHaf.mul(90).div(100);
+            }
+            
+            total = total.add(baseHaf).add(bonusHaf);
         }
         
         return total;
@@ -890,37 +908,50 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
         if (daysPassed == 0) return (0, 0);
 
-        // ✅ 基础释放：按投资额计算
+        // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF
         uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
-        uint256 baseDailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
-        uint256 baseTotalReleaseUsdt = baseDailyReleaseUsdt.mul(daysPassed);
+        uint256 dailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
+        uint256 dailyReleaseHaf = dailyReleaseUsdt.mul(PRICE_PRECISION).div(hafPrice);
+        
+        uint256 baseTotalReleaseHaf = dailyReleaseHaf.mul(daysPassed);
+        uint256 baseTotalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
+        
+        // 检查HAF数量是否超过总额度
+        uint256 actualReleaseHaf = baseTotalReleaseHaf;
+        uint256 actualReleaseUsdt = baseTotalReleaseUsdt;
+        
+        if (order.releasedHaf.add(baseTotalReleaseHaf) >= order.totalQuotaHaf) {
+            actualReleaseHaf = order.totalQuotaHaf.sub(order.releasedHaf);
+            if (baseTotalReleaseHaf > 0) {
+                actualReleaseUsdt = baseTotalReleaseUsdt.mul(actualReleaseHaf).div(baseTotalReleaseHaf);
+            }
+        }
         
         // 团队加速是额外奖励
         uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
-        uint256 accelerationReleaseUsdt = 0;
-        if (accelerationBonus > 0) {
-            accelerationReleaseUsdt = baseTotalReleaseUsdt.mul(accelerationBonus).div(100);
-        }
+        uint256 accelerationHaf = 0;
+        uint256 accelerationUsdt = 0;
         
-        // 检查基础释放是否超过额度
-        uint256 totalReleaseUsdt = baseTotalReleaseUsdt;
-        if (order.releasedQuota.add(totalReleaseUsdt) >= order.totalQuota) {
-            totalReleaseUsdt = order.totalQuota.sub(order.releasedQuota);
-            // 如果基础释放已达上限，加速部分也需要按比例调整
-            if (totalReleaseUsdt < baseTotalReleaseUsdt) {
-                accelerationReleaseUsdt = totalReleaseUsdt.mul(accelerationBonus).div(100);
-            }
+        if (accelerationBonus > 0) {
+            accelerationHaf = actualReleaseHaf.mul(accelerationBonus).div(100);
+            accelerationUsdt = actualReleaseUsdt.mul(accelerationBonus).div(100);
         }
 
         // 计算总USDT和HAF（基础90% + 加速90%）
-        uint256 userPartUsdt = totalReleaseUsdt.mul(90).div(100);
+        uint256 userPartUsdt = actualReleaseUsdt.mul(90).div(100);
         uint256 accelerationPartUsdt = 0;
-        if (accelerationReleaseUsdt > 0) {
-            accelerationPartUsdt = accelerationReleaseUsdt.mul(90).div(100);
+        if (accelerationUsdt > 0) {
+            accelerationPartUsdt = accelerationUsdt.mul(90).div(100);
+        }
+        
+        uint256 userPartHaf = actualReleaseHaf.mul(90).div(100);
+        uint256 accelerationPartHaf = 0;
+        if (accelerationHaf > 0) {
+            accelerationPartHaf = accelerationHaf.mul(90).div(100);
         }
         
         pendingUsdt = userPartUsdt.add(accelerationPartUsdt);
-        pendingHaf = pendingUsdt.mul(PRICE_PRECISION).div(hafPrice);
+        pendingHaf = userPartHaf.add(accelerationPartHaf);
         
         return (pendingUsdt, pendingHaf);
     }

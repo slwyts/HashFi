@@ -21,7 +21,19 @@ if (!CHAIN_ID) {
 }
 
 // --- 类型定义 ---
-export interface Order { id: number; user: Address; level: number; amount: bigint; totalQuota: bigint; releasedQuota: bigint; startTime: bigint; lastSettleTime: bigint; isCompleted: boolean; }
+export interface Order { 
+  id: number; 
+  user: Address; 
+  level: number; 
+  amount: bigint; 
+  totalQuota: bigint; 
+  releasedQuota: bigint; 
+  totalQuotaHaf: bigint; // 新增：总释放HAF额度
+  releasedHaf: bigint;   // 新增：已释放HAF数量
+  startTime: bigint; 
+  lastSettleTime: bigint; 
+  isCompleted: boolean; 
+}
 export interface TeamMemberInfo { memberAddress: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; }
 export interface RewardRecord { timestamp: bigint; fromUser: Address; rewardType: number; usdtAmount: bigint; hafAmount: bigint; }
 export interface UserInfo { referrer: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; directReferrals: Address[]; orderIds: bigint[]; isGenesisNode: boolean; genesisDividendsWithdrawn: bigint; dynamicRewardTotal: bigint; dynamicRewardReleased: bigint; dynamicRewardStartTime: bigint; dynamicRewardClaimed: bigint; totalStaticOutput: bigint; rewardRecords: RewardRecord[]; }
