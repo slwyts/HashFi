@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full overflow-hidden rounded-xl shadow-lg mb-4">
     <!-- 轮播图片容器 -->
-    <div class="relative h-40 md:h-48">
+    <div class="relative h-52 md:h-80">
       <transition-group name="fade" mode="out-in">
         <div
           v-for="(banner, index) in banners"
@@ -15,8 +15,8 @@
             class="w-full h-full object-cover"
             @click="handleBannerClick(banner)"
           />
-          <!-- 渐变遮罩 -->
-          <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+          <!-- 渐变遮罩 - 仅底部区域 -->
+          <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/40 to-transparent"></div>
           <!-- 标题 -->
           <div class="absolute bottom-0 left-0 right-0 p-4 text-white">
             <h3 class="font-bold text-lg mb-1">{{ banner.title }}</h3>
