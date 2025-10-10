@@ -125,7 +125,8 @@
     "dailyEarningsPerT": "Daily Earnings per T",
     "btcPrice": "BTC Price",
     "totalMined": "Total Mined",
-    "yesterdayMined": "Yesterday Mined"
+    "yesterdayMined": "Yesterday Mined",
+    "difficulty": "Current Difficulty"
   },
   "orderDetail": {
     "title": "Order Details",

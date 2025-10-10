@@ -126,7 +126,8 @@
     "dailyEarningsPerT": "每T日收益",
     "btcPrice": "BTC价格",
     "totalMined": "累计已挖",
-    "yesterdayMined": "昨日已挖"
+    "yesterdayMined": "昨日已挖",
+    "difficulty": "当前难度"
   },
   "orderDetail": {
     "title": "订单详情",
