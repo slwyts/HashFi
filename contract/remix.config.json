@@ -1,0 +1,36 @@
+{
+  "project": "remixDefault",
+  "version": "1.0.0",
+  "IDE": "remix.ethereum.org",
+  "solidity-compiler": {
+    "language": "Solidity",
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 20000
+      },
+      "viaIR": true, 
+      "evmVersion": "cancun",
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "metadata",
+            "devdoc",
+            "userdoc",
+            "storageLayout",
+            "evm.legacyAssembly",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "evm.gasEstimates",
+            "evm.assembly"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -144,15 +144,15 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     uint256 public withdrawalFeeRate = 5; // 提现手续费率, 5%
     uint256 public swapFeeRate = 1; // 闪兑手续费, 1%
     
-    // ========== NEW: 价格自动上涨机制 ==========
+    // ========== 价格自动上涨机制 ==========
     uint256 public lastPriceUpdateTime; // 上次价格更新时间
     uint256 public dailyPriceIncreaseRate = 1; // 每日涨幅 千分之一 = 0.1%
     bool public autoPriceUpdateEnabled = true; // 是否启用自动涨价
     // ================================================
     
-    // ========== NEW: 测试网时间单位配置 ==========
-    uint256 public TIME_UNIT; // 时间单位 (生产: 1 days, 测试: 3 minutes)
-    uint256 public DYNAMIC_RELEASE_PERIOD; // 动态奖励释放周期 (生产: 100 days, 测试: 500 minutes)
+    // ========== 测试网时间单位配置 ==========
+    uint256 public TIME_UNIT; // 时间单位 
+    uint256 public DYNAMIC_RELEASE_PERIOD; // 动态奖励释放周期
     // ================================================
 
     // 配置信息
@@ -163,42 +163,32 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     uint256 public genesisNodeCost = 5000 * 1e18;
     uint256 public constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
     uint256 public globalGenesisPool; // 全局创世节点分红池 (USDT本位)
-    uint256 public totalGenesisShares; // 总分红权数 (用于计算每份分红) - 已废弃，改用平均分配
+    uint256 public totalGenesisShares;
     address[] public genesisNodes;
-    address[] public activeGenesisNodes; // ========== NEW: 活跃的创世节点列表 ==========
-    address[] public pendingGenesisApplications; // ========== NEW: 待审核申请列表 ==========
-    mapping(address => bool) public genesisNodeApplications; // 待审核的创世节点申请
-    mapping(address => bool) public isActiveGenesisNode; // ========== NEW: 节点是否活跃 ==========
+    address[] public activeGenesisNodes;
+    address[] public pendingGenesisApplications;
+    mapping(address => bool) public genesisNodeApplications; 
+    mapping(address => bool) public isActiveGenesisNode;
     
-    // ========== NEW: BTC矿池数据 ==========
     BtcMiningStats public btcStats;
     
-    // ========== NEW: 全局统计数据 ==========
     GlobalStatistics public globalStats;
-    // ================================================
 
-    // --- 构造函数 ---
     constructor(address _usdtAddress, address _initialOwner) ERC20("Hash Fi Token", "HAF") Ownable(_initialOwner) {
-        // ========== MODIFIED: 金库模型 ==========
-        // 在合约创建时，将2亿HAF代币全部铸造到合约自身地址，作为金库。
+
         _mint(address(this), TOTAL_SUPPLY);
-        // =====================================
 
         usdtToken = IERC20(_usdtAddress);
-        hafPrice = 1 * PRICE_PRECISION; // 初始价格: 1 HAF = 1 USDT
-        lastPriceUpdateTime = block.timestamp; // 初始化价格更新时间
-        
-        // ========== NEW: 根据chainID设置时间单位 ==========
-        // Sepolia Testnet (chainID: 11155111) 使用3分钟作为时间单位
-        // 主网使用1天作为时间单位
+        hafPrice = 1 * PRICE_PRECISION;
+        lastPriceUpdateTime = block.timestamp;
+
         if (block.chainid == 11155111) {
-            TIME_UNIT = 3 minutes; // 测试网: 3分钟
-            DYNAMIC_RELEASE_PERIOD = 50 minutes; // 测试网: 500分钟 (约8.3小时, 相当于100天的比例)
+            TIME_UNIT = 10 minutes; 
+            DYNAMIC_RELEASE_PERIOD = 100 minutes; 
         } else {
             TIME_UNIT = 1 days; // 主网: 1天
             DYNAMIC_RELEASE_PERIOD = 100 days; // 主网: 100天
         }
-        // ================================================
 
         // 初始化质押级别
         stakingLevels[1] = StakingLevelInfo(100 * 1e18, 499 * 1e18, 150, 70);
@@ -625,46 +615,32 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     function _distributeShareRewards(address _user, uint256 _staticRewardUsdt) internal {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
-
-        // ✅ 修复4: 实现"推几人拿几代"机制
-        // 计算推荐人的有效直推人数（已投资的用户）
+        
         for (uint i = 0; i < 10 && referrer != address(0); i++) {
             User storage referrerUser = users[referrer];
-            
-            // ✅ 统计有效直推人数（已投资的用户）
             uint256 activeDirectCount = 0;
             for (uint j = 0; j < referrerUser.directReferrals.length; j++) {
                 if (users[referrerUser.directReferrals[j]].totalStakedAmount > 0) {
                     activeDirectCount++;
                 }
             }
-            
-            // 推几人拿几代：如果推荐人的有效直推人数 <= 当前代数，则停止
-            // 例如：推荐人只推了3个已投资的人，那只能拿到第1、2、3代的分享奖
+
             if (activeDirectCount <= i) {
-                break; // 推荐人有效直推人数不足，无法获得更深层的分享奖
+                break;
             }
             
-            // 计算分享奖：伞下静态收益的5%
             uint256 rewardUsdt = _staticRewardUsdt.mul(5).div(100);
-            
-            // ✅ 烧伤机制：检查推荐人和下级的级别
-            uint8 userLevel = _getUserHighestLevel(_user);
+
             uint8 referrerLevel = _getUserHighestLevel(referrer);
             
-            // 如果推荐人级别低于钻石(4)，需要检查烧伤
             if (referrerLevel < 4) {
-                // 获取推荐人可以拿的最大金额（基于其最高投资级别）
                 uint256 referrerMaxAmount = stakingLevels[referrerLevel].maxAmount;
                 uint256 userTotalStaked = users[_user].totalStakedAmount;
                 
-                // 如果下级投资额超过推荐人的级别上限，需要烧伤
                 if (userTotalStaked > referrerMaxAmount) {
-                    // 按比例缩减分享奖
                     rewardUsdt = rewardUsdt.mul(referrerMaxAmount).div(userTotalStaked);
                 }
             }
-            // 如果推荐人是钻石级别(4)，无烧伤，可以拿全额
 
             if(rewardUsdt > 0){
                 uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
