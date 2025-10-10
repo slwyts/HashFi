@@ -1,145 +1,275 @@
 <template>
-  <div class="bg-gray-50 min-h-screen">
-    <div class="bg-white p-4 flex items-center shadow-sm">
-      <button @click="router.back()" class="mr-4 p-1">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-      </button>
-      <h2 class="text-xl font-bold">{{ t('nodeCenter.title') }}</h2>
+  <div class="bg-gradient-to-b from-gray-50 to-white min-h-screen pb-20">
+    <!-- Header -->
+    <div class="relative bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 flex items-center shadow-xl rounded-b-3xl overflow-hidden">
+      <!-- 装饰性背景圆圈 -->
+      <div class="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+      
+      <div class="relative z-10 flex items-center w-full">
+        <button @click="router.back()" class="mr-4 p-1 hover:bg-white/20 rounded-lg transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h2 class="text-xl font-bold text-white">创世节点中心</h2>
+      </div>
     </div>
 
     <!-- 申请页面 -->
-    <div v-if="!userIsNode && !isPendingApproval" class="p-4">
-      <div class="bg-white rounded-xl shadow-sm p-6 text-center">
-        <img src="/icons/ecosystem.svg" class="w-20 h-20 mx-auto mb-4" alt="Genesis Node">
-        <h3 class="text-2xl font-bold mb-2">{{ t('nodeCenter.applyTitle') }}</h3>
-        <p class="text-gray-600 mb-4">{{ t('nodeCenter.applyDesc') }}</p>
+    <div v-if="!userIsNode && !isPendingApproval" class="p-4 space-y-6">
+      <!-- 节点费用信息 -->
+      <div class="card p-6 relative overflow-hidden">
+        <!-- 装饰性背景 -->
+        <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-2xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-2xl"></div>
         
-        <!-- 费用显示 -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <p class="text-sm text-gray-600 mb-1">{{ t('nodeCenter.applicationFee') }}</p>
-          <p class="text-3xl font-bold text-blue-600">{{ nodeCostDisplay }} USDT</p>
-          <p class="text-xs text-gray-500 mt-2">{{ t('nodeCenter.yourBalance') }}: {{ usdtBalanceDisplay }} USDT</p>
+        <div class="relative z-10 text-center">
+          <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">成为创世节点</h3>
+          <p class="text-gray-600 mb-6">享受平台全球分红权益，共建生态未来</p>
         </div>
         
-        <div class="text-left space-y-3 mb-8">
-            <div class="flex items-start">
-                <span class="bg-blue-500 rounded-full text-white text-xs w-5 h-5 flex items-center justify-center font-bold mr-3 mt-1">1</span>
-                <p><span class="font-bold">{{ t('nodeCenter.condition') }}: </span>{{ t('nodeCenter.conditionDesc') }}</p>
-            </div>
-            <div class="flex items-start">
-                <span class="bg-blue-500 rounded-full text-white text-xs w-5 h-5 flex items-center justify-center font-bold mr-3 mt-1">2</span>
-                <p><span class="font-bold">{{ t('nodeCenter.rights') }}: </span>{{ t('nodeCenter.rightsDesc') }}</p>
-            </div>
-             <div class="flex items-start">
-                <span class="bg-blue-500 rounded-full text-white text-xs w-5 h-5 flex items-center justify-center font-bold mr-3 mt-1">3</span>
-                <p><span class="font-bold">{{ t('nodeCenter.exit') }}: </span>{{ t('nodeCenter.exitDesc') }}</p>
-            </div>
+        <!-- 费用信息 -->
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-6">
+          <div class="text-center">
+            <p class="text-sm text-gray-600 mb-2">申请费用</p>
+            <p class="text-4xl font-bold text-blue-600 mb-2">{{ nodeCostDisplay }} USDT</p>
+            <p class="text-sm text-gray-500">您的余额: {{ usdtBalanceDisplay }} USDT</p>
+          </div>
         </div>
 
+        <!-- 节点权益 -->
+        <div class="space-y-4 mb-8">
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+              <span class="text-white text-sm font-bold">1</span>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800">平台全球分红</h4>
+              <p class="text-sm text-gray-600">享受平台所有用户质押手续费的全球分红权益</p>
+            </div>
+          </div>
+          
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+              <span class="text-white text-sm font-bold">2</span>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800">3倍退出保障</h4>
+              <p class="text-sm text-gray-600">累计分红达到3倍申请费用后可申请退出并返还本金</p>
+            </div>
+          </div>
+          
+          <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+              <span class="text-white text-sm font-bold">3</span>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800">生态治理权</h4>
+              <p class="text-sm text-gray-600">参与平台重大决策投票，共建去中心化生态</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 申请按钮 -->
         <button 
-          @click="handleButtonClick"
-          class="w-full text-white font-bold py-3 rounded-lg text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+          @click="handleApply"
+          :disabled="!canApply || isProcessing"
+          class="w-full py-4 rounded-xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
           :class="{
-            'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700': canApply && !isApproving && !isApplying,
-            'bg-gradient-to-r from-blue-300 to-blue-400 cursor-not-allowed': !canApply || isApproving || isApplying
+            'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white': canApply && !isProcessing,
+            'bg-gray-300 text-gray-500 cursor-not-allowed': !canApply || isProcessing
           }"
-          :disabled="!canApply || isApproving || isApplying"
         >
           {{ buttonText }}
         </button>
+      </div>
+
+      <!-- 全网节点统计 -->
+      <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">全网节点统计</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="text-center bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+            <p class="text-2xl font-bold text-blue-600">{{ activeNodesCount }}</p>
+            <p class="text-sm text-gray-600">活跃节点</p>
+          </div>
+          <div class="text-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+            <p class="text-2xl font-bold text-green-600">{{ totalDividendsDisplay }}</p>
+            <p class="text-sm text-gray-600">分红池(USDT)</p>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- 待审核页面 -->
     <div v-else-if="isPendingApproval" class="p-4">
-      <div class="bg-white rounded-xl shadow-sm p-6 text-center">
-        <div class="w-20 h-20 mx-auto mb-4 bg-yellow-100 rounded-full flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h3 class="text-2xl font-bold mb-2">{{ t('nodeCenter.applicationSubmitted') }}</h3>
-        <p class="text-gray-600 mb-4">{{ t('nodeCenter.pendingReview') }}</p>
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p class="text-sm text-gray-700">{{ t('nodeCenter.reviewNote') }}</p>
+      <div class="card p-6 text-center relative overflow-hidden">
+        <!-- 装饰性背景 -->
+        <div class="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-2xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-2xl"></div>
+        
+        <div class="relative z-10">
+          <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="text-2xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">申请已提交</h3>
+          <p class="text-gray-600 mb-6">您的创世节点申请正在审核中，请耐心等待</p>
+          
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <h4 class="font-semibold text-blue-800 mb-2">审核说明</h4>
+            <ul class="text-sm text-blue-700 text-left space-y-1">
+              <li>• 审核周期通常为1-3个工作日</li>
+              <li>• 审核通过后您将成为正式创世节点</li>
+              <li>• 审核未通过将全额退还申请费用</li>
+            </ul>
+          </div>
+
+          <button 
+            @click="router.back()"
+            class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+          >
+            返回
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- 创世节点页面 -->
-    <div v-else class="p-4">
-      <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-lg">{{ t('nodeCenter.myDividends') }}</h3>
-            <span class="bg-green-100 text-green-700 font-bold py-1 px-3 rounded-full text-sm">{{ t('nodeCenter.nodeActive') }}</span>
-        </div>
-        <div class="text-center mb-4">
-            <p class="text-sm text-gray-500">{{ t('nodeCenter.totalReceived') }} (USDT)</p>
-            <p class="text-4xl font-bold my-1">{{ withdrawnDividends }}</p>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-3 mb-1">
-            <div class="bg-green-500 h-3 rounded-full" :style="{ width: dividendProgress + '%' }"></div>
-        </div>
-        <div class="text-xs text-gray-500 flex justify-between">
-            <span>0</span>
-            <span>{{ maxDividends }} USDT (3x)</span>
+    <!-- 创世节点控制台 -->
+    <div v-else class="p-4 space-y-6">
+      <!-- 节点状态卡片 -->
+      <div class="relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-xl p-6 text-white overflow-hidden">
+        <!-- 装饰性背景圆圈 -->
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+        
+        <div class="relative z-10 flex items-center justify-between mb-4">
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mr-3 shadow-lg">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-white">创世节点</h3>
+              <p class="text-blue-100 opacity-90">Genesis Node</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <div 
+              :class="[
+                'px-3 py-1 rounded-full text-sm font-bold',
+                isStillActiveNode 
+                  ? 'bg-white/20 text-white backdrop-blur-sm' 
+                  : 'bg-white/10 text-white/70 backdrop-blur-sm'
+              ]"
+            >
+              {{ isStillActiveNode ? t('genesisNode.active') : t('genesisNode.exited') }}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div>
-        <h3 class="font-bold text-lg mb-3">{{ t('nodeCenter.dividendRecords') }}</h3>
-        <div v-if="dividendRecords.length > 0" class="bg-white p-4 rounded-xl shadow-sm space-y-3">
-          <div v-for="record in dividendRecords" :key="record.id" class="flex justify-between items-center">
-            <div>
-              <p class="font-semibold">{{ t('nodeCenter.dailyDividend') }}</p>
-              <p class="text-xs text-gray-500 mt-1">{{ record.date }}</p>
-            </div>
-            <p class="font-bold text-green-600">+{{ record.amount.toFixed(2) }} USDT</p>
+      <!-- 分红统计 -->
+      <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">我的分红统计</h3>
+        
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 text-center border border-green-100">
+            <p class="text-2xl font-bold text-green-600">{{ claimableGenesisRewards }}</p>
+            <p class="text-sm text-gray-600">可提取(USDT)</p>
+          </div>
+          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 text-center border border-blue-100">
+            <p class="text-2xl font-bold text-blue-600">{{ withdrawnDividends }}</p>
+            <p class="text-sm text-gray-600">已提取(USDT)</p>
           </div>
         </div>
-        <div v-else class="bg-white p-8 rounded-xl shadow-sm text-center">
-          <img src="/icons/no_data.png" class="w-20 h-20 mx-auto mb-3 opacity-50" alt="No data">
-          <p class="text-gray-400">{{ t('nodeCenter.noRecords') }}</p>
+
+        <!-- 退出进度 -->
+        <div class="mb-6">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-gray-700">退出进度</span>
+            <span class="text-sm text-blue-600 font-semibold">{{ exitProgress }}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div 
+              class="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-300"
+              :style="{ width: exitProgress + '%' }"
+            ></div>
+          </div>
+          <div class="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0 USDT</span>
+            <span>{{ maxWithdrawAmount }} USDT (3x)</span>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">
+            <span v-if="!hasReachedExitCondition">
+              {{ t('genesisNode.exitConditionDescription', { amount: maxWithdrawAmount }) }}
+            </span>
+            <span v-else class="text-blue-600 font-medium">
+              ✅ {{ t('genesisNode.exitConditionMet') }}
+            </span>
+          </p>
+        </div>
+
+        <!-- 提取按钮 -->
+        <button 
+          v-if="parseFloat(claimableGenesisRewards) > 0"
+          @click="handleWithdraw"
+          :disabled="isProcessing"
+          class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:transform-none"
+        >
+          {{ isProcessing ? '提取中...' : `提取 ${claimableGenesisRewards} USDT` }}
+        </button>
+      </div>
+
+      <!-- 全网数据 -->
+      <div class="card p-6">
+        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">全网节点数据</h3>
+        
+        <div class="grid grid-cols-1 gap-4">
+          <div class="flex justify-between items-center py-3 border-b border-blue-100">
+            <span class="text-gray-600">活跃节点数量</span>
+            <span class="font-bold text-blue-600">{{ activeNodesCount }}</span>
+          </div>
+          <div class="flex justify-between items-center py-3 border-b border-blue-100">
+            <span class="text-gray-600">全球分红池</span>
+            <span class="font-bold text-green-600">{{ totalDividendsDisplay }} USDT</span>
+          </div>
+          <div class="flex justify-between items-center py-3">
+            <span class="text-gray-600">平均每节点分红</span>
+            <span class="font-bold text-indigo-600">{{ averageDividendDisplay }} USDT</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAccount, useReadContract, useWriteContract, useBalance, useWaitForTransactionReceipt } from '@wagmi/vue';
-import { formatEther, formatUnits, maxUint256 } from 'viem';
+import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
+import { formatUnits } from 'viem';
+import { useI18n } from 'vue-i18n';
 import abi from '../../contract/abi.json';
-import { useToast } from '@/composables/useToast';
+import { useEnhancedContract } from '@/composables/useEnhancedContract';
+import { toast } from '@/composables/useToast';
 
-const { t } = useI18n();
 const router = useRouter();
-const { address } = useAccount();
-const toast = useToast();
+const { address, isConnected } = useAccount();
+const { t } = useI18n();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 
-// ERC20 ABI
-const ERC20_ABI = [
-  {
-    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
-    name: 'approve',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
-    name: 'allowance',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  }
-] as const;
+const isProcessing = ref(false);
 
 // ========== 1. 获取创世节点费用 ==========
 const { data: genesisNodeCost } = useReadContract({
@@ -166,63 +296,19 @@ const { data: userData, refetch: refetchUser } = useReadContract({
   }
 });
 
-// ========== 调试：读取用户订单 ==========
-const { data: userOrdersData } = useReadContract({
-  address: CONTRACT_ADDRESS,
-  abi,
-  functionName: 'getUserOrders',
-  args: userArgs,
-  query: {
-    enabled: !!address.value,
-  }
-});
-
 // 用户是否是创世节点
 const userIsNode = computed(() => {
   if (!userData.value) return false;
-  return (userData.value as any).isGenesisNode; // ✅ 使用字段名访问
-});
-
-// 用户是否已质押
-const hasStaked = computed(() => {
-  if (!userData.value) return false;
-  
-  // 🔍 调试日志
-  console.log('===== GenesisNode Debug =====');
-  console.log('userData.value:', userData.value);
-  console.log('Type of userData:', typeof userData.value);
-  console.log('Is Array:', Array.isArray(userData.value));
-  console.log('Keys:', Object.keys(userData.value || {}));
-  console.log('userOrders:', userOrdersData.value);
-  console.log('userOrders length:', Array.isArray(userOrdersData.value) ? userOrdersData.value.length : 'not array');
-  
-  const totalStaked = (userData.value as any).totalStakedAmount; // ✅ 使用字段名访问
-  console.log('totalStakedAmount:', totalStaked);
-  console.log('totalStakedAmount type:', typeof totalStaked);
-  console.log('totalStakedAmount > 0:', totalStaked && totalStaked > 0n);
-  
-  // 方法1: 检查 totalStakedAmount
-  const method1 = totalStaked && totalStaked > 0n;
-  
-  // 方法2: 检查是否有订单
-  const hasOrders = userOrdersData.value && Array.isArray(userOrdersData.value) && userOrdersData.value.length > 0;
-  console.log('Has orders:', hasOrders);
-  
-  console.log('Final result - method1:', method1, 'method2:', hasOrders);
-  console.log('============================');
-  
-  // 使用订单数量作为判断依据（更可靠）
-  return hasOrders || method1;
+  const userArray = userData.value as any[];
+  return userArray[4]; // isGenesisNode 是第5个元素（索引4）
 });
 
 // ========== 3. 获取申请状态 ==========
-const applicationArgs = computed(() => address.value ? [address.value] as const : undefined);
-
 const { data: applicationPending } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'genesisNodeApplications',
-  args: applicationArgs,
+  args: userArgs,
   query: {
     enabled: !!address.value,
   }
@@ -230,28 +316,56 @@ const { data: applicationPending } = useReadContract({
 
 const isPendingApproval = computed(() => !!applicationPending.value);
 
-// ========== 4. 已提取分红（从 users 读取）==========
-// 已提取分红
+// ========== 4. 获取可提取的创世分红 ==========
+const { data: claimableRewards } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'getClaimableRewards',
+  args: userArgs,
+  query: {
+    enabled: !!address.value && userIsNode.value,
+  }
+});
+
+const claimableGenesisRewards = computed(() => {
+  if (!claimableRewards.value || !userIsNode.value) return '0.00';
+  const rewards = claimableRewards.value as [bigint, bigint, bigint];
+  const genesisReward = rewards[2]; // 第三个是创世节点分红
+  return parseFloat(formatUnits(genesisReward, 18)).toFixed(2);
+});
+
+// ========== 5. 已提取分红 ==========
 const withdrawnDividends = computed(() => {
   if (!userData.value) return '0.00';
-  const withdrawn = (userData.value as any).genesisDividendsWithdrawn; // ✅ 使用字段名访问
+  const userArray = userData.value as any[];
+  const withdrawn = userArray[5]; // genesisDividendsWithdrawn 是第6个元素（索引5）
   if (!withdrawn) return '0.00';
   return parseFloat(formatUnits(withdrawn as bigint, 18)).toFixed(2);
 });
 
-// 最大分红额度 (3倍)
-const maxDividends = computed(() => {
+// ========== 6. 退出进度计算 ==========
+const maxWithdrawAmount = computed(() => {
   return (parseFloat(nodeCostDisplay.value) * 3).toFixed(0);
 });
 
-// 分红进度百分比
-const dividendProgress = computed(() => {
+const exitProgress = computed(() => {
   const withdrawn = parseFloat(withdrawnDividends.value);
-  const max = parseFloat(maxDividends.value);
-  return max > 0 ? ((withdrawn / max) * 100).toFixed(1) : '0';
+  const max = parseFloat(maxWithdrawAmount.value);
+  return max > 0 ? Math.min((withdrawn / max) * 100, 100).toFixed(1) : '0';
 });
 
-// ========== 5. 获取 USDT 余额 ==========
+// ========== 检查是否已达到退出条件 ==========
+const hasReachedExitCondition = computed(() => {
+  return parseFloat(exitProgress.value) >= 100;
+});
+
+const isStillActiveNode = computed(() => {
+  if (!activeGenesisNodes.value || !address.value) return false;
+  const activeNodes = activeGenesisNodes.value as string[];
+  return activeNodes.some(node => node.toLowerCase() === address.value!.toLowerCase());
+});
+
+// ========== 7. 获取 USDT 余额 ==========
 const { data: usdtBalance } = useBalance({
   address: address,
   token: USDT_ADDRESS,
@@ -265,93 +379,61 @@ const usdtBalanceDisplay = computed(() => {
   return parseFloat(formatUnits(usdtBalance.value.value, 18)).toFixed(2);
 });
 
-// ========== 6. USDT 授权检查 ==========
-const allowanceArgs = computed(() => {
-  if (!address.value) return undefined;
-  return [address.value, CONTRACT_ADDRESS] as const;
+// ========== 8. 获取全网节点数据 ==========
+const { data: activeGenesisNodes } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'getActiveGenesisNodes',
 });
 
-const { data: allowance, refetch: refetchAllowance } = useReadContract({
-  address: USDT_ADDRESS,
-  abi: ERC20_ABI,
-  functionName: 'allowance',
-  args: allowanceArgs,
+const activeNodesCount = computed(() => {
+  if (!activeGenesisNodes.value) return '0';
+  return (activeGenesisNodes.value as string[]).length.toString();
+});
+
+const { data: globalGenesisPool } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'globalGenesisPool',
+});
+
+const totalDividendsDisplay = computed(() => {
+  if (!globalGenesisPool.value) return '0.00';
+  return parseFloat(formatUnits(globalGenesisPool.value as bigint, 18)).toFixed(2);
+});
+
+const averageDividendDisplay = computed(() => {
+  const total = parseFloat(totalDividendsDisplay.value);
+  const count = parseInt(activeNodesCount.value);
+  if (count === 0) return '0.00';
+  return (total / count).toFixed(2);
+});
+
+// ========== 9. 检查用户是否已质押 ==========
+const { data: userOrders } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'getUserOrders',
+  args: userArgs,
   query: {
     enabled: !!address.value,
-    refetchInterval: 3000,
   }
 });
 
-const needsApproval = computed(() => {
-  if (!address.value || !genesisNodeCost.value || !allowance.value) return true;
-  return (allowance.value as bigint) < (genesisNodeCost.value as bigint);
+const hasStaked = computed(() => {
+  if (!userData.value) return false;
+  
+  // userData.value 是一个数组，按照ABI顺序：
+  // [referrer, teamLevel, totalStakedAmount, teamTotalPerformance, isGenesisNode, ...]
+  const userArray = userData.value as any[];
+  const totalStaked = userArray[2]; // totalStakedAmount 是第3个元素（索引2）
+  
+  return totalStaked && totalStaked > 0n;
 });
 
-// ========== 7. 授权 USDT ==========
-const { data: approveHash, writeContract: approve, isPending: isApproving } = useWriteContract();
-
-const { isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({
-  hash: approveHash,
-});
-
-const handleApprove = async () => {
-  if (!address.value) return;
-
-  try {
-    console.log('📝 授权 USDT (无限)');
-    await approve({
-      address: USDT_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [CONTRACT_ADDRESS, maxUint256],
-    });
-  } catch (error: any) {
-    console.error('Approve error:', error);
-    toast.error(error.message || t('common.error'));
-  }
-};
-
-watch(() => isApproveSuccess.value, (success) => {
-  if (success) {
-    toast.success(t('stakingPage.approveSuccess'));
-    refetchAllowance();
-  }
-});
-
-// ========== 8. 申请创世节点 ==========
-const { data: applyHash, writeContract: apply, isPending: isApplying } = useWriteContract();
-
-const { isSuccess: isApplySuccess } = useWaitForTransactionReceipt({
-  hash: applyHash,
-});
-
-const handleApply = async () => {
-  if (!address.value) return;
-
-  try {
-    console.log('📝 申请创世节点');
-    await apply({
-      address: CONTRACT_ADDRESS,
-      abi,
-      functionName: 'applyForGenesisNode',
-      args: [], // 无参数函数
-    });
-  } catch (error: any) {
-    console.error('Apply error:', error);
-    toast.error(error.message || t('common.error'));
-  }
-};
-
-watch(() => isApplySuccess.value, (success) => {
-  if (success) {
-    toast.success(t('nodeCenter.applySuccess'));
-    refetchUser();
-  }
-});
-
-// ========== 9. 按钮状态 ==========
+// ========== 10. 按钮状态和处理 ==========
 const canApply = computed(() => {
-  if (!address.value) return false;
+  if (!address.value || !isConnected.value) return false;
   if (!hasStaked.value) return false;
   if (userIsNode.value || isPendingApproval.value) return false;
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) return false;
@@ -359,32 +441,104 @@ const canApply = computed(() => {
 });
 
 const buttonText = computed(() => {
-  if (!address.value) return t('common.connectWallet');
-  if (!hasStaked.value) return t('nodeCenter.mustStakeFirst');
-  if (userIsNode.value) return t('nodeCenter.alreadyNode');
-  if (isPendingApproval.value) return t('nodeCenter.pendingApproval');
+  if (!address.value || !isConnected.value) return t('common.connectWallet');
+  if (!hasStaked.value) return t('genesisNode.pleaseStakeFirst');
+  if (userIsNode.value) return t('genesisNode.alreadyGenesisNode');
+  if (isPendingApproval.value) return t('genesisNode.applicationPending');
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) {
-    return t('nodeCenter.insufficientBalance');
+    return t('genesisNode.insufficientUsdt');
   }
-  if (needsApproval.value && !isApproving.value) return t('nodeCenter.approveUSDT');
-  if (isApproving.value) return t('nodeCenter.approving');
-  if (isApplying.value) return t('nodeCenter.applying');
-  return t('nodeCenter.applyNow');
+  if (isProcessing.value) return t('genesisNode.applying');
+  return t('genesisNode.applyNow');
 });
 
-const handleButtonClick = () => {
+// ========== 11. 申请处理 ==========
+const { callContractWithRefresh } = useEnhancedContract();
+
+const handleApply = async () => {
   if (!canApply.value) return;
-  if (needsApproval.value) {
-    handleApprove();
-  } else {
-    handleApply();
+  
+  isProcessing.value = true;
+  
+  try {
+    await callContractWithRefresh({
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'applyForGenesisNode',
+      args: [],
+      pendingMessage: '申请创世节点中...',
+      successMessage: '创世节点申请已提交，等待审核！',
+      operation: 'Apply for Genesis Node',
+      onConfirmed: () => {
+        refetchUser();
+      }
+    }, {});
+    
+  } catch (error: any) {
+    console.error('Apply genesis node error:', error);
+    
+    // 处理常见错误
+    let errorMessage = '申请失败';
+    if (error.message?.includes('User must stake first')) {
+      errorMessage = '请先进行质押';
+    } else if (error.message?.includes('Already a genesis node')) {
+      errorMessage = '您已经是创世节点了';
+    } else if (error.message?.includes('Application already pending')) {
+      errorMessage = '申请已提交，请等待审核';
+    } else if (error.message?.includes('insufficient allowance')) {
+      errorMessage = '请先授权USDT';
+    }
+    
+    toast.error(errorMessage);
+  } finally {
+    isProcessing.value = false;
   }
 };
 
-// 模拟的分红记录数据 (TODO: 从合约读取)
-const dividendRecords = computed<Array<{ id: number; amount: number; date: string }>>(() => {
-  // 这里应该从 getRewardRecords 读取创世节点分红记录
-  // 暂时返回空数组
-  return [];
+// ========== 12. 提取分红 ==========
+const handleWithdraw = async () => {
+  if (!address.value || parseFloat(claimableGenesisRewards.value) === 0) return;
+  
+  isProcessing.value = true;
+  
+  try {
+    await callContractWithRefresh({
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'withdraw',
+      args: [],
+      pendingMessage: '提取分红中...',
+      successMessage: `成功提取 ${claimableGenesisRewards.value} USDT 分红！`,
+      operation: 'Withdraw Genesis Rewards',
+      onConfirmed: () => {
+        refetchUser();
+      }
+    }, {});
+    
+  } catch (error: any) {
+    console.error('Withdraw error:', error);
+    toast.error('提取失败: ' + (error.message || '未知错误'));
+  } finally {
+    isProcessing.value = false;
+  }
+};
+
+// ========== 组件挂载时的处理 ==========
+onMounted(() => {
+  console.log('GenesisNode component mounted');
 });
 </script>
+
+<style scoped>
+/* 自定义样式 */
+.gradient-border {
+  background: linear-gradient(45deg, #8B5CF6, #06B6D4);
+  padding: 2px;
+  border-radius: 12px;
+}
+
+.gradient-border > div {
+  background: white;
+  border-radius: 10px;
+}
+</style>

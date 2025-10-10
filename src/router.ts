@@ -1,6 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router';
-import { parseInviteCode } from './utils/invite';
 
 // Lazy load components for better performance
 const Staking = () => import('./views/Staking.vue');

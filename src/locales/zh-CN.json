@@ -2,7 +2,8 @@
   "common": {
     "loading": "加载中",
     "enabled": "已启用",
-    "disabled": "已禁用"
+    "disabled": "已禁用",
+    "connectWallet": "请连接钱包"
   },
   "bottomNav": {
     "staking": "认购",
@@ -294,5 +295,17 @@
     "failed": "交易失败",
     "pending": "交易发送中...",
     "confirmationRequired": "需要区块确认"
+  },
+  "genesisNode": {
+    "pleaseStakeFirst": "请先完成质押",
+    "alreadyGenesisNode": "已是创世节点",
+    "applicationPending": "申请审核中",
+    "insufficientUsdt": "USDT余额不足",
+    "applying": "申请中...",
+    "applyNow": "立即申请",
+    "active": "活跃中",
+    "exited": "已退出",
+    "exitConditionMet": "已达到退出条件！您已自动从活跃节点列表中移除，但仍可提取剩余分红",
+    "exitConditionDescription": "达到3倍申请费用({amount} USDT)后可申请退出节点"
   }
 }
