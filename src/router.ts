@@ -13,7 +13,7 @@ const ContentView = () => import('./views/ContentView.vue'); // 新增通用内�
 const ContentTest = () => import('./views/ContentTest.vue'); // 测试页面（可选）
 
 const routes = [
-  { path: '/', redirect: '/swap' },
+  { path: '/', redirect: '/staking' },
   { path: '/staking', component: Staking },
   { path: '/staking/order/:id', component: StakingOrderDetail },
   { path: '/swap', component: Swap },
