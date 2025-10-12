@@ -134,7 +134,7 @@ import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
-import abi from '../../contract/abi.json';
+import { abi } from '@/core/contract';
 import BindReferrerModal from '@/components/BindReferrerModal.vue';
 import { parseInviteCode, formatAddress } from '@/utils/invite';
 import { toast } from '@/composables/useToast';

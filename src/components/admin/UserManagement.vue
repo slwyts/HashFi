@@ -163,7 +163,7 @@ import { formatEther } from 'viem';
 import { readContract } from '@wagmi/core';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
 import { wagmiConfig } from '../../core/web3';
-import abi from '../../../contract/abi.json';
+import { abi } from '@/core/contract';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 

@@ -110,7 +110,7 @@ import { ref, reactive, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatUnits, parseUnits, maxUint256 } from 'viem';
-import abi from '../../contract/abi.json';
+import { abi, erc20Abi } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 
@@ -120,24 +120,6 @@ const toast = useToast();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
-
-// ERC20 ABI (只需要 approve 和 allowance)
-const ERC20_ABI = [
-  {
-    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
-    name: 'approve',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    type: 'function'
-  },
-  {
-    inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
-    name: 'allowance',
-    outputs: [{ name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  }
-] as const;
 
 // ========== 1. 获取 HAF 价格 ==========
 const { data: hafPrice, refetch: refetchPrice } = useReadContract({
@@ -287,7 +269,7 @@ const allowanceArgs = computed(() => {
 
 const { data: allowance, refetch: refetchAllowance } = useReadContract({
   address: USDT_ADDRESS,
-  abi: ERC20_ABI,
+  abi: erc20Abi,
   functionName: 'allowance',
   args: allowanceArgs,
   query: {
@@ -328,7 +310,7 @@ const handleApprove = async () => {
     await callContractWithRefresh(
       {
         address: USDT_ADDRESS,
-        abi: ERC20_ABI,
+        abi: erc20Abi,
         functionName: 'approve',
         args: [CONTRACT_ADDRESS, maxUint256],
         pendingMessage: t('swapPage.approving'),

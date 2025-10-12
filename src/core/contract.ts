@@ -1,7 +1,28 @@
 import { computed, type Ref } from 'vue';
 import { useAccount, useReadContract, useWriteContract, useSimulateContract } from '@wagmi/vue';
 import { parseEther, type Address } from 'viem';
-import abi from '../../contract/abi.json';
+import contractAbi from '../../contract/abi.json';
+
+// 导出合约 ABI 供其他组件使用
+export const abi = contractAbi;
+
+// ERC20 标准 ABI（用于 USDT 等代币的 approve 和 allowance 操作）
+export const erc20Abi = [
+  {
+    "inputs": [{"internalType": "address","name": "spender","type": "address"},{"internalType": "uint256","name": "amount","type": "uint256"}],
+    "name": "approve",
+    "outputs": [{"internalType": "bool","name": "","type": "bool"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address","name": "owner","type": "address"},{"internalType": "address","name": "spender","type": "address"}],
+    "name": "allowance",
+    "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
 
 
 const HASHFI_CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined;

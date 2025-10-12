@@ -222,7 +222,7 @@ import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatEther, formatUnits, parseEther, parseUnits, maxUint256 } from 'viem';
 import BtcPoolStats from '@/components/BtcPoolStats.vue';
-import abi from '../../contract/abi.json';
+import { abi, erc20Abi } from '@/core/contract';
 import { toast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import BannerCarousel from '@/components/BannerCarousel.vue';
@@ -259,24 +259,6 @@ const handleDontShowAgain = (id: number) => {
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
-
-// ERC20 ABI (只需要 approve 和 allowance)
-const erc20Abi = [
-  {
-    "inputs": [{"internalType": "address","name": "spender","type": "address"},{"internalType": "uint256","name": "amount","type": "uint256"}],
-    "name": "approve",
-    "outputs": [{"internalType": "bool","name": "","type": "bool"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "address","name": "owner","type": "address"},{"internalType": "address","name": "spender","type": "address"}],
-    "name": "allowance",
-    "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
 
 // 质押方案数据
 const stakingPlans = reactive([

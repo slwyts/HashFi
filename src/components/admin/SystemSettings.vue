@@ -198,7 +198,7 @@ import { ref, computed } from 'vue';
 import { parseEther } from 'viem';
 import { useAdminData } from '../../composables/useAdminData';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
-import abi from '../../../contract/abi.json';
+import { abi } from '@/core/contract';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 

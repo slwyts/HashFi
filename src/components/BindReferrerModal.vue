@@ -93,7 +93,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { toast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
-import abi from '../../contract/abi.json';
+import { abi } from '@/core/contract';
 
 const { t } = useI18n();
 
