@@ -3,7 +3,10 @@
     "loading": "Loading",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "connectWallet": "Connect Wallet"
+    "connectWallet": "Connect Wallet",
+    "processing": "Processing",
+    "copySuccess": "Copy successful",
+    "copyFailed": "Copy failed"
   },
   "bottomNav": {
     "staking": "Subscribe",
@@ -139,7 +142,8 @@
     "stakingTime": "Subscription Time",
     "status": "Status",
     "statusInProgress": "In Progress",
-    "statusFinished": "Finished"
+    "statusFinished": "Finished",
+    "notFound": "Order not found"
   },
   "nodeCenter": {
     "title": "Genesis Node Center",
