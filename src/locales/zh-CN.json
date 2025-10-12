@@ -77,7 +77,9 @@
     "approveSuccess": "授权成功",
     "swapSuccess": "兑换成功",
     "insufficientBalance": "余额不足",
-    "minSwapAmountError": "最小兑换 10 USDT"
+    "minSwapAmountError": "最小兑换 10 USDT",
+    "selectToken": "选择代币",
+    "processing": "处理中..."
   },
   "incomePage": {
     "totalIncome": "累计总收益",

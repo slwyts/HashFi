@@ -1,24 +1,24 @@
 <template>
   <div class="relative w-full overflow-hidden rounded-xl shadow-lg mb-4">
     <!-- 轮播图片容器 -->
-    <div class="relative h-52 md:h-80">
+    <div class="relative w-full">
       <transition-group name="fade" mode="out-in">
         <div
           v-for="(banner, index) in banners"
           :key="banner.id"
           v-show="currentIndex === index"
-          class="absolute inset-0"
+          class="relative w-full"
         >
           <img
             :src="banner.image"
             :alt="banner.title"
-            class="w-full h-full object-cover"
+            class="w-full h-auto object-contain"
             @click="handleBannerClick(banner)"
           />
           <!-- 渐变遮罩 - 仅底部区域 -->
-          <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/40 to-transparent"></div>
+          <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
           <!-- 标题 -->
-          <div class="absolute bottom-0 left-0 right-0 p-4 text-white">
+          <div class="absolute bottom-0 left-0 right-0 p-4 text-white pointer-events-none">
             <h3 class="font-bold text-lg mb-1">{{ banner.title }}</h3>
             <p class="text-sm opacity-90">{{ banner.subtitle }}</p>
           </div>
@@ -27,7 +27,7 @@
     </div>
 
     <!-- 指示器 -->
-    <div class="absolute bottom-2 right-2 flex gap-1.5">
+    <div class="absolute bottom-4 right-4 flex gap-1.5 z-10">
       <button
         v-for="(_, index) in banners"
         :key="index"
@@ -40,7 +40,7 @@
     <!-- 左右切换按钮 -->
     <button
       @click="prevSlide"
-      class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center text-white transition-colors"
+      class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center text-white transition-colors z-10"
     >
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -48,7 +48,7 @@
     </button>
     <button
       @click="nextSlide"
-      class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center text-white transition-colors"
+      class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 hover:bg-black/50 rounded-full flex items-center justify-center text-white transition-colors z-10"
     >
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />

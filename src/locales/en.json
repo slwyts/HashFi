@@ -77,7 +77,9 @@
     "approveSuccess": "Approve Success",
     "swapSuccess": "Swap Success",
     "insufficientBalance": "Insufficient Balance",
-    "minSwapAmountError": "Minimum 10 USDT"
+    "minSwapAmountError": "Minimum 10 USDT",
+    "selectToken": "Select Token",
+    "processing": "Processing..."
   },
   "incomePage": {
     "totalIncome": "Total Income",
