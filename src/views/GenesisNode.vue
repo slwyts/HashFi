@@ -45,34 +45,122 @@
         </div>
 
         <!-- 节点权益 -->
-        <div class="space-y-4 mb-8">
-          <div class="flex items-start space-x-3">
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-              <span class="text-white text-sm font-bold">1</span>
-            </div>
-            <div>
-              <h4 class="font-semibold text-gray-800">平台全球分红</h4>
-              <p class="text-sm text-gray-600">享受平台所有用户质押手续费的全球分红权益</p>
+        <div class="space-y-6 mb-8">
+          <h4 class="text-xl font-bold text-center mb-6 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">节点权益</h4>
+          
+          <!-- 权益1：矿机赠送 -->
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+            <div class="flex items-start space-x-4">
+              <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h5 class="font-bold text-lg text-gray-800 mb-3">赠送11300美金大算力矿机</h5>
+                <div class="space-y-2 text-sm text-gray-700">
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+                    <span><strong>矿机型号：</strong>阿瓦隆天花板水冷1566HA—算力500T</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+                    <span><strong>矿机价值：</strong>7000美金</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+                    <span><strong>电费运维：</strong>赠送一年电费及运维费用（价值4300美金）</span>
+                  </div>
+                  <div class="bg-blue-100 rounded-lg p-3 mt-3">
+                    <p class="font-semibold text-blue-800">实物矿机，总价值 11300 美金</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div class="flex items-start space-x-3">
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-              <span class="text-white text-sm font-bold">2</span>
-            </div>
-            <div>
-              <h4 class="font-semibold text-gray-800">3倍退出保障</h4>
-              <p class="text-sm text-gray-600">累计分红达到3倍申请费用后可申请退出并返还本金</p>
+
+          <!-- 权益2：全球分红 -->
+          <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
+            <div class="flex items-start space-x-4">
+              <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h5 class="font-bold text-lg text-gray-800 mb-3">享受全球总业绩静态10%加权分红</h5>
+                <div class="space-y-2 text-sm text-gray-700">
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    <span>参与全平台用户静态收益的10%分红</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    <span>按照节点权重进行分红分配</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    <span>每日自动结算，实时到账</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div class="flex items-start space-x-3">
-            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-              <span class="text-white text-sm font-bold">3</span>
+
+          <!-- 权益3：市场扶持 -->
+          <div class="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
+            <div class="flex items-start space-x-4">
+              <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h5 class="font-bold text-lg text-gray-800 mb-3">市场扶持政策</h5>
+                <div class="space-y-2 text-sm text-gray-700">
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
+                    <span><strong>工作室补贴：</strong>推广工作室资源支持</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
+                    <span><strong>讲师补贴：</strong>专业培训讲师资源</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
+                    <span><strong>酒会沙龙补贴：</strong>高端商务活动支持</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h4 class="font-semibold text-gray-800">生态治理权</h4>
-              <p class="text-sm text-gray-600">参与平台重大决策投票，共建去中心化生态</p>
+          </div>
+
+          <!-- 权益4：生态治理 -->
+          <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-6">
+            <div class="flex items-start space-x-4">
+              <div class="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h5 class="font-bold text-lg text-gray-800 mb-3">Hash Fi 基金会生态治理权</h5>
+                <div class="space-y-2 text-sm text-gray-700">
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                    <span>参与平台重大决策投票权</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                    <span>共建去中心化生态发展</span>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                    <span>享有平台未来发展方向话语权</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -89,21 +177,6 @@
         >
           {{ buttonText }}
         </button>
-      </div>
-
-      <!-- 全网节点统计 -->
-      <div class="card p-6">
-        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">全网节点统计</h3>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="text-center bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-            <p class="text-2xl font-bold text-blue-600">{{ activeNodesCount }}</p>
-            <p class="text-sm text-gray-600">活跃节点</p>
-          </div>
-          <div class="text-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
-            <p class="text-2xl font-bold text-green-600">{{ totalDividendsDisplay }}</p>
-            <p class="text-sm text-gray-600">分红池(USDT)</p>
-          </div>
-        </div>
       </div>
     </div>
 
