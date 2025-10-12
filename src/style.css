@@ -10,7 +10,7 @@ body {
 /* 移动端基础字体大小调整 */
 @media (max-width: 768px) {
   html {
-    font-size: 12px;
+    font-size: 16px;
   }
 }
 
