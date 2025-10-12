@@ -386,9 +386,11 @@ const currentStakes = computed(() => {
       if (order.releasedHaf !== undefined) {
         // 新版合约：直接读取releasedHaf字段
         releasedHAF = Number(formatEther(order.releasedHaf || 0n));
+        console.log(`Current Order ${orderId}: Using releasedHaf from contract:`, releasedHAF);
       } else {
         // 旧版合约兼容：通过releasedQuota / hafPrice计算
         releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+        console.log(`Current Order ${orderId}: Calculating releasedHAF (fallback):`, releasedHAF);
       }
       // =====================================
       
@@ -438,9 +440,11 @@ const historyStakes = computed(() => {
       if (order.releasedHaf !== undefined) {
         // 新版合约：直接读取releasedHaf字段
         releasedHAF = Number(formatEther(order.releasedHaf || 0n));
+        console.log(`History Order ${orderId}: Using releasedHaf from contract:`, releasedHAF);
       } else {
         // 旧版合约兼容：通过releasedQuota / hafPrice计算
         releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+        console.log(`History Order ${orderId}: Calculating releasedHAF (fallback):`, releasedHAF);
       }
       // =====================================
       

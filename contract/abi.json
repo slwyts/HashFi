@@ -502,6 +502,19 @@
 	},
 	{
 		"inputs": [],
+		"name": "DYNAMIC_RELEASE_PERIOD",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "GENESIS_NODE_EXIT_MULTIPLIER",
 		"outputs": [
 			{
@@ -516,6 +529,19 @@
 	{
 		"inputs": [],
 		"name": "PRICE_PRECISION",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "TIME_UNIT",
 		"outputs": [
 			{
 				"internalType": "uint256",
@@ -1130,6 +1156,16 @@
 					},
 					{
 						"internalType": "uint256",
+						"name": "totalQuotaHaf",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "releasedHaf",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
 						"name": "startTime",
 						"type": "uint256"
 					},
@@ -1497,6 +1533,16 @@
 					},
 					{
 						"internalType": "uint256",
+						"name": "totalQuotaHaf",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "releasedHaf",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
 						"name": "startTime",
 						"type": "uint256"
 					},
@@ -1724,6 +1770,16 @@
 			{
 				"internalType": "uint256",
 				"name": "releasedQuota",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "totalQuotaHaf",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "releasedHaf",
 				"type": "uint256"
 			},
 			{
