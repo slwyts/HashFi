@@ -11,9 +11,9 @@
           <span class="text-sm text-gray-500">{{ t('swapPage.balance') }}: <span class="font-semibold text-gray-700">{{ fromToken.balance }}</span></span>
         </div>
         <div class="flex justify-between items-center">
-          <div class="flex items-center cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors">
-            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-3">
-              <img :src="fromToken.icon" :alt="fromToken.name" class="w-6 h-6" />
+          <div @click="openTokenSelector('from')" class="flex items-center cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" :class="fromToken.name === 'HAF' ? 'bg-black' : ''">
+              <img :src="fromToken.icon" :alt="fromToken.name" :class="fromToken.name === 'HAF' ? 'w-6 h-6' : 'w-10 h-10 rounded-full object-cover'" />
             </div>
             <span class="font-bold text-xl mr-1">{{ fromToken.name }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -41,10 +41,8 @@
 
     <!-- Switch Button -->
     <div class="my-4 flex justify-center">
-      <button @click="switchTokens" class="p-3 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105 border-4 border-white transform">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-        </svg>
+      <button @click="switchTokens" class="w-12 h-12 rounded-full bg-white hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl border border-gray-200 flex items-center justify-center">
+        <img src="/icons/swap.svg" alt="swap" class="w-full h-full" />
       </button>
     </div>
 
@@ -59,9 +57,9 @@
           <span class="text-sm text-gray-500">{{ t('swapPage.balance') }}: <span class="font-semibold text-gray-700">{{ toToken.balance }}</span></span>
         </div>
         <div class="flex justify-between items-center">
-          <div class="flex items-center cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors">
-            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-3">
-              <img :src="toToken.icon" :alt="toToken.name" class="w-6 h-6" />
+          <div @click="openTokenSelector('to')" class="flex items-center cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" :class="toToken.name === 'HAF' ? 'bg-black' : ''">
+              <img :src="toToken.icon" :alt="toToken.name" :class="toToken.name === 'HAF' ? 'w-6 h-6' : 'w-10 h-10 rounded-full object-cover'" />
             </div>
             <span class="font-bold text-xl mr-1">{{ toToken.name }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -101,6 +99,45 @@
       >
         {{ buttonText }}
       </button>
+    </div>
+
+    <!-- Token Selector Modal -->
+    <div v-if="showTokenSelector" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click="closeTokenSelector">
+      <div @click.stop class="bg-white rounded-2xl shadow-2xl max-w-sm w-full max-h-96 overflow-hidden">
+        <!-- Modal Header -->
+        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-800">{{ t('swapPage.selectToken') }}</h3>
+          <button @click="closeTokenSelector" class="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Token List -->
+        <div class="p-2">
+          <div 
+            v-for="(token, key) in tokens" 
+            :key="key"
+            @click="selectToken(token)"
+            class="flex items-center p-3 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors"
+            :class="{ 'opacity-50 pointer-events-none': !canSelectToken(token) }"
+          >
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" :class="token.name === 'HAF' ? 'bg-black' : ''">
+              <img :src="token.icon" :alt="token.name" :class="token.name === 'HAF' ? 'w-6 h-6' : 'w-10 h-10 rounded-full object-cover'" />
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold text-gray-800">{{ token.name }}</div>
+              <div class="text-sm text-gray-500">{{ t('swapPage.balance') }}: {{ token.balance }}</div>
+            </div>
+            <div v-if="isCurrentToken(token)" class="w-5 h-5 text-blue-500">
+              <svg fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -169,7 +206,7 @@ const hafBalanceDisplay = computed(() => {
 const tokens = computed(() => ({
   HAF: { 
     name: 'HAF', 
-    icon: '/icons/coin.svg', 
+    icon: '/icons/hashfi_yellow.png', 
     balance: hafBalanceDisplay.value, 
     decimals: 18,
     address: CONTRACT_ADDRESS
@@ -188,6 +225,10 @@ const fromToken = reactive({ ...tokens.value.USDT });
 const toToken = reactive({ ...tokens.value.HAF });
 const fromAmount = ref<number | null>(null);
 const toAmount = ref<number | null>(null);
+
+// 代币选择器状态
+const showTokenSelector = ref(false);
+const selectorType = ref<'from' | 'to'>('from');
 
 // 更新代币余额
 watch(() => tokens.value, (newTokens) => {
@@ -449,4 +490,41 @@ const toValue = computed(() => {
   if (toToken.name === 'USDT') return toAmount.value;
   return toAmount.value * parseFloat(hafPriceDisplay.value);
 });
+
+// ========== 11. 代币选择器逻辑 ==========
+const openTokenSelector = (type: 'from' | 'to') => {
+  selectorType.value = type;
+  showTokenSelector.value = true;
+};
+
+const closeTokenSelector = () => {
+  showTokenSelector.value = false;
+};
+
+const selectToken = (token: any) => {
+  const currentToken = selectorType.value === 'from' ? fromToken : toToken;
+  const otherToken = selectorType.value === 'from' ? toToken : fromToken;
+  
+  // 如果选择的代币和另一个代币相同，则交换它们
+  if (token.name === otherToken.name) {
+    switchTokens();
+  } else {
+    // 否则直接更新当前代币
+    Object.assign(currentToken, token);
+    // 重新计算金额
+    handleFromAmountChange();
+  }
+  
+  closeTokenSelector();
+};
+
+const canSelectToken = (token: any) => {
+  // 所有代币都可以选择
+  return true;
+};
+
+const isCurrentToken = (token: any) => {
+  const currentToken = selectorType.value === 'from' ? fromToken : toToken;
+  return token.name === currentToken.name;
+};
 </script>
