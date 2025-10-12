@@ -1,19 +1,21 @@
 <template>
   <div class="relative w-full overflow-hidden rounded-xl shadow-lg mb-4">
     <!-- 轮播图片容器 -->
-    <div class="relative w-full">
+    <div class="relative w-full" :style="{ height: containerHeight + 'px' }">
       <transition-group name="fade" mode="out-in">
         <div
           v-for="(banner, index) in banners"
           :key="banner.id"
           v-show="currentIndex === index"
-          class="relative w-full"
+          class="absolute inset-0"
         >
           <img
             :src="banner.image"
             :alt="banner.title"
-            class="w-full h-auto object-contain"
+            class="w-full h-full object-cover"
             @click="handleBannerClick(banner)"
+            @load="handleImageLoad($event, index)"
+            ref="bannerImages"
           />
           <!-- 渐变遮罩 - 仅底部区域 -->
           <div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
@@ -58,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 interface Banner {
@@ -77,6 +79,8 @@ const props = defineProps<{
 
 const router = useRouter();
 const currentIndex = ref(0);
+const containerHeight = ref(200); // 默认高度
+const imageHeights = ref<number[]>([]);
 let autoPlayTimer: number | null = null;
 
 const nextSlide = () => {
@@ -89,6 +93,25 @@ const prevSlide = () => {
 
 const goToSlide = (index: number) => {
   currentIndex.value = index;
+};
+
+const handleImageLoad = (event: Event, index: number) => {
+  const img = event.target as HTMLImageElement;
+  const containerWidth = img.parentElement?.parentElement?.clientWidth || 0;
+  
+  if (containerWidth > 0) {
+    // 计算保持宽高比的高度
+    const aspectRatio = img.naturalHeight / img.naturalWidth;
+    const calculatedHeight = containerWidth * aspectRatio;
+    
+    imageHeights.value[index] = calculatedHeight;
+    
+    // 使用所有已加载图片中的最大高度
+    const maxHeight = Math.max(...imageHeights.value.filter(h => h > 0));
+    if (maxHeight > 0) {
+      containerHeight.value = maxHeight;
+    }
+  }
 };
 
 const handleBannerClick = (banner: Banner) => {
@@ -126,6 +149,8 @@ const stopAutoPlay = () => {
 };
 
 onMounted(() => {
+  // 初始化图片高度数组
+  imageHeights.value = new Array(props.banners.length).fill(0);
   startAutoPlay();
 });
 
