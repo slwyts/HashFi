@@ -258,7 +258,7 @@ import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatUnits } from 'viem';
 import { useI18n } from 'vue-i18n';
-import abi from '../../contract/abi.json';
+import { abi } from '@/core/contract';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import { toast } from '@/composables/useToast';
 

@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { useReadContract, useAccount } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
-import abi from '../../contract/abi.json';
+import { abi } from '@/core/contract';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 

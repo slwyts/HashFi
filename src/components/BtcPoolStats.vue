@@ -39,7 +39,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useReadContract } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
-import abi from '../../contract/abi.json';
+import { abi } from '@/core/contract';
 
 const { t } = useI18n();
 
