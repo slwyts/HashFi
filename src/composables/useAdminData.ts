@@ -201,15 +201,15 @@ export const useAdminData = () => {
   });
 
   const priceSettings = computed(() => ({
-    currentPrice: hafPriceData.value ? formatUnits(hafPriceData.value as bigint, 18) : '1.000000',
-    dailyIncreaseRate: dailyRateData.value ? (dailyRateData.value as bigint).toString() : '1',
+    currentPrice: hafPriceData.value ? formatUnits(hafPriceData.value as bigint, 18) : '0.00',
+    dailyIncreaseRate: dailyRateData.value ? (dailyRateData.value as bigint).toString() : '0',
     autoUpdateEnabled: autoPriceUpdateEnabled.value as boolean || false,
   }));
 
   const feeSettings = computed(() => ({
-    withdrawalFee: withdrawalFeeData.value ? Number(withdrawalFeeData.value) / 100 : 5,
-    swapFee: swapFeeData.value ? Number(swapFeeData.value) / 100 : 1,
-    genesisNodeCost: genesisNodeCostData.value ? formatEther(genesisNodeCostData.value as bigint) : '5000',
+    withdrawalFee: withdrawalFeeData.value ? Number(withdrawalFeeData.value as bigint) : 0,
+    swapFee: swapFeeData.value ? Number(swapFeeData.value as bigint) : 0,
+    genesisNodeCost: genesisNodeCostData.value ? formatEther(genesisNodeCostData.value as bigint) : '0',
   }));
 
   const systemStatus = computed(() => ({
