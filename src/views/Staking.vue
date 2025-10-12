@@ -65,22 +65,29 @@
           <input 
             type="number" 
             v-model="stakeAmount"
-            :placeholder="`${selectedPlan?.minStake || 100}+`" 
+            :placeholder="selectedPlan?.maxStake === Infinity ? `${selectedPlan?.minStake}+` : `${selectedPlan?.minStake}-${selectedPlan?.maxStake}`" 
             class="flex-grow text-right bg-transparent text-xl font-bold text-gray-800 focus:outline-none placeholder-gray-400"
           >
         </div>
       </div>
       <p class="text-xs text-gray-500 mt-3">{{ t('stakingPage.minerFee') }}： <span class="font-mono">~0.0001</span></p>
 
-      <div class="flex items-center text-red-500 text-sm mt-4 bg-red-50 p-3 rounded-lg" v-if="stakeAmount && stakeAmount < (selectedPlan?.minStake ?? 0)">
+      <!-- 金额过低警告 -->
+      <div class="flex items-center text-red-500 text-sm mt-4 bg-red-50 p-3 rounded-lg" v-if="stakeAmount && isAmountTooLow">
         <img src="/icons/warn.svg" alt="warning" class="w-5 h-5 mr-2" />
         <p>{{ t('stakingPage.minStakeAmount', { amount: selectedPlan?.minStake }) }}</p>
+      </div>
+
+      <!-- 金额过高警告 -->
+      <div class="flex items-center text-red-500 text-sm mt-4 bg-red-50 p-3 rounded-lg" v-if="stakeAmount && isAmountTooHigh">
+        <img src="/icons/warn.svg" alt="warning" class="w-5 h-5 mr-2" />
+        <p>{{ t('stakingPage.maxStakeAmount', { amount: selectedPlan?.maxStake, plan: t(selectedPlan?.name || '') }) }}</p>
       </div>
 
       <button 
         @click="handleStake"
         class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl mt-6 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 disabled:from-blue-200 disabled:to-blue-300 disabled:cursor-not-allowed disabled:opacity-80 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
-        :disabled="!address || !stakeAmount || stakeAmount < (selectedPlan?.minStake ?? 0) || isProcessing()"
+        :disabled="!address || !stakeAmount || !isAmountInRange || isProcessing()"
       >
         {{ buttonText }}
       </button>
@@ -273,15 +280,26 @@ const erc20Abi = [
 
 // 质押方案数据
 const stakingPlans = reactive([
-  { name: 'stakingPage.bronze', amountRange: '100-499 USDT', dailyRate: '0.7%', multiplier: '1.5倍', minStake: 100 },
-  { name: 'stakingPage.silver', amountRange: '500-999 USDT', dailyRate: '0.8%', multiplier: '2.0倍', minStake: 500 },
-  { name: 'stakingPage.gold', amountRange: '1000-2999 USDT', dailyRate: '0.9%', multiplier: '2.5倍', minStake: 1000 },
-  { name: 'stakingPage.diamond', amountRange: '≥ 3000 USDT', dailyRate: '1.0%', multiplier: '3.0倍', minStake: 3000 },
+  { name: 'stakingPage.bronze', amountRange: '100-499 USDT', dailyRate: '0.7%', multiplier: '1.5', minStake: 100, maxStake: 499 },
+  { name: 'stakingPage.silver', amountRange: '500-999 USDT', dailyRate: '0.8%', multiplier: '2.0', minStake: 500, maxStake: 999 },
+  { name: 'stakingPage.gold', amountRange: '1000-2999 USDT', dailyRate: '0.9%', multiplier: '2.5', minStake: 1000, maxStake: 2999 },
+  { name: 'stakingPage.diamond', amountRange: '≥ 3000 USDT', dailyRate: '1.0%', multiplier: '3.0', minStake: 3000, maxStake: Infinity },
 ]);
 
 const selectedPlan = ref(stakingPlans[0]);
 const stakeAmount = ref<number | null>(null);
 const activeTab = ref('current');
+
+// 监听方案变化，检查当前金额是否在新方案范围内
+watch(selectedPlan, (newPlan) => {
+  if (stakeAmount.value && newPlan) {
+    const amount = stakeAmount.value;
+    // 如果当前金额不在新方案范围内，清空金额
+    if (amount < newPlan.minStake || (newPlan.maxStake !== Infinity && amount > newPlan.maxStake)) {
+      stakeAmount.value = null;
+    }
+  }
+});
 
 // 读取 USDT 余额
 const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
@@ -470,6 +488,25 @@ const historyStakes = computed(() => {
     .filter(order => !order.isActive); // 只显示已完成的订单
 });
 
+// 检查金额是否在选定方案的范围内
+const isAmountInRange = computed(() => {
+  if (!stakeAmount.value || !selectedPlan.value) return true;
+  const amount = stakeAmount.value;
+  return amount >= selectedPlan.value.minStake && amount <= selectedPlan.value.maxStake;
+});
+
+// 检查金额是否过低
+const isAmountTooLow = computed(() => {
+  if (!stakeAmount.value || !selectedPlan.value) return false;
+  return stakeAmount.value < selectedPlan.value.minStake;
+});
+
+// 检查金额是否过高
+const isAmountTooHigh = computed(() => {
+  if (!stakeAmount.value || !selectedPlan.value) return false;
+  return selectedPlan.value.maxStake !== Infinity && stakeAmount.value > selectedPlan.value.maxStake;
+});
+
 // 检查是否需要授权
 const needsApproval = computed(() => {
   if (!stakeAmount.value) return false;
@@ -497,7 +534,7 @@ const buttonText = computed(() => {
 
 // 质押函数
 const handleStake = async () => {
-  if (!address.value || !stakeAmount.value || stakeAmount.value < (selectedPlan.value?.minStake ?? 0)) {
+  if (!address.value || !stakeAmount.value || !isAmountInRange.value) {
     toast.error(t('stakingPage.invalidAmount'));
     return;
   }

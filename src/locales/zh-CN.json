@@ -32,6 +32,7 @@
     "stake": "认购",
     "balance": "余额",
     "minStakeAmount": "最少认购金额: {amount} USDT",
+    "maxStakeAmount": "{plan}方案最高认购金额: {amount} USDT",
     "minerFee": "矿工费",
     "stakeNow": "立即认购",
     "currentStaking": "当前认购",

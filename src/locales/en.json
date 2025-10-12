@@ -32,6 +32,7 @@
     "stake": "Subscribe",
     "balance": "Balance",
     "minStakeAmount": "Min subscription: {amount} USDT",
+    "maxStakeAmount": "{plan} plan max subscription: {amount} USDT",
     "minerFee": "Network Fee",
     "stakeNow": "Subscribe Now",
     "currentStaking": "Current Subscription",
