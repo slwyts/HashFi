@@ -9,21 +9,15 @@
     <BottomBar />
 
     <!-- 全局 Toast -->
-    <Toast
-      :visible="toastState.visible"
-      :message="toastState.message"
-      :type="toastState.type"
-      :duration="toastState.duration"
-      @close="toast.close"
-    />
+    <Toast :visible="toastState.visible" :message="toastState.message" :type="toastState.type" :duration="toastState.duration" @close="toast.close" />
   </div>
 </template>
 
 <script setup lang="ts">
-import TopBar from './components/TopBar.vue';
-import BottomBar from './components/BottomBar.vue';
-import Toast from './components/Toast.vue';
-import { toast } from './composables/useToast';
+import TopBar from "./components/TopBar.vue";
+import BottomBar from "./components/BottomBar.vue";
+import Toast from "./components/Toast.vue";
+import { toast } from "./composables/useToast";
 
 const toastState = toast.state;
 </script>
