@@ -12,7 +12,7 @@
         </div>
         <div>
           <p class="font-bold text-lg font-mono text-white">{{ formattedAddress }}</p>
-          <span v-if="userLevel" class="inline-block text-xs bg-yellow-400 text-yellow-900 font-semibold py-1 px-3 rounded-full mt-1 shadow-md">{{ t(userLevel) }}</span>
+          <span v-if="userLevel" :class="['inline-block text-xs font-semibold py-1 px-3 rounded-full mt-1 shadow-lg', userLevelStyle]">{{ t(userLevel) }}</span>
         </div>
       </div>
     </div>
@@ -223,11 +223,31 @@ const userLevel = computed(() => {
   const info = userInfo.value as any[];
   const totalInvested = Number(formatEther(info[2] || 0n)); // index 2 是 totalStakedAmount
   
-  // 根据投资金额判断等级
-  if (totalInvested >= 50000) return 'stakingPage.diamond';
-  if (totalInvested >= 10000) return 'stakingPage.gold';
-  if (totalInvested >= 1000) return 'stakingPage.silver';
-  return 'stakingPage.bronze';
+  // 根据合约中的质押等级判断
+  if (totalInvested >= 3000) return 'stakingPage.diamond';  // 钻石: 3000+ USDT
+  if (totalInvested >= 1000) return 'stakingPage.gold';     // 黄金: 1000-2999 USDT  
+  if (totalInvested >= 500) return 'stakingPage.silver';    // 白银: 500-999 USDT
+  if (totalInvested >= 100) return 'stakingPage.bronze';    // 青铜: 100-499 USDT
+  return ''; // 未投资
+});
+
+// 用户等级样式
+const userLevelStyle = computed(() => {
+  const level = userLevel.value;
+  if (!level) return '';
+  
+  switch (level) {
+    case 'stakingPage.bronze':
+      return 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-orange-500/30';
+    case 'stakingPage.silver':
+      return 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-gray-500/30';
+    case 'stakingPage.gold':
+      return 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-yellow-500/30';
+    case 'stakingPage.diamond':
+      return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-purple-500/30';
+    default:
+      return 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-gray-500/30';
+  }
 });
 
 // 推荐人显示
