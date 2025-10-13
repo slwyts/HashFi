@@ -25,10 +25,15 @@ export const useAdminData = () => {
   });
 
   // ========== 创世节点数据 ==========
+  // 对于带有 onlyOwner 修饰符的函数，需要以 owner 地址的身份调用
   const { data: pendingApps, refetch: refetchPending } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi,
     functionName: 'getPendingGenesisApplications',
+    account: address,
+    query: {
+      enabled: () => !!isAdmin.value, // 只在管理员时启用查询
+    }
   });
 
   const { data: activeNodesData, refetch: refetchActive } = useReadContract({
@@ -47,6 +52,10 @@ export const useAdminData = () => {
     address: CONTRACT_ADDRESS,
     abi,
     functionName: 'getAllGenesisNodesInfo',
+    account: address,
+    query: {
+      enabled: () => !!isAdmin.value, // 只在管理员时启用查询
+    }
   });
 
   const pendingApplications = computed(() => (pendingApps.value as string[]) || []);
