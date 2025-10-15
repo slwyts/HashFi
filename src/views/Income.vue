@@ -100,8 +100,8 @@
               </div>
             </div>
             <div class="text-right">
-              <p class="font-bold text-green-600 text-lg">+{{ record.hafDisplay }} HAF</p>
-              <p class="text-xs text-gray-500 mt-0.5">≈ ${{ record.usdtDisplay }}</p>
+              <p class="font-bold text-green-600 text-lg">+{{ parseFloat(record.hafAmount).toFixed(4) }} HAF</p>
+              <p class="text-xs text-gray-500 mt-0.5">≈ ${{ parseFloat(record.usdtAmount).toFixed(2) }}</p>
             </div>
           </div>
         </div>
@@ -116,33 +116,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAccount, useReadContract } from '@wagmi/vue';
 import { formatUnits } from 'viem';
 import { abi } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
+import { useRewardEvents, type RewardType } from '@/composables/useRewardEvents';
 
 const { t } = useI18n();
 const { address } = useAccount();
 const toast = useToast();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
-
-// RewardType 枚举对应: 0=Static, 1=Direct, 2=Share, 3=Team
-type RewardType = 0 | 1 | 2 | 3;
-
-interface FormattedRewardRecord {
-  timestamp: bigint;
-  fromUser: string;
-  rewardType: RewardType;
-  usdtAmount: bigint;
-  hafAmount: bigint;
-  formattedDate: string;
-  usdtDisplay: string;
-  hafDisplay: string;
-}
 
 // ========== 1. 获取待领取收益 ==========
 const { data: claimableRewards, isLoading: isLoadingRewards, refetch: refetchRewards } = useReadContract({
@@ -243,7 +230,7 @@ const handleWithdraw = async () => {
           // 刷新所有相关数据
           await Promise.all([
             refetchRewards(),
-            refetchRecords(),
+            fetchRewardEvents(),
           ]);
         },
       }
@@ -254,88 +241,13 @@ const handleWithdraw = async () => {
   }
 };
 
-// ========== 3. 获取收益记录 ==========
-const { data: rewardRecords, isLoading: isLoadingRecords, refetch: refetchRecords } = useReadContract({
-  address: CONTRACT_ADDRESS,
-  abi,
-  functionName: 'getRewardRecords',
-  args: address ? [address] : undefined,
-  query: {
-    enabled: !!address,
-  }
-});
-
-// 调试：查看原始数据
-watch(() => rewardRecords.value, (newVal) => {
-  console.log('Raw rewardRecords from contract:', newVal);
-  console.log('Type:', typeof newVal);
-  console.log('Is Array:', Array.isArray(newVal));
-  if (Array.isArray(newVal)) {
-    console.log('Length:', newVal.length);
-    console.log('First item:', newVal[0]);
-  }
-}, { immediate: true });
-
-// 格式化收益记录
-const formattedRecords = computed<FormattedRewardRecord[]>(() => {
-  if (!rewardRecords.value) return [];
-  
-  try {
-    const records = rewardRecords.value as any[];
-    
-    // ✅ 第1层验证: 检查是否为有效数组
-    if (!Array.isArray(records) || records.length === 0) {
-      return [];
-    }
-    
-    // ✅ 第2层: 映射并验证每条记录
-    const mappedRecords = records.map((record: any) => {
-      // 检查 record 是否有必需的字段
-      if (!record || typeof record !== 'object') {
-        console.warn('Invalid record structure:', record);
-        return null;
-      }
-      
-      // 检查每个字段是否存在
-      if (record.timestamp === undefined || record.fromUser === undefined || 
-          record.rewardType === undefined || record.usdtAmount === undefined || 
-          record.hafAmount === undefined) {
-        console.warn('Record has undefined fields:', record);
-        return null;
-      }
-      
-      const timestamp = record.timestamp as bigint;
-      const date = new Date(Number(timestamp) * 1000);
-      
-      const formattedRecord = {
-        timestamp,
-        fromUser: record.fromUser as string,
-        rewardType: record.rewardType as RewardType,
-        usdtAmount: record.usdtAmount as bigint,
-        hafAmount: record.hafAmount as bigint,
-        formattedDate: date.toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        usdtDisplay: parseFloat(formatUnits(record.usdtAmount as bigint, 18)).toFixed(2), // ✅ USDT 是 18 位小数
-        hafDisplay: parseFloat(formatUnits(record.hafAmount as bigint, 18)).toFixed(4),
-      };
-      
-      return formattedRecord;
-    });
-    
-    // ✅ 第3层: 过滤掉 null 值并按时间排序
-    return mappedRecords
-      .filter((record): record is FormattedRewardRecord => record !== null)
-      .sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
-  } catch (error) {
-    console.error('Error formatting reward records:', error);
-    return [];
-  }
-});
+// ========== 3. 使用事件监听获取收益记录 ==========
+const {
+  rewardEvents,
+  isLoading: isLoadingRecords,
+  getEventsByType,
+  fetchRewardEvents,
+} = useRewardEvents();
 
 // ========== 4. 标签页筛选 ==========
 const activeTab = ref<RewardType | 'all'>('all');
@@ -349,62 +261,10 @@ const tabs = [
 ];
 
 const filteredRecords = computed(() => {
-  try {
-    if (!formattedRecords.value || formattedRecords.value.length === 0) return [];
-    
-    if (activeTab.value === 'all') {
-      return formattedRecords.value;
-    }
-    return formattedRecords.value.filter(record => record.rewardType === activeTab.value);
-  } catch (error) {
-    console.error('Error filtering records:', error);
-    return [];
-  }
-});
-
-// 计算重复记录数量
-const duplicateRecordsCount = computed(() => {
-  if (!formattedRecords.value) return 0;
-  const duplicates = detectDuplicateRecords(formattedRecords.value);
-  return duplicates.reduce((total, group) => total + (group.length - 1), 0);
+  return getEventsByType(activeTab.value);
 });
 
 // ========== 5. 辅助函数 ==========
-
-// 获取重复记录数量
-const getDuplicateCount = () => {
-  if (!formattedRecords.value) return 0;
-  const duplicates = detectDuplicateRecords(formattedRecords.value);
-  return duplicates.reduce((total, group) => total + (group.length - 1), 0);
-};
-
-// 检查是否为可能的重复记录
-const isDuplicateRecord = (record: FormattedRewardRecord, allRecords: FormattedRewardRecord[]) => {
-  return allRecords.filter(r => 
-    r.timestamp === record.timestamp && 
-    r.rewardType === record.rewardType && 
-    r.usdtDisplay === record.usdtDisplay
-  ).length > 1;
-};
-// 检测可能的重复记录（简化版）
-const detectDuplicateRecords = (records: FormattedRewardRecord[]) => {
-  const groups: { [key: string]: FormattedRewardRecord[] } = {};
-  
-  records.forEach(record => {
-    // 检查相同时间点和相同类型的记录
-    const timeKey = Math.floor(Number(record.timestamp) / 60) * 60; // 按分钟分组
-    const amountRange = Math.floor(parseFloat(record.usdtDisplay)); // 按整数金额分组
-    const key = `${timeKey}_${record.rewardType}_${amountRange}`;
-    
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(record);
-  });
-  
-  // 返回有多条记录的组
-  return Object.values(groups).filter(group => group.length > 1);
-};
 
 const getRewardTypeName = (type: RewardType): string => {
   const typeMap: Record<RewardType, string> = {

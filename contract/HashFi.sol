@@ -41,7 +41,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     // --- 数据结构 ---
     
-    // 用于存储收益记录的结构体
     struct RewardRecord {
         uint256 timestamp;
         address fromUser;
@@ -70,8 +69,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         // 分享奖相关
         uint256 totalStaticOutput; // 个人所有订单累计产出的总静态收益 (USDT本位)
         
-        // 收益记录
-        RewardRecord[] rewardRecords;
+        // ✅ 移除 rewardRecords 数组，改用事件记录
+        // RewardRecord[] rewardRecords;  // 已删除，节省 gas
     }
 
     struct Order {
@@ -687,13 +686,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     
     // 内部函数，用于添加收益记录
     function _addRewardRecord(address _user, address _fromUser, RewardType _type, uint256 _usdtAmount, uint256 _hafAmount) internal {
-        users[_user].rewardRecords.push(RewardRecord(
-            block.timestamp,
-            _fromUser,
-            _type,
-            _usdtAmount,
-            _hafAmount
-        ));
         emit RewardDistributed(_user, _fromUser, _type, _usdtAmount, _hafAmount);
     }
 
@@ -849,9 +841,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         return userOrders;
     }
     
-    function getRewardRecords(address _user) external view returns (RewardRecord[] memory) {
-        return users[_user].rewardRecords;
-    }
+    /**
+     * @dev 提示：收益记录已改为事件方式，请前端监听 RewardDistributed 事件
+     * 可以通过过滤 user 参数来获取指定用户的收益记录
+     */
     
     function getDirectReferrals(address _user) external view returns (TeamMemberInfo[] memory) {
         address[] memory directReferrals = users[_user].directReferrals;
@@ -1010,36 +1003,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         
         return (totalStakedUsdt, totalOrders, totalGenesisNodesCount, currentHafPrice, contractUsdtBalance, contractHafBalance, statistics);
     }
-    
-    /**
-     * @dev 获取按类型筛选的收益记录
-     */
-    function getRewardRecordsByType(address _user, RewardType _type) external view returns (RewardRecord[] memory) {
-        RewardRecord[] storage allRecords = users[_user].rewardRecords;
-        
-        // 先统计符合条件的数量
-        uint256 count = 0;
-        for (uint i = 0; i < allRecords.length; i++) {
-            if (allRecords[i].rewardType == _type) {
-                count++;
-            }
-        }
-        
-        // 创建结果数组
-        RewardRecord[] memory filteredRecords = new RewardRecord[](count);
-        uint256 index = 0;
-        for (uint i = 0; i < allRecords.length; i++) {
-            if (allRecords[i].rewardType == _type) {
-                filteredRecords[index] = allRecords[i];
-                index++;
-            }
-        }
-        
-        return filteredRecords;
-    }
-    
-    // ================================================
-
     
     // --- 辅助与内部函数 ---
 
