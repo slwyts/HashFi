@@ -56,6 +56,9 @@ import { useI18n } from 'vue-i18n';
 import LanguageModal from './LanguageModal.vue';
 import { useAccount } from '@wagmi/vue';
 import { useWeb3Modal } from '@web3modal/wagmi/vue';
+import { useToast } from '../composables/useToast';
+
+const toast = useToast();
 
 // --- Wallet Logic ---
 const { address, isConnected } = useAccount();
@@ -72,10 +75,10 @@ const copyAddress = async () => {
   if (address.value) {
     try {
       await navigator.clipboard.writeText(address.value);
-      alert(t('topBar.addressCopied'));
+      toast.success(t('topBar.addressCopied'));
     } catch (err) {
       console.error('Failed to copy address: ', err);
-      alert(t('topBar.copyFailed'));
+      toast.error(t('topBar.copyFailed'));
     }
   }
 };
