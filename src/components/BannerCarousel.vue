@@ -10,7 +10,7 @@
           class="absolute inset-0"
         >
           <img
-            :src="banner.image"
+            :src="banner.imageUrl"
             :alt="banner.title"
             class="w-full h-full object-cover"
             @click="handleBannerClick(banner)"
@@ -22,7 +22,7 @@
           <!-- 标题 -->
           <div class="absolute bottom-0 left-0 right-0 p-4 text-white pointer-events-none">
             <h3 class="font-bold text-lg mb-1">{{ banner.title }}</h3>
-            <p class="text-sm opacity-90">{{ banner.subtitle }}</p>
+            <p class="text-sm opacity-90">{{ banner.description }}</p>
           </div>
         </div>
       </transition-group>
@@ -64,12 +64,14 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 interface Banner {
-  id: number;
-  image: string;
+  id: string;
   title: string;
-  subtitle: string;
+  description: string;
+  imageUrl: string;
   link?: string;
-  announcementId?: number;
+  order: number;
+  active: boolean;
+  createdAt: string;
 }
 
 const props = defineProps<{
@@ -115,18 +117,7 @@ const handleImageLoad = (event: Event, index: number) => {
 };
 
 const handleBannerClick = (banner: Banner) => {
-  if (banner.announcementId) {
-    // 跳转到公告详情页
-    router.push({
-      name: 'content',
-      params: {
-        data: btoa(JSON.stringify({
-          type: 'announcement',
-          id: banner.announcementId
-        }))
-      }
-    });
-  } else if (banner.link) {
+  if (banner.link) {
     // 外部链接
     window.open(banner.link, '_blank');
   }

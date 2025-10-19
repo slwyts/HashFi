@@ -11,6 +11,24 @@
             <p class="text-sm text-gray-500 mt-1">HashFi Platform Administration</p>
           </div>
           <div class="flex items-center gap-4">
+            <div v-if="!isAuthenticated" class="text-right">
+              <button
+                @click="authenticate"
+                class="px-4 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                签名认证
+              </button>
+            </div>
+            <div v-else class="text-right">
+              <p class="text-xs text-gray-400">认证状态</p>
+              <div class="flex items-center gap-2 mt-1">
+                <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                <span class="text-sm font-semibold text-green-600">已认证</span>
+              </div>
+            </div>
             <div class="text-right">
               <p class="text-xs text-gray-400">系统状态</p>
               <div class="flex items-center gap-2 mt-1">
@@ -77,6 +95,12 @@
       <!-- 用户管理 -->
       <UserManagement v-show="activeTab === 'users'" />
 
+      <!-- 轮播图管理 -->
+      <BannerManagement v-show="activeTab === 'banners'" />
+
+      <!-- 公告管理 -->
+      <AnnouncementManagement v-show="activeTab === 'announcements'" />
+
       <!-- 系统设置 -->
       <SystemSettings v-show="activeTab === 'settings'" />
 
@@ -88,11 +112,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useAccount, useSignMessage } from '@wagmi/vue';
 import { useAdminData } from '../composables/useAdminData';
 import Dashboard from '../components/admin/Dashboard.vue';
 import GenesisManagement from '../components/admin/GenesisManagement.vue';
 import DataManagement from '../components/admin/DataManagement.vue';
 import UserManagement from '../components/admin/UserManagement.vue';
+import BannerManagement from '../components/admin/BannerManagement.vue';
+import AnnouncementManagement from '../components/admin/AnnouncementManagement.vue';
 import SystemSettings from '../components/admin/SystemSettings.vue';
 import AdvancedOperations from '../components/admin/AdvancedOperations.vue';
 
@@ -102,18 +129,51 @@ const {
   refreshAll,
 } = useAdminData();
 
-const activeTab = ref<'dashboard' | 'genesis' | 'data' | 'users' | 'settings' | 'advanced'>('dashboard');
+const { address } = useAccount();
+const { signMessageAsync } = useSignMessage();
+const isAuthenticated = ref(false);
+
+const activeTab = ref<'dashboard' | 'genesis' | 'data' | 'users' | 'settings' | 'advanced' | 'banners' | 'announcements'>('dashboard');
 
 const tabs = [
   { key: 'dashboard' as const, name: '仪表盘' },
   { key: 'genesis' as const, name: '创世节点' },
   { key: 'data' as const, name: '数据中心' },
   { key: 'users' as const, name: '用户管理' },
+  { key: 'banners' as const, name: '轮播图' },
+  { key: 'announcements' as const, name: '公告' },
   { key: 'settings' as const, name: '系统设置' },
   { key: 'advanced' as const, name: '高级操作' },
 ];
 
+const authenticate = async () => {
+  try {
+    if (!address.value) {
+      alert('请先连接钱包');
+      return;
+    }
+
+    const message = `HashFi Admin Authentication\nTimestamp: ${Date.now()}`;
+    const signature = await signMessageAsync({ message });
+    
+    // 保存签名到 localStorage (简单认证,后端会装个样子验证)
+    localStorage.setItem('admin_signature', signature);
+    isAuthenticated.value = true;
+    
+    alert('认证成功!');
+  } catch (error) {
+    console.error('签名失败:', error);
+    alert('签名失败');
+  }
+};
+
 onMounted(() => {
   refreshAll();
+  
+  // 检查是否已经认证过
+  const savedSignature = localStorage.getItem('admin_signature');
+  if (savedSignature) {
+    isAuthenticated.value = true;
+  }
 });
 </script>

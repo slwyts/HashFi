@@ -258,6 +258,7 @@ const tabs = [
   { key: 1 as const, name: 'incomePage.tabs.direct' },
   { key: 2 as const, name: 'incomePage.tabs.share' },
   { key: 3 as const, name: 'incomePage.tabs.team' },
+  { key: 4 as const, name: 'incomePage.tabs.genesis' },
 ];
 
 const filteredRecords = computed(() => {
@@ -272,6 +273,7 @@ const getRewardTypeName = (type: RewardType): string => {
     1: 'incomePage.types.direct',
     2: 'incomePage.types.share',
     3: 'incomePage.types.team',
+    4: 'incomePage.types.genesis',
   };
   return typeMap[type] || 'incomePage.types.static';
 };
@@ -282,6 +284,7 @@ const getRewardTypeColor = (type: RewardType): string => {
     1: 'bg-gradient-to-br from-green-500 to-green-600',    // 直推 - 绿色
     2: 'bg-gradient-to-br from-purple-500 to-purple-600',  // 分享 - 紫色
     3: 'bg-gradient-to-br from-orange-500 to-orange-600',  // 团队 - 橙色
+    4: 'bg-gradient-to-br from-yellow-500 to-yellow-600',  // 创世节点 - 金色
   };
   return colorMap[type] || 'bg-gradient-to-br from-gray-500 to-gray-600';
 };

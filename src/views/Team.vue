@@ -95,14 +95,33 @@
     <!-- 团队成员列表 -->
     <div>
       <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('teamPage.myTeam') }}</h3>
-      <div class="bg-white p-5 rounded-2xl shadow-md border border-gray-100">
+      
+      <!-- 加载状态 -->
+      <div v-if="isLoadingTeam" class="bg-white p-8 rounded-2xl shadow-md border border-gray-100 text-center">
+        <div class="flex items-center justify-center space-x-2">
+          <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-gray-600">{{ t('common.loading') }}</span>
+        </div>
+      </div>
+      
+      <!-- 团队成员列表 -->
+      <div v-else class="bg-white p-5 rounded-2xl shadow-md border border-gray-100">
         <div v-if="teamMembers.length > 0" class="space-y-4">
           <div v-for="member in teamMembers" :key="member.address" class="flex items-center p-3 hover:bg-gray-50 rounded-xl transition-colors">
             <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center font-bold text-white mr-4 shadow-md">
               {{ member.address.substring(2, 4).toUpperCase() }}
             </div>
             <div class="flex-grow">
-              <p class="font-semibold text-gray-800">{{ member.shortAddress }}</p>
+              <div class="flex items-center gap-2">
+                <p class="font-semibold text-gray-800">{{ member.shortAddress }}</p>
+                <!-- 层级标签 -->
+                <span v-if="member.memberLevel && member.memberLevel > 1" class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                  {{ member.memberLevel }}级
+                </span>
+              </div>
               <p class="text-xs text-gray-500 mt-1">
                 个人投资: {{ member.personalStaked }} USDT | 团队业绩: {{ member.teamPerformance }} USDT
               </p>
@@ -134,6 +153,7 @@ import { useToast } from '@/composables/useToast';
 interface TeamMember {
   address: string;
   level: string;
+  memberLevel?: number; // 成员所在层级（1=直推，2=二级...）
   personalStaked: string;
   teamPerformance: string;
   totalPerformance: string;
@@ -181,6 +201,82 @@ const { data: directReferralsData } = useReadContract({
   }
 });
 
+// ========== 2.2 递归获取所有团队成员（包括多级下线）==========
+const allTeamMembers = ref<any[]>([]);
+const isLoadingTeam = ref(false);
+
+/**
+ * 递归获取团队成员（最多10层）
+ */
+const fetchAllTeamMembers = async (userAddress: string, depth = 0, maxDepth = 10): Promise<any[]> => {
+  if (depth >= maxDepth) return [];
+  
+  try {
+    // 使用 wagmi 的 readContract 函数
+    const { readContract } = await import('@wagmi/core');
+    const { wagmiConfig } = await import('@/core/web3');
+    
+    const directMembers = await readContract(wagmiConfig, {
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'getDirectReferrals',
+      args: [userAddress as `0x${string}`],
+    }) as any[];
+    
+    if (!directMembers || directMembers.length === 0) {
+      return [];
+    }
+    
+    // 格式化直接成员并添加层级信息
+    const formattedMembers = directMembers.map((member: any) => ({
+      ...member,
+      level: depth + 1, // 记录层级
+      referrer: userAddress, // 记录推荐人
+    }));
+    
+    // 递归获取每个直推成员的下级
+    const subMembers = await Promise.all(
+      directMembers.map(async (member: any) => {
+        return await fetchAllTeamMembers(member.memberAddress, depth + 1, maxDepth);
+      })
+    );
+    
+    // 合并所有成员
+    return [...formattedMembers, ...subMembers.flat()];
+  } catch (error) {
+    console.error(`获取团队成员失败 (层级 ${depth}):`, error);
+    return [];
+  }
+};
+
+/**
+ * 加载所有团队成员
+ */
+const loadAllTeamMembers = async () => {
+  if (!address.value) return;
+  
+  isLoadingTeam.value = true;
+  try {
+    const members = await fetchAllTeamMembers(address.value);
+    allTeamMembers.value = members;
+    console.log('✅ 加载团队成员成功:', members.length, '人');
+  } catch (error) {
+    console.error('❌ 加载团队成员失败:', error);
+  } finally {
+    isLoadingTeam.value = false;
+  }
+};
+
+// 监听地址变化，自动加载团队成员
+import { watch } from 'vue';
+watch(address, (newAddress) => {
+  if (newAddress) {
+    loadAllTeamMembers();
+  } else {
+    allTeamMembers.value = [];
+  }
+}, { immediate: true });
+
 // ========== 3. 团队数据计算 ==========
 // 用户等级 (V0-V5)
 const userLevel = computed(() => {
@@ -206,8 +302,11 @@ const directReferralsCount = computed(() => {
   }
 });
 
-// 团队总人数 = 直推人数 (简化显示)
-const totalMembers = computed(() => directReferralsCount.value);
+// 团队总人数 = 所有层级成员总数
+const totalMembers = computed(() => {
+  // 使用递归获取的所有团队成员数量
+  return allTeamMembers.value.length;
+});
 
 // 团队总业绩 (所有直推的业绩总和)
 const teamTotalPerformance = computed(() => {
@@ -305,82 +404,76 @@ const directReferrals = computed(() => {
   return Array.isArray(referrals) ? referrals : [];
 });
 
-// ========== 5. 获取团队成员详细信息（从链上查询真实数据）==========
+// ========== 5. 获取团队成员详细信息（使用递归获取的所有成员）==========
 const teamMembers = computed<TeamMember[]>(() => {
   try {
-    if (!directReferralsData.value) {
-      console.log('无直推成员数据，directReferralsData.value:', directReferralsData.value);
+    if (isLoadingTeam.value) {
+      console.log('⏳ 正在加载团队成员...');
       return [];
     }
     
-    const members = directReferralsData.value as any[];
-    console.log('团队成员详细数据:', members); // 调试信息
-    
-    if (!Array.isArray(members) || members.length === 0) {
-      console.log('团队成员数组为空或不是数组');
+    if (!allTeamMembers.value || allTeamMembers.value.length === 0) {
+      console.log('无团队成员数据');
       return [];
     }
-  
-  return members.map((member: any): TeamMember | null => {
-    try {
-      console.log('处理团队成员:', member); // 调试每个成员的数据
-      
-      // 检查 member 是否是对象还是数组
-      let address, teamLevel, totalStaked, teamPerformance;
-      
-      if (Array.isArray(member)) {
-        // 如果是数组格式：[memberAddress, teamLevel, totalStakedAmount, teamTotalPerformance]
-        address = member[0] as string;
-        teamLevel = Number(member[1]) || 0;
-        totalStaked = member[2];
-        teamPerformance = member[3];
-      } else if (typeof member === 'object' && member !== null) {
-        // 如果是对象格式：{memberAddress, teamLevel, totalStakedAmount, teamTotalPerformance}
-        address = member.memberAddress || member[0];
-        teamLevel = Number(member.teamLevel || member[1]) || 0;
-        totalStaked = member.totalStakedAmount || member[2];
-        teamPerformance = member.teamTotalPerformance || member[3];
-      } else {
-        console.warn('团队成员数据格式不正确:', member);
+    
+    console.log('✅ 处理团队成员数据:', allTeamMembers.value.length, '人');
+    
+    return allTeamMembers.value.map((member: any): TeamMember | null => {
+      try {
+        // member 数据结构：从 getDirectReferrals 返回的数据 + level/referrer 字段
+        let address, teamLevel, totalStaked, teamPerformance, memberLevel = 1;
+        
+        if (Array.isArray(member)) {
+          // 如果是数组格式：[memberAddress, teamLevel, totalStakedAmount, teamTotalPerformance]
+          address = member[0] as string;
+          teamLevel = Number(member[1]) || 0;
+          totalStaked = member[2];
+          teamPerformance = member[3];
+          // 数组格式没有 level 字段，需要从外层获取（但这里不应该是数组）
+          memberLevel = 1;
+        } else if (typeof member === 'object' && member !== null) {
+          // 如果是对象格式（我们添加的格式）
+          address = member.memberAddress || member[0];
+          teamLevel = Number(member.teamLevel || member[1]) || 0;
+          totalStaked = member.totalStakedAmount || member[2];
+          teamPerformance = member.teamTotalPerformance || member[3];
+          memberLevel = member.level || 1; // 我们添加的层级字段
+        } else {
+          console.warn('团队成员数据格式不正确:', member);
+          return null;
+        }
+        
+        // 类型转换：确保数值是 bigint
+        let totalStakedBigInt = 0n;
+        let teamPerformanceBigInt = 0n;
+        
+        try {
+          totalStakedBigInt = typeof totalStaked === 'bigint' ? totalStaked : BigInt(totalStaked || 0);
+          teamPerformanceBigInt = typeof teamPerformance === 'bigint' ? teamPerformance : BigInt(teamPerformance || 0);
+        } catch (convertError) {
+          console.warn('转换 bigint 失败:', { totalStaked, teamPerformance, convertError });
+          totalStakedBigInt = 0n;
+          teamPerformanceBigInt = 0n;
+        }
+        
+        // 计算成员的总业绩
+        const totalPerformanceBigInt = totalStakedBigInt + teamPerformanceBigInt;
+        
+        return {
+          address: address || '未知地址',
+          level: `V${teamLevel}`,
+          memberLevel: memberLevel, // 成员所在层级（1=直推，2=二级...）
+          personalStaked: parseFloat(formatUnits(totalStakedBigInt, 18)).toFixed(2),
+          teamPerformance: parseFloat(formatUnits(teamPerformanceBigInt, 18)).toFixed(2),
+          totalPerformance: parseFloat(formatUnits(totalPerformanceBigInt, 18)).toFixed(2),
+          shortAddress: address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : '未知'
+        } as TeamMember;
+      } catch (error) {
+        console.error('处理团队成员数据时出错:', error, member);
         return null;
       }
-      
-      // 类型转换：确保数值是 bigint
-      let totalStakedBigInt = 0n;
-      let teamPerformanceBigInt = 0n;
-      
-      try {
-        totalStakedBigInt = typeof totalStaked === 'bigint' ? totalStaked : BigInt(totalStaked || 0);
-        teamPerformanceBigInt = typeof teamPerformance === 'bigint' ? teamPerformance : BigInt(teamPerformance || 0);
-      } catch (convertError) {
-        console.warn('转换 bigint 失败:', { totalStaked, teamPerformance, convertError });
-        totalStakedBigInt = 0n;
-        teamPerformanceBigInt = 0n;
-      }
-      
-      // 计算成员的总业绩
-      const totalPerformanceBigInt = totalStakedBigInt + teamPerformanceBigInt;
-      
-      return {
-        address: address || '未知地址',
-        level: `V${teamLevel}`,
-        personalStaked: parseFloat(formatUnits(totalStakedBigInt, 18)).toFixed(2),
-        teamPerformance: parseFloat(formatUnits(teamPerformanceBigInt, 18)).toFixed(2),
-        totalPerformance: parseFloat(formatUnits(totalPerformanceBigInt, 18)).toFixed(2),
-        shortAddress: address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : '未知'
-      } as TeamMember;
-    } catch (error) {
-      console.error('处理团队成员数据时出错:', error, member);
-      return {
-        address: '错误',
-        level: 'V0',
-        personalStaked: '0.00',
-        teamPerformance: '0.00',
-        totalPerformance: '0.00',
-        shortAddress: '错误'
-      } as TeamMember;
-    }
-  }).filter((member): member is TeamMember => member !== null); // 类型守卫过滤
+    }).filter((member): member is TeamMember => member !== null); // 类型守卫过滤
   } catch (error) {
     console.error('获取团队成员详细信息时出错:', error);
     return [];

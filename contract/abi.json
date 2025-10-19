@@ -257,6 +257,43 @@
 			{
 				"indexed": true,
 				"internalType": "address",
+				"name": "referrer",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "investor",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "fullRewardUsdt",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "actualRewardUsdt",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "burnedUsdt",
+				"type": "uint256"
+			}
+		],
+		"name": "RewardBurned",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
 				"name": "user",
 				"type": "address"
 			},
@@ -553,38 +590,6 @@
 		"type": "function"
 	},
 	{
-		"inputs": [],
-		"name": "TOTAL_SUPPLY",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "activeGenesisNodes",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -834,25 +839,6 @@
 				"internalType": "uint256",
 				"name": "",
 				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "genesisNodes",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
 			}
 		],
 		"stateMutability": "view",
@@ -1233,103 +1219,6 @@
 				"type": "address"
 			}
 		],
-		"name": "getRewardRecords",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "uint256",
-						"name": "timestamp",
-						"type": "uint256"
-					},
-					{
-						"internalType": "address",
-						"name": "fromUser",
-						"type": "address"
-					},
-					{
-						"internalType": "enum HashFi.RewardType",
-						"name": "rewardType",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint256",
-						"name": "usdtAmount",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "hafAmount",
-						"type": "uint256"
-					}
-				],
-				"internalType": "struct HashFi.RewardRecord[]",
-				"name": "",
-				"type": "tuple[]"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_user",
-				"type": "address"
-			},
-			{
-				"internalType": "enum HashFi.RewardType",
-				"name": "_type",
-				"type": "uint8"
-			}
-		],
-		"name": "getRewardRecordsByType",
-		"outputs": [
-			{
-				"components": [
-					{
-						"internalType": "uint256",
-						"name": "timestamp",
-						"type": "uint256"
-					},
-					{
-						"internalType": "address",
-						"name": "fromUser",
-						"type": "address"
-					},
-					{
-						"internalType": "enum HashFi.RewardType",
-						"name": "rewardType",
-						"type": "uint8"
-					},
-					{
-						"internalType": "uint256",
-						"name": "usdtAmount",
-						"type": "uint256"
-					},
-					{
-						"internalType": "uint256",
-						"name": "hafAmount",
-						"type": "uint256"
-					}
-				],
-				"internalType": "struct HashFi.RewardRecord[]",
-				"name": "",
-				"type": "tuple[]"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_user",
-				"type": "address"
-			}
-		],
 		"name": "getTeamPerformanceDetails",
 		"outputs": [
 			{
@@ -1432,38 +1321,6 @@
 						"internalType": "uint256",
 						"name": "totalStaticOutput",
 						"type": "uint256"
-					},
-					{
-						"components": [
-							{
-								"internalType": "uint256",
-								"name": "timestamp",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "fromUser",
-								"type": "address"
-							},
-							{
-								"internalType": "enum HashFi.RewardType",
-								"name": "rewardType",
-								"type": "uint8"
-							},
-							{
-								"internalType": "uint256",
-								"name": "usdtAmount",
-								"type": "uint256"
-							},
-							{
-								"internalType": "uint256",
-								"name": "hafAmount",
-								"type": "uint256"
-							}
-						],
-						"internalType": "struct HashFi.RewardRecord[]",
-						"name": "rewardRecords",
-						"type": "tuple[]"
 					}
 				],
 				"internalType": "struct HashFi.User",
@@ -1708,19 +1565,6 @@
 	},
 	{
 		"inputs": [],
-		"name": "lastPriceUpdateTime",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
 		"name": "name",
 		"outputs": [
 			{
@@ -1829,25 +1673,6 @@
 				"internalType": "bool",
 				"name": "",
 				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "pendingGenesisApplications",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
 			}
 		],
 		"stateMutability": "view",
@@ -2094,19 +1919,6 @@
 	},
 	{
 		"inputs": [],
-		"name": "totalGenesisShares",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
 		"name": "totalSupply",
 		"outputs": [
 			{
@@ -2303,19 +2115,6 @@
 		"name": "updateTotalMined",
 		"outputs": [],
 		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "usdtToken",
-		"outputs": [
-			{
-				"internalType": "contract IERC20",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
 		"type": "function"
 	},
 	{

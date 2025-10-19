@@ -1,0 +1,16 @@
+{
+  "name": "hashfi-cloudflare-api",
+  "version": "1.0.0",
+  "description": "HashFi API using Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "wrangler": "^3.22.0",
+    "typescript": "^5.3.3"
+  }
+}

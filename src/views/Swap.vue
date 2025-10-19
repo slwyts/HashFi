@@ -29,8 +29,8 @@
         <div class="text-right text-gray-400 text-sm mt-2 pr-1">$ {{ fromValue.toFixed(2) }}</div>
 
         <div class="mt-4 pt-4 border-t border-gray-100">
-          <p class="text-xs text-gray-500 flex items-center">
-            <svg class="w-4 h-4 mr-1.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <p class="text-base font-semibold text-gray-700 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
             1 {{ fromToken.name }} ≈ {{ currentRate }} {{ toToken.name }}

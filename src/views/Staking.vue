@@ -11,14 +11,14 @@
 
     <!-- Staking Plans -->
     <div class="mb-8">
-      <h2 class="text-2xl font-bold mb-4 gradient-text">选择认购方案</h2>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <h2 class="text-2xl font-bold mb-4 gradient-text">{{ t('stakingPage.selectPlan') }}</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <div 
           v-for="plan in stakingPlans" 
           :key="plan.name"
           @click="selectedPlan = plan"
           :class="[
-            'card p-4 cursor-pointer transition-all duration-300 relative overflow-hidden',
+            'card p-3 md:p-4 cursor-pointer transition-all duration-300 relative overflow-hidden',
             selectedPlan && selectedPlan.name === plan.name 
               ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-500/50 scale-105' 
               : 'hover:shadow-lg hover:scale-102'
@@ -27,19 +27,19 @@
           <!-- Selected indicator -->
           <div 
             v-if="selectedPlan && selectedPlan.name === plan.name"
-            class="absolute top-0 right-0 w-0 h-0 border-t-[40px] border-t-blue-500 border-l-[40px] border-l-transparent"
+            class="absolute top-0 right-0 w-0 h-0 border-t-[30px] md:border-t-[40px] border-t-blue-500 border-l-[30px] md:border-l-[40px] border-l-transparent"
           >
-            <svg class="w-4 h-4 text-white absolute -top-9 -right-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-3.5 h-3.5 md:w-4 md:h-4 text-white absolute -top-7 md:-top-9 -right-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
             </svg>
           </div>
           
-          <p class="font-bold text-lg mb-1">{{ t(plan.name) }}</p>
-          <p class="text-xs text-gray-500 mb-3">{{ plan.amountRange }}</p>
-          <p class="text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+          <p class="font-bold text-sm md:text-lg mb-0.5 md:mb-1">{{ t(plan.name) }}</p>
+          <p class="text-[11px] md:text-xs text-gray-500 mb-1.5 md:mb-3">{{ plan.amountRange }}</p>
+          <p class="text-xs md:text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1 md:mb-2">
             {{ t('stakingPage.dailyRate') }} ≈ {{ plan.dailyRate }}
           </p>
-          <p class="text-xs text-gray-500">{{ plan.multiplier }} {{ t('stakingPage.multiplier') }}</p>
+          <p class="text-[11px] md:text-xs text-gray-500">{{ plan.multiplier }} {{ t('stakingPage.multiplier') }}</p>
         </div>
       </div>
     </div>
@@ -48,9 +48,12 @@
     <div class="card p-6 mb-6">
       <div class="flex justify-between items-center mb-6">
         <p class="font-bold text-lg">{{ t('stakingPage.stakeTitle') }}</p>
-        <div class="flex items-center text-sm text-blue-600 cursor-pointer hover:text-blue-700 transition-colors">
+        <div 
+          @click="openStakingRules"
+          class="flex items-center text-sm text-blue-600 cursor-pointer hover:text-blue-700 transition-colors"
+        >
           <span>{{ t('stakingPage.stakingRules') }}</span>
-          <img src="/icons/link.svg" alt="link" class="w-3 h-4 ml-1" />
+          <img src="/icons/link.svg" alt="link" class="w-5 h-5 ml-1" />
         </div>
       </div>
 
@@ -235,24 +238,26 @@ const router = useRouter();
 const { address } = useAccount();
 
 // 公告系统
-const { banners, latestAnnouncements, getUnreadAnnouncements, markAsRead } = useAnnouncements();
+const { banners, latestAnnouncements, getUnreadAnnouncements, markAsRead, loading: announcementsLoading } = useAnnouncements();
 const showAnnouncementModal = ref(false);
 const currentAnnouncement = ref<any>(null);
 
-// 检查未读公告
-onMounted(() => {
-  const unreadAnnouncements = getUnreadAnnouncements();
-  if (unreadAnnouncements.length > 0) {
-    currentAnnouncement.value = unreadAnnouncements[0];
-    showAnnouncementModal.value = true;
+// 检查未读公告 - 等待数据加载完成
+watch(() => announcementsLoading.value, (isLoading) => {
+  if (!isLoading && !showAnnouncementModal.value) {
+    const unreadAnnouncements = getUnreadAnnouncements();
+    if (unreadAnnouncements.length > 0) {
+      currentAnnouncement.value = unreadAnnouncements[0];
+      showAnnouncementModal.value = true;
+    }
   }
-});
+}, { immediate: true });
 
 const handleCloseAnnouncementModal = () => {
   showAnnouncementModal.value = false;
 };
 
-const handleDontShowAgain = (id: number) => {
+const handleDontShowAgain = (id: string) => {
   markAsRead(id);
   showAnnouncementModal.value = false;
 };
@@ -596,6 +601,19 @@ const openOrderDetail = (order: any) => {
   router.push({
     path: `/staking/order/${order.id}`,
     state: { order }
+  });
+};
+
+// 打开认购规则页面
+const openStakingRules = () => {
+  router.push({
+    name: 'content',
+    params: {
+      data: btoa(JSON.stringify({
+        type: 'rules',
+        id: 'staking'
+      }))
+    }
   });
 };
 </script>
