@@ -24,10 +24,10 @@
         <p class="text-sm text-gray-600 mb-4">从合约中提取USDT或HAF到管理员地址</p>
         
         <div class="space-y-3">
-          <div class="flex gap-3">
+          <div class="flex flex-col md:flex-row gap-3">
             <select
               v-model="withdrawForm.token"
-              class="px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+              class="w-full md:w-auto px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white min-w-0"
             >
               <option value="USDT">USDT</option>
               <option value="HAF">HAF</option>
@@ -36,13 +36,13 @@
               v-model="withdrawForm.amount"
               type="number"
               step="0.01"
-              class="flex-1 px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              class="flex-1 px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent min-w-0"
               placeholder="提现数量"
             />
             <button
               @click="handleEmergencyWithdraw"
               :disabled="isProcessing() || !withdrawForm.amount"
-              class="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+              class="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg font-semibold hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
             >
               提现
             </button>
