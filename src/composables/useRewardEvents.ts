@@ -7,8 +7,8 @@ const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const DEPLOY_BLOCK = BigInt(import.meta.env.VITE_CONTRACT_DEPLOY_BLOCK || 0);
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-// ✅ RPC免费节点限制：最多查询10000个区块
-const MAX_BLOCK_RANGE = 9000; // 留点余量，避免边界问题
+// 每次查询的最大区块范围
+const MAX_BLOCK_RANGE = 100000; // BSC Testnet 可以支持 9000+ 区块
 
 // RewardType 枚举: 0=Static, 1=Direct, 2=Share, 3=Team, 4=Genesis
 export type RewardType = 0 | 1 | 2 | 3 | 4;
