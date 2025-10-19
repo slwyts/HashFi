@@ -63,16 +63,16 @@
     </div>
 
     <!-- 管理员控制面板 -->
-    <div v-else class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+    <div v-else class="max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6 space-y-3 md:space-y-6">
       <!-- Tab 导航 -->
-      <div class="bg-white rounded-xl p-2 shadow-sm border border-blue-100">
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+      <div class="bg-white rounded-xl p-1 md:p-2 shadow-sm border border-blue-100">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-1 md:gap-2">
           <button
             v-for="tab in tabs"
             :key="tab.key"
             @click="activeTab = tab.key"
             :class="[
-              'px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200',
+              'px-2 md:px-4 py-2 md:py-3 rounded-lg font-semibold text-xs md:text-sm transition-all duration-200',
               activeTab === tab.key
                 ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30'
                 : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'

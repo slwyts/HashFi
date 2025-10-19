@@ -3,18 +3,18 @@
     <button
       type="button"
       @click="toggleDropdown"
-      class="w-full px-4 py-3 text-left bg-white border-2 border-gray-300 rounded-lg hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+      class="w-full px-3 md:px-4 py-2 md:py-3 text-left bg-white border-2 border-gray-300 rounded-lg hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm md:text-base"
       :class="{ 'border-blue-500': isOpen }"
     >
       <div class="flex items-center justify-between">
-        <span class="flex items-center gap-2">
-          <span v-if="selectedOption?.icon" class="text-lg">{{ selectedOption.icon }}</span>
-          <span :class="selectedOption ? 'text-gray-900 font-medium' : 'text-gray-400'">
+        <span class="flex items-center gap-1 md:gap-2">
+          <span v-if="selectedOption?.icon" class="text-base md:text-lg">{{ selectedOption.icon }}</span>
+          <span :class="selectedOption ? 'text-gray-900 font-medium' : 'text-gray-400'" class="truncate">
             {{ selectedOption ? selectedOption.label : placeholder }}
           </span>
         </span>
         <svg 
-          class="w-5 h-5 text-gray-400 transition-transform duration-200"
+          class="w-4 h-4 md:w-5 md:h-5 text-gray-400 transition-transform duration-200 flex-shrink-0"
           :class="{ 'rotate-180': isOpen }"
           fill="none" 
           stroke="currentColor" 
@@ -36,28 +36,28 @@
     >
       <div
         v-if="isOpen"
-        class="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto"
+        class="absolute z-[9999] w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto"
       >
         <div
           v-for="option in options"
           :key="String(option.value)"
           @click="selectOption(option)"
-          class="px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors flex items-center gap-3"
+          class="px-3 md:px-4 py-2 md:py-3 cursor-pointer hover:bg-blue-50 transition-colors flex items-center gap-2 md:gap-3 text-sm md:text-base"
           :class="{
             'bg-blue-50 text-blue-700': modelValue === option.value,
             'text-gray-700': modelValue !== option.value
           }"
         >
-          <span v-if="option.icon" class="text-lg">{{ option.icon }}</span>
-          <div class="flex-1">
-            <div class="font-medium">{{ option.label }}</div>
-            <div v-if="option.description" class="text-xs text-gray-500 mt-0.5">
+          <span v-if="option.icon" class="text-base md:text-lg flex-shrink-0">{{ option.icon }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate">{{ option.label }}</div>
+            <div v-if="option.description" class="text-xs text-gray-500 mt-0.5 truncate">
               {{ option.description }}
             </div>
           </div>
           <svg
             v-if="modelValue === option.value"
-            class="w-5 h-5 text-blue-600"
+            class="w-4 h-4 md:w-5 md:h-5 text-blue-600 flex-shrink-0"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -66,11 +66,22 @@
         </div>
       </div>
     </transition>
+
+    <!-- Mobile Modal -->
+    <MobileSelectModal
+      v-if="isMobile"
+      v-model:show="showMobileModal"
+      :model-value="modelValue"
+      @update:model-value="handleMobileSelect"
+      :options="options"
+      :title="placeholder"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import MobileSelectModal from './MobileSelectModal.vue';
 
 export interface SelectOption {
   value: string | number | boolean;
@@ -96,6 +107,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<Emits>();
 
 const isOpen = ref(false);
+const showMobileModal = ref(false);
+const isMobile = ref(window.innerWidth < 768);
 const selectRef = ref<HTMLElement | null>(null);
 
 const selectedOption = computed(() => {
@@ -103,12 +116,21 @@ const selectedOption = computed(() => {
 });
 
 const toggleDropdown = () => {
-  isOpen.value = !isOpen.value;
+  if (isMobile.value) {
+    showMobileModal.value = true;
+  } else {
+    isOpen.value = !isOpen.value;
+  }
 };
 
 const selectOption = (option: SelectOption) => {
   emit('update:modelValue', option.value);
   isOpen.value = false;
+};
+
+const handleMobileSelect = (value: string | number | boolean) => {
+  emit('update:modelValue', value);
+  showMobileModal.value = false;
 };
 
 // 点击外部关闭下拉框
@@ -118,11 +140,18 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 };
 
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 768;
+};
+
 onMounted(() => {
+  handleResize(); // Initial check
   document.addEventListener('click', handleClickOutside);
+  window.addEventListener('resize', handleResize);
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('resize', handleResize);
 });
 </script>

@@ -7,17 +7,17 @@
       <div class="mb-6 p-5 bg-blue-50 rounded-lg">
         <h3 class="text-lg font-semibold mb-4 text-gray-800">强制结算用户收益</h3>
         <p class="text-sm text-gray-600 mb-4">手动触发指定用户的收益结算，更新其所有订单的静态收益和创世节点分红</p>
-        <div class="flex gap-3">
+        <div class="flex flex-col md:flex-row gap-3">
           <input
             v-model="settleUserAddress"
             type="text"
-            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono min-w-0"
             placeholder="0x..."
           />
           <button
             @click="handleForceSettle"
             :disabled="isProcessing() || !settleUserAddress"
-            class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+            class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
           >
             结算
           </button>
@@ -28,28 +28,24 @@
       <div class="p-5 bg-purple-50 rounded-lg">
         <h3 class="text-lg font-semibold mb-4 text-gray-800">设置用户团队等级</h3>
         <p class="text-sm text-gray-600 mb-4">手动调整用户的团队等级（V0-V5），影响其静态收益加速</p>
-        <div class="flex gap-3">
+        <div class="flex flex-col md:flex-row gap-3">
           <input
             v-model="teamLevelAddress"
             type="text"
-            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono"
+            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono min-w-0"
             placeholder="0x..."
           />
-          <select
-            v-model="teamLevel"
-            class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
-          >
-            <option :value="0">V0 - 无加速</option>
-            <option :value="1">V1 - 5% 加速</option>
-            <option :value="2">V2 - 10% 加速</option>
-            <option :value="3">V3 - 15% 加速</option>
-            <option :value="4">V4 - 20% 加速</option>
-            <option :value="5">V5 - 25% 加速</option>
-          </select>
+          <div class="w-full md:w-auto">
+            <CustomSelect
+              v-model="teamLevel"
+              :options="teamLevelOptions"
+              placeholder="选择等级"
+            />
+          </div>
           <button
             @click="handleSetTeamLevel"
             :disabled="isProcessing() || !teamLevelAddress"
-            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
           >
             设置等级
           </button>
@@ -92,17 +88,17 @@
     <div class="bg-white rounded-xl p-6 shadow-lg border border-blue-100">
       <h3 class="text-lg font-bold mb-4 text-gray-800">用户信息查询</h3>
       <p class="text-sm text-gray-600 mb-4">输入用户地址查看其详细信息</p>
-      <div class="flex gap-3">
+      <div class="flex flex-col md:flex-row gap-3">
         <input
           v-model="queryAddress"
           type="text"
-          class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+          class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono min-w-0"
           placeholder="0x..."
         />
         <button
           @click="handleQueryUser"
           :disabled="isQuerying || !queryAddress"
-          class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+          class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-semibold hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
         >
           查询
         </button>
@@ -164,6 +160,8 @@ import { readContract } from '@wagmi/core';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
 import { wagmiConfig } from '../../core/web3';
 import { abi } from '@/core/contract';
+import CustomSelect from './CustomSelect.vue';
+import type { SelectOption } from './CustomSelect.vue';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -175,6 +173,16 @@ const settleUserAddress = ref('');
 // 团队等级表单
 const teamLevelAddress = ref('');
 const teamLevel = ref(0);
+
+// 团队等级选项
+const teamLevelOptions: SelectOption[] = [
+  { value: 0, label: 'V0 - 无加速' },
+  { value: 1, label: 'V1 - 5% 加速' },
+  { value: 2, label: 'V2 - 10% 加速' },
+  { value: 3, label: 'V3 - 15% 加速' },
+  { value: 4, label: 'V4 - 20% 加速' },
+  { value: 5, label: 'V5 - 25% 加速' },
+];
 
 // 用户查询
 const queryAddress = ref('');

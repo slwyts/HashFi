@@ -12,7 +12,7 @@
     <!-- Staking Plans -->
     <div class="mb-8">
       <h2 class="text-2xl font-bold mb-4 gradient-text">{{ t('stakingPage.selectPlan') }}</h2>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div 
           v-for="plan in stakingPlans" 
           :key="plan.name"
@@ -35,7 +35,7 @@
           </div>
           
           <p class="font-bold text-sm md:text-lg mb-0.5 md:mb-1">{{ t(plan.name) }}</p>
-          <p class="text-[11px] md:text-xs text-gray-500 mb-1.5 md:mb-3">{{ plan.amountRange }}</p>
+          <p class="text-[11px] md:text-xs text-gray-500 mb-1.5 md:mb-3 text-left">{{ plan.amountRange }}</p>
           <p class="text-xs md:text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-1 md:mb-2">
             {{ t('stakingPage.dailyRate') }} ≈ {{ plan.dailyRate }}
           </p>
@@ -64,12 +64,12 @@
         </div>
         <div class="flex items-center bg-white rounded-lg p-3">
           <img src="/icons/usdt.svg" alt="USDT" class="w-8 h-8 mr-3" />
-          <span class="font-bold text-lg text-gray-700">USDT</span>
+          <span class="font-bold text-lg text-gray-700 flex-shrink-0">USDT</span>
           <input 
             type="number" 
             v-model="stakeAmount"
             :placeholder="selectedPlan?.maxStake === Infinity ? `${selectedPlan?.minStake}+` : `${selectedPlan?.minStake}-${selectedPlan?.maxStake}`" 
-            class="flex-grow text-right bg-transparent text-xl font-bold text-gray-800 focus:outline-none placeholder-gray-400"
+            class="flex-grow text-right bg-transparent text-xl font-bold text-gray-800 focus:outline-none placeholder-gray-400 min-w-0"
           >
         </div>
       </div>
