@@ -307,6 +307,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         require(totalClaimableHaf > 0, "No rewards to withdraw");
 
         User storage user = users[msg.sender];
+        
+        if (pendingDynamicHaf > 0) {
+            uint256 dynamicUsdtAmount = pendingDynamicHaf.mul(hafPrice).div(PRICE_PRECISION);
+            _addRewardRecord(msg.sender, address(0), RewardType.Direct, dynamicUsdtAmount, pendingDynamicHaf);
+        }
+        
         user.dynamicRewardClaimed = user.dynamicRewardClaimed.add(pendingDynamicHaf);
        
         uint256 fee = totalClaimableHaf.mul(withdrawalFeeRate).div(100);
@@ -536,7 +542,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 emit RewardBurned(referrer, _user, fullRewardUsdt, actualRewardUsdt, burnedRewardUsdt);
             }
             
-            // 发放实际奖励
+            // 发放实际奖励（只累加到总额，不触发事件）
             if(actualRewardUsdt > 0) {
                 uint256 rewardHaf = actualRewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
                 User storage referrerUser = users[referrer];
@@ -544,7 +550,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 if (referrerUser.dynamicRewardStartTime == 0) {
                     referrerUser.dynamicRewardStartTime = block.timestamp;
                 }
-                _addRewardRecord(referrer, _user, RewardType.Direct, actualRewardUsdt, rewardHaf);
             }
             
             currentUser = referrer;
@@ -608,7 +613,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 if (referrerUser.dynamicRewardStartTime == 0) {
                     referrerUser.dynamicRewardStartTime = block.timestamp;
                 }
-                _addRewardRecord(referrer, _user, RewardType.Share, actualRewardUsdt, rewardHaf);
+                // ✅ 删除：不在这里记录事件，在 withdraw() 时统一记录
+                // _addRewardRecord(referrer, _user, RewardType.Share, actualRewardUsdt, rewardHaf);
             }
             
             currentUser = referrer;

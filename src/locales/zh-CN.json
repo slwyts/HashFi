@@ -102,20 +102,25 @@
     "withdrawSuccess": "提现成功",
     "from": "来自",
     "incomeRecords": "收益记录",
+    "released": "已释放",
     "tabs": {
       "all": "全部",
       "static": "静态",
-      "direct": "直推",
-      "share": "分享",
-      "team": "团队",
+      "dynamic": "动态",
       "genesis": "创世节点"
     },
     "types": {
       "static": "静态收益",
-      "direct": "直推收益",
-      "share": "平级收益",
-      "team": "团队收益",
+      "dynamic": "动态收益",
+      "staticBonus": "静态加速",
       "genesis": "创世节点分红"
+    },
+    "labels": {
+      "dailyRelease": "每日释放",
+      "referralReward": "推荐奖励",
+      "teamShare": "团队分成",
+      "bonusReward": "加速奖励",
+      "nodeDividend": "节点分红"
     }
   },
   "teamPage": {

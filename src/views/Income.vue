@@ -81,27 +81,54 @@
           :key="index" 
           class="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100"
         >
-          <div class="flex justify-between items-center">
-            <div class="flex items-center">
+          <div class="flex justify-between items-start">
+            <div class="flex items-start flex-1">
               <div :class="[
-                'w-10 h-10 rounded-full flex items-center justify-center mr-3',
+                'w-12 h-12 rounded-xl flex items-center justify-center mr-3 flex-shrink-0',
                 getRewardTypeColor(record.rewardType)
               ]">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div>
-                <p class="font-semibold text-gray-800">{{ t(getRewardTypeName(record.rewardType)) }}</p>
-                <p class="text-xs text-gray-500 mt-0.5">{{ record.formattedDate }}</p>
-                <p v-if="record.fromUser !== '0x0000000000000000000000000000000000000000'" class="text-xs text-gray-400 mt-1">
+              <div class="flex-1">
+                <!-- 收益类型标题 -->
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-bold text-gray-800 text-base">{{ t(getRewardTypeName(record.rewardType)) }}</span>
+                  <span :class="[
+                    'text-xs px-2 py-0.5 rounded-full',
+                    getRewardTypeBadge(record.rewardType)
+                  ]">
+                    {{ t(getRewardTypeLabel(record.rewardType)) }}
+                  </span>
+                </div>
+                
+                <!-- 时间 -->
+                <p class="text-xs text-gray-500 mb-1">
+                  <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {{ record.formattedDate }}
+                </p>
+                
+                <!-- 来源信息 -->
+                <p v-if="record.fromUser !== '0x0000000000000000000000000000000000000000'" class="text-xs text-gray-400 flex items-center">
+                  <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
                   {{ t('incomePage.from') }}: {{ formatAddress(record.fromUser) }}
                 </p>
               </div>
             </div>
-            <div class="text-right">
-              <p class="font-bold text-green-600 text-lg">+{{ parseFloat(record.hafAmount).toFixed(4) }} HAF</p>
-              <p class="text-xs text-gray-500 mt-0.5">≈ ${{ parseFloat(record.usdtAmount).toFixed(2) }}</p>
+            
+            <!-- 金额显示 -->
+            <div class="text-right ml-4">
+              <p class="font-bold text-green-600 text-lg whitespace-nowrap">
+                +{{ parseFloat(record.hafAmount).toFixed(4) }} HAF
+              </p>
+              <p class="text-xs text-gray-500 mt-0.5 whitespace-nowrap">
+                ≈ ${{ parseFloat(record.usdtAmount).toFixed(2) }}
+              </p>
             </div>
           </div>
         </div>
@@ -250,30 +277,41 @@ const {
 } = useRewardEvents();
 
 // ========== 4. 标签页筛选 ==========
-const activeTab = ref<RewardType | 'all'>('all');
+// 简化为3个标签：全部、静态、动态、创世节点
+const activeTab = ref<'all' | 'static' | 'dynamic' | 'genesis'>('all');
 
 const tabs = [
   { key: 'all' as const, name: 'incomePage.tabs.all' },
-  { key: 0 as const, name: 'incomePage.tabs.static' },
-  { key: 1 as const, name: 'incomePage.tabs.direct' },
-  { key: 2 as const, name: 'incomePage.tabs.share' },
-  { key: 3 as const, name: 'incomePage.tabs.team' },
-  { key: 4 as const, name: 'incomePage.tabs.genesis' },
+  { key: 'static' as const, name: 'incomePage.tabs.static' },
+  { key: 'dynamic' as const, name: 'incomePage.tabs.dynamic' },
+  { key: 'genesis' as const, name: 'incomePage.tabs.genesis' },
 ];
 
 const filteredRecords = computed(() => {
-  return getEventsByType(activeTab.value);
+  if (activeTab.value === 'all') {
+    return rewardEvents.value;
+  } else if (activeTab.value === 'static') {
+    // 静态 = Static(0) + Team(3)
+    return rewardEvents.value.filter((e: any) => e.rewardType === 0 || e.rewardType === 3);
+  } else if (activeTab.value === 'dynamic') {
+    // 动态 = Direct(1) + Share(2)
+    return rewardEvents.value.filter((e: any) => e.rewardType === 1 || e.rewardType === 2);
+  } else if (activeTab.value === 'genesis') {
+    // 创世节点 = Genesis(4)
+    return rewardEvents.value.filter((e: any) => e.rewardType === 4);
+  }
+  return rewardEvents.value;
 });
 
 // ========== 5. 辅助函数 ==========
 
 const getRewardTypeName = (type: RewardType): string => {
   const typeMap: Record<RewardType, string> = {
-    0: 'incomePage.types.static',
-    1: 'incomePage.types.direct',
-    2: 'incomePage.types.share',
-    3: 'incomePage.types.team',
-    4: 'incomePage.types.genesis',
+    0: 'incomePage.types.static',       // 静态收益
+    1: 'incomePage.types.dynamic',      // 动态收益（直推）
+    2: 'incomePage.types.dynamic',      // 动态收益（分享）
+    3: 'incomePage.types.staticBonus',  // 静态加速
+    4: 'incomePage.types.genesis',      // 创世节点
   };
   return typeMap[type] || 'incomePage.types.static';
 };
@@ -281,12 +319,36 @@ const getRewardTypeName = (type: RewardType): string => {
 const getRewardTypeColor = (type: RewardType): string => {
   const colorMap: Record<RewardType, string> = {
     0: 'bg-gradient-to-br from-blue-500 to-blue-600',      // 静态 - 蓝色
-    1: 'bg-gradient-to-br from-green-500 to-green-600',    // 直推 - 绿色
-    2: 'bg-gradient-to-br from-purple-500 to-purple-600',  // 分享 - 紫色
-    3: 'bg-gradient-to-br from-orange-500 to-orange-600',  // 团队 - 橙色
+    1: 'bg-gradient-to-br from-green-500 to-green-600',    // 动态 - 绿色
+    2: 'bg-gradient-to-br from-green-500 to-green-600',    // 动态 - 绿色（和直推一样）
+    3: 'bg-gradient-to-br from-purple-500 to-purple-600',  // 静态加速 - 紫色
     4: 'bg-gradient-to-br from-yellow-500 to-yellow-600',  // 创世节点 - 金色
   };
   return colorMap[type] || 'bg-gradient-to-br from-gray-500 to-gray-600';
+};
+
+// 获取收益类型的小标签文字
+const getRewardTypeLabel = (type: RewardType): string => {
+  const labelMap: Record<RewardType, string> = {
+    0: 'incomePage.labels.dailyRelease',    // 每日释放
+    1: 'incomePage.labels.referralReward',  // 推荐奖励
+    2: 'incomePage.labels.teamShare',       // 团队分成
+    3: 'incomePage.labels.bonusReward',     // 加速奖励
+    4: 'incomePage.labels.nodeDividend',    // 节点分红
+  };
+  return labelMap[type] || 'incomePage.labels.dailyRelease';
+};
+
+// 获取收益类型标签的颜色样式
+const getRewardTypeBadge = (type: RewardType): string => {
+  const badgeMap: Record<RewardType, string> = {
+    0: 'bg-blue-100 text-blue-700',      // 静态 - 蓝色徽章
+    1: 'bg-green-100 text-green-700',    // 动态 - 绿色徽章
+    2: 'bg-green-100 text-green-700',    // 动态 - 绿色徽章
+    3: 'bg-purple-100 text-purple-700',  // 静态加速 - 紫色徽章
+    4: 'bg-yellow-100 text-yellow-700',  // 创世节点 - 金色徽章
+  };
+  return badgeMap[type] || 'bg-gray-100 text-gray-700';
 };
 
 const formatAddress = (addr: string): string => {
