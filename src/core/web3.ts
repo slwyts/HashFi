@@ -16,8 +16,8 @@ const chains = [bsc, bscTestnet] as const
 
 // 配置 RPC URLs（支持未连接钱包时读取数据）
 const transports = {
-  [bsc.id]: http(import.meta.env.VITE_BSC_MAINNET_RPC_URL || 'https://bsc-dataseed1.binance.org'),
-  [bscTestnet.id]: http(import.meta.env.VITE_BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545'),
+  [bsc.id]: http(import.meta.env.VITE_BSC_MAINNET_RPC_URL || 'https://bsc-rpc.publicnode.com'),
+  [bscTestnet.id]: http(import.meta.env.VITE_BSC_TESTNET_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com'),
 }
 
 export const wagmiConfig = defaultWagmiConfig({
