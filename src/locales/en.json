@@ -101,20 +101,25 @@
     "withdrawSuccess": "Withdraw Success",
     "from": "From",
     "incomeRecords": "Income Records",
+    "released": "Released",
     "tabs": {
       "all": "All",
       "static": "Static",
-      "direct": "Direct",
-      "share": "Share",
-      "team": "Team",
+      "dynamic": "Dynamic",
       "genesis": "Genesis"
     },
     "types": {
       "static": "Static Income",
-      "direct": "Direct Referral Income",
-      "share": "Share Income",
-      "team": "Team Income",
+      "dynamic": "Dynamic Income",
+      "staticBonus": "Static Bonus",
       "genesis": "Genesis Node Dividend"
+    },
+    "labels": {
+      "dailyRelease": "Daily Release",
+      "referralReward": "Referral Reward",
+      "teamShare": "Team Share",
+      "bonusReward": "Bonus Reward",
+      "nodeDividend": "Node Dividend"
     }
   },
   "teamPage": {
