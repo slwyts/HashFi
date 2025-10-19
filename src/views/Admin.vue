@@ -114,6 +114,7 @@
 import { ref, onMounted } from 'vue';
 import { useAccount, useSignMessage } from '@wagmi/vue';
 import { useAdminData } from '../composables/useAdminData';
+import { useToast } from '../composables/useToast';
 import Dashboard from '../components/admin/Dashboard.vue';
 import GenesisManagement from '../components/admin/GenesisManagement.vue';
 import DataManagement from '../components/admin/DataManagement.vue';
@@ -122,6 +123,8 @@ import BannerManagement from '../components/admin/BannerManagement.vue';
 import AnnouncementManagement from '../components/admin/AnnouncementManagement.vue';
 import SystemSettings from '../components/admin/SystemSettings.vue';
 import AdvancedOperations from '../components/admin/AdvancedOperations.vue';
+
+const toast = useToast();
 
 const {
   isAdmin,
@@ -149,7 +152,7 @@ const tabs = [
 const authenticate = async () => {
   try {
     if (!address.value) {
-      alert('请先连接钱包');
+      toast.error('请先连接钱包');
       return;
     }
 
@@ -160,10 +163,10 @@ const authenticate = async () => {
     localStorage.setItem('admin_signature', signature);
     isAuthenticated.value = true;
     
-    alert('认证成功!');
+    toast.success('认证成功！');
   } catch (error) {
     console.error('签名失败:', error);
-    alert('签名失败');
+    toast.error('签名失败');
   }
 };
 
