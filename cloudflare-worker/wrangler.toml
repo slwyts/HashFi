@@ -1,0 +1,14 @@
+name = "hashfi-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# KV 命名空间绑定
+[[kv_namespaces]]
+binding = "HASHFI_DATA"
+id = "f32e991f35694ca39631fed8d2c127cc"
+
+# CORS 配置 (可选)
+# [env.production]
+# routes = [
+#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]

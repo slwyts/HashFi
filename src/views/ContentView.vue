@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
     <!-- 顶部导航栏 -->
-    <header class="glass sticky top-0 z-50 px-4 py-4 flex items-center border-b border-blue-100 bg-white/80 backdrop-blur-md">
+    <header class="glass sticky top-0 z-40 px-4 py-4 flex items-center border-b border-blue-100 bg-white/80 backdrop-blur-md">
       <button 
         @click="goBack" 
         class="mr-3 w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 transition-colors flex items-center justify-center shadow-md"
@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { marked } from 'marked';
@@ -76,8 +76,8 @@ const goBack = () => {
   router.back();
 };
 
-// 初始化页面数据
-onMounted(() => {
+// 加载页面内容的函数
+const loadContent = () => {
   // 从路由参数获取数据
   if (route.query.title) {
     title.value = route.query.title as string;
@@ -104,6 +104,9 @@ onMounted(() => {
       } else if (data.type === 'announcement-list') {
         // 加载公告列表
         loadAnnouncementList();
+      } else if (data.type === 'rules' && data.id) {
+        // 加载规则说明
+        loadRulesContent(data.id);
       } else {
         // 普通内容
         title.value = data.title || '';
@@ -114,65 +117,151 @@ onMounted(() => {
       console.error('Failed to parse route data:', e);
     }
   }
+};
+
+// 初始化页面数据
+onMounted(() => {
+  loadContent();
+});
+
+// 监听路由变化，重新加载内容
+watch(() => route.params.data, () => {
+  loadContent();
 });
 
 // 加载公告详情
-const loadAnnouncementDetail = async (id: number) => {
-  const { useAnnouncements } = await import('@/composables/useAnnouncements');
-  const { getAnnouncementById } = useAnnouncements();
-  const announcement = getAnnouncementById(id);
+const loadAnnouncementDetail = async (id: string) => {
+  title.value = t('common.loadingEllipsis');
+  content.value = `<div class="text-center py-12"><p class="text-gray-500">${t('common.loadingEllipsis')}</p></div>`;
+  contentType.value = 'html';
   
-  if (announcement) {
-    title.value = announcement.title;
-    content.value = announcement.content;
-    contentType.value = 'html';
-  } else {
-    title.value = '公告未找到';
-    content.value = '<p class="text-gray-500 text-center py-8">该公告不存在或已被删除</p>';
+  try {
+    const API_URL = import.meta.env.VITE_API_URL;
+    if (!API_URL) {
+      title.value = t('common.error');
+      content.value = `<p class="text-gray-500 text-center py-8">${t('common.apiNotConfigured')}</p>`;
+      return;
+    }
+    
+    const response = await fetch(`${API_URL}/announcements`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch announcements');
+    }
+    
+    const data = await response.json();
+    const announcement = (data.announcements || []).find((a: any) => a.id === id);
+    
+    if (announcement) {
+      title.value = announcement.title;
+      content.value = announcement.content;
+      contentType.value = 'html';
+    } else {
+      title.value = t('announcement.notFound');
+      content.value = `<p class="text-gray-500 text-center py-8">${t('announcement.notFoundDesc')}</p>`;
+      contentType.value = 'html';
+    }
+  } catch (error) {
+    console.error('Failed to load announcement:', error);
+    title.value = t('common.error');
+    content.value = `<p class="text-red-500 text-center py-8">${t('common.loadFailed')}</p>`;
     contentType.value = 'html';
   }
 };
 
 // 加载公告列表
 const loadAnnouncementList = async () => {
-  const { useAnnouncements } = await import('@/composables/useAnnouncements');
-  const { announcements } = useAnnouncements();
-  
   title.value = t('announcement.all');
   
-  // 生成公告列表 HTML
-  let html = '<div class="space-y-4">';
+  // 显示加载中
+  content.value = `<div class="text-center py-12"><p class="text-gray-500">${t('common.loadingEllipsis')}</p></div>`;
+  contentType.value = 'html';
   
-  if (announcements.value.length === 0) {
-    html += `<div class="text-center py-12"><p class="text-gray-500">${t('announcement.noAnnouncements')}</p></div>`;
-  } else {
-    for (const announcement of announcements.value) {
-      const date = new Date(announcement.timestamp * 1000).toLocaleDateString();
-      const badge = announcement.isOnChain 
-        ? `<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">${t('announcement.onChain')}</span>`
-        : `<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">${t('announcement.local')}</span>`;
-      
-      html += `
-        <div class="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100" onclick="window.location.href='#/content/${btoa(JSON.stringify({ type: 'announcement', id: announcement.id }))} '">
-          <div class="flex items-start justify-between mb-2">
-            <h3 class="font-bold text-lg text-gray-800 flex-1">${announcement.title}</h3>
-            ${badge}
-          </div>
-          <p class="text-gray-600 text-sm mb-3">${announcement.summary}</p>
-          <div class="flex items-center text-xs text-gray-400">
-            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            ${date}
-          </div>
-        </div>
-      `;
+  try {
+    const API_URL = import.meta.env.VITE_API_URL;
+    if (!API_URL) {
+      content.value = `<div class="text-center py-12"><p class="text-gray-500">${t('common.apiNotConfigured')}</p></div>`;
+      return;
     }
+    
+    const response = await fetch(`${API_URL}/announcements`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch announcements');
+    }
+    
+    const data = await response.json();
+    const announcements = (data.announcements || [])
+      .filter((a: any) => a.active)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    // 生成公告列表 HTML
+    let html = '<div class="space-y-4">';
+    
+    if (announcements.length === 0) {
+      html += `<div class="text-center py-12"><p class="text-gray-500">${t('announcement.noAnnouncements')}</p></div>`;
+    } else {
+      for (const announcement of announcements) {
+        const date = new Date(announcement.createdAt).toLocaleDateString();
+        const typeIcon = announcement.type === 'urgent' ? '🚨' : announcement.type === 'important' ? '⚠️' : '📢';
+        const typeLabel = announcement.type === 'urgent' ? '紧急' : announcement.type === 'important' ? '重要' : '普通';
+        const badge = `<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">${typeIcon} ${typeLabel}</span>`;
+        
+        // 从 content 提取摘要（取前100个字符）
+        const summary = announcement.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...';
+        
+        // 生成路由参数
+        const routeData = btoa(JSON.stringify({ type: 'announcement', id: announcement.id }));
+        
+        html += `
+          <div class="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100" data-announcement-route="${routeData}">
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="font-bold text-lg text-gray-800 flex-1">${announcement.title}</h3>
+              ${badge}
+            </div>
+            <p class="text-gray-600 text-sm mb-3">${summary}</p>
+            <div class="flex items-center text-xs text-gray-400">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              ${date}
+            </div>
+          </div>
+        `;
+      }
+    }
+    
+    html += '</div>';
+    content.value = html;
+    
+    // 添加点击事件监听（延迟执行确保DOM已更新）
+    setTimeout(() => {
+      const announcementCards = document.querySelectorAll('[data-announcement-route]');
+      announcementCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const routeData = card.getAttribute('data-announcement-route');
+          if (routeData) {
+            router.push({
+              name: 'content',
+              params: { data: routeData }
+            });
+          }
+        });
+      });
+    }, 0);
+  } catch (error) {
+    console.error('Failed to load announcements:', error);
+    content.value = `<div class="text-center py-12"><p class="text-red-500">${t('common.loadFailed')}</p></div>`;
   }
   
-  html += '</div>';
-  content.value = html;
   contentType.value = 'html';
+};
+
+// 加载规则说明内容
+const loadRulesContent = (ruleId: string) => {
+  if (ruleId === 'staking') {
+    title.value = t('rules.staking.title');
+    content.value = t('rules.staking.fullMarkdown');
+    contentType.value = 'markdown';
+  }
 };
 </script>
 

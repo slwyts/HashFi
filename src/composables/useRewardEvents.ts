@@ -5,9 +5,13 @@ import { formatUnits, type Log } from 'viem';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const DEPLOY_BLOCK = BigInt(import.meta.env.VITE_CONTRACT_DEPLOY_BLOCK || 0);
+const API_URL = import.meta.env.VITE_API_URL || '';
 
-// RewardType 枚举: 0=Static, 1=Direct, 2=Share, 3=Team
-export type RewardType = 0 | 1 | 2 | 3;
+// ✅ RPC免费节点限制：最多查询10000个区块
+const MAX_BLOCK_RANGE = 9000; // 留点余量，避免边界问题
+
+// RewardType 枚举: 0=Static, 1=Direct, 2=Share, 3=Team, 4=Genesis
+export type RewardType = 0 | 1 | 2 | 3 | 4;
 
 export interface RewardEvent {
   timestamp: number;
@@ -18,6 +22,65 @@ export interface RewardEvent {
   usdtAmount: string;
   hafAmount: string;
   formattedDate: string;
+}
+
+interface RewardCache {
+  address: string;
+  lastBlockNumber: string;
+  events: Array<Omit<RewardEvent, 'blockNumber'> & { blockNumber: string }>;
+  updatedAt: string;
+}
+
+/**
+ * 从 Workers 获取缓存的收益记录
+ */
+async function fetchCacheFromWorkers(address: string): Promise<RewardCache | null> {
+  if (!API_URL) return null;
+  
+  try {
+    const response = await fetch(`${API_URL}/reward-cache/${address}`);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.cache || null;
+  } catch (error) {
+    console.warn('Failed to fetch reward cache from Workers:', error);
+    return null;
+  }
+}
+
+/**
+ * 上传收益记录到 Workers 缓存
+ */
+async function uploadCacheToWorkers(
+  address: string,
+  lastBlockNumber: bigint,
+  events: RewardEvent[]
+): Promise<void> {
+  if (!API_URL) return;
+  
+  try {
+    // 转换 bigint 为 string 以便 JSON 序列化
+    const cache: RewardCache = {
+      address,
+      lastBlockNumber: lastBlockNumber.toString(),
+      events: events.map(e => ({
+        ...e,
+        blockNumber: e.blockNumber.toString(),
+      })),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    await fetch(`${API_URL}/reward-cache`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cache),
+    });
+    
+    console.log('✅ Reward cache uploaded to Workers');
+  } catch (error) {
+    console.warn('Failed to upload reward cache to Workers:', error);
+  }
 }
 
 /**
@@ -52,40 +115,121 @@ export const useRewardEvents = () => {
     error.value = null;
 
     try {
-      console.log('Fetching reward events for user:', address.value);
+      console.log('🔍 Fetching reward events for user:', address.value);
       
-      // ✅ 从合约部署区块开始查询
-      const startBlock = fromBlock || DEPLOY_BLOCK;
-      const endBlock = toBlock || 'latest';
+      const endBlockNumber = toBlock === 'latest' || !toBlock 
+        ? await publicClient.getBlockNumber() 
+        : toBlock;
       
-      console.log(`Querying events from block ${startBlock} to ${endBlock}`);
+      // 🚀 优先从 Workers 缓存读取
+      const cachedData = await fetchCacheFromWorkers(address.value);
       
-      // 获取 RewardDistributed 事件日志
-      const logs = await publicClient.getLogs({
-        address: CONTRACT_ADDRESS,
-        event: {
-          type: 'event',
-          name: 'RewardDistributed',
-          inputs: [
-            { type: 'address', indexed: true, name: 'user' },
-            { type: 'address', indexed: true, name: 'fromUser' },
-            { type: 'uint8', indexed: false, name: 'rewardType' },
-            { type: 'uint256', indexed: false, name: 'usdtAmount' },
-            { type: 'uint256', indexed: false, name: 'hafAmount' },
-          ],
-        },
-        args: {
-          user: address.value, // 过滤当前用户的事件
-        },
-        fromBlock: startBlock,
-        toBlock: endBlock,
-      });
+      let startBlock = fromBlock || DEPLOY_BLOCK;
+      let allEvents: RewardEvent[] = [];
+      
+      if (cachedData && cachedData.events.length > 0) {
+        const cachedBlockNumber = BigInt(cachedData.lastBlockNumber);
+        console.log(`✅ Found cache from block ${DEPLOY_BLOCK} to ${cachedBlockNumber}`);
+        console.log(`📦 Cached events: ${cachedData.events.length}`);
+        
+        // 将缓存数据转换回 RewardEvent 格式
+        allEvents = cachedData.events.map(e => ({
+          ...e,
+          blockNumber: BigInt(e.blockNumber),
+        }));
+        
+        // 只查询缓存之后的新区块
+        if (cachedBlockNumber < endBlockNumber) {
+          startBlock = cachedBlockNumber + 1n;
+          console.log(`🔄 Querying new events from block ${startBlock} to ${endBlockNumber}`);
+        } else {
+          // 缓存已是最新，直接使用
+          console.log('✨ Cache is up-to-date, using cached data');
+          rewardEvents.value = allEvents.sort((a, b) => b.timestamp - a.timestamp);
+          isLoading.value = false;
+          return;
+        }
+      } else {
+        console.log(`🆕 No cache found, querying from deployment block ${DEPLOY_BLOCK}`);
+      }
+      
+      // 🔗 查询新事件（从 startBlock 到 endBlockNumber）
+      const blockRange = endBlockNumber - startBlock;
+      const newLogs: any[] = [];
+      
+      if (blockRange <= MAX_BLOCK_RANGE) {
+        // 单次查询
+        const logs = await publicClient.getLogs({
+          address: CONTRACT_ADDRESS,
+          event: {
+            type: 'event',
+            name: 'RewardDistributed',
+            inputs: [
+              { type: 'address', indexed: true, name: 'user' },
+              { type: 'address', indexed: true, name: 'fromUser' },
+              { type: 'uint8', indexed: false, name: 'rewardType' },
+              { type: 'uint256', indexed: false, name: 'usdtAmount' },
+              { type: 'uint256', indexed: false, name: 'hafAmount' },
+            ],
+          },
+          args: {
+            user: address.value,
+          },
+          fromBlock: startBlock,
+          toBlock: endBlockNumber,
+        });
+        newLogs.push(...logs);
+      } else {
+        // ✅ 分批查询
+        console.log(`📊 Block range ${blockRange} exceeds limit, splitting into batches...`);
+        
+        let currentStart = startBlock;
+        const batchCount = Math.ceil(Number(blockRange) / MAX_BLOCK_RANGE);
+        
+        for (let i = 0; i < batchCount; i++) {
+          const currentEnd = currentStart + BigInt(MAX_BLOCK_RANGE) > endBlockNumber
+            ? endBlockNumber
+            : currentStart + BigInt(MAX_BLOCK_RANGE);
+          
+          console.log(`Batch ${i + 1}/${batchCount}: blocks ${currentStart} to ${currentEnd}`);
+          
+          try {
+            const logs = await publicClient.getLogs({
+              address: CONTRACT_ADDRESS,
+              event: {
+                type: 'event',
+                name: 'RewardDistributed',
+                inputs: [
+                  { type: 'address', indexed: true, name: 'user' },
+                  { type: 'address', indexed: true, name: 'fromUser' },
+                  { type: 'uint8', indexed: false, name: 'rewardType' },
+                  { type: 'uint256', indexed: false, name: 'usdtAmount' },
+                  { type: 'uint256', indexed: false, name: 'hafAmount' },
+                ],
+              },
+              args: {
+                user: address.value,
+              },
+              fromBlock: currentStart,
+              toBlock: currentEnd,
+            });
+            
+            newLogs.push(...logs);
+            console.log(`Batch ${i + 1} found ${logs.length} events`);
+          } catch (batchError) {
+            console.error(`Error in batch ${i + 1}:`, batchError);
+            // 继续处理下一批次，不中断整个查询
+          }
+          
+          currentStart = currentEnd + 1n;
+        }
+      }
 
-      console.log('Found events:', logs.length);
+      console.log(`📝 New events found: ${newLogs.length}`);
 
-      // 解析事件日志
-      const parsedEvents = await Promise.all(
-        logs.map(async (log: any) => {
+      // 解析新事件日志
+      const parsedNewEvents = await Promise.all(
+        newLogs.map(async (log: any) => {
           // 获取区块信息以获取时间戳
           const block = await publicClient.getBlock({ 
             blockNumber: log.blockNumber 
@@ -113,13 +257,31 @@ export const useRewardEvents = () => {
         })
       );
 
-      // 按时间倒序排列
-      rewardEvents.value = parsedEvents.sort((a: RewardEvent, b: RewardEvent) => b.timestamp - a.timestamp);
+      // 合并缓存数据和新数据
+      allEvents = [...allEvents, ...parsedNewEvents];
       
-      console.log('Parsed reward events:', rewardEvents.value.length);
+      // 按时间倒序排列
+      rewardEvents.value = allEvents.sort((a, b) => b.timestamp - a.timestamp);
+      
+      console.log(`✅ Total events: ${rewardEvents.value.length}`);
+      
+      // 🚀 如果成功查询到数据，上传到 Workers 缓存
+      if (newLogs.length > 0 || cachedData) {
+        await uploadCacheToWorkers(address.value, endBlockNumber, rewardEvents.value);
+      }
     } catch (err: any) {
-      console.error('Error fetching reward events:', err);
+      console.error('❌ Error fetching reward events:', err);
       error.value = err.message || '获取收益记录失败';
+      
+      // 🔥 Fallback: 如果 RPC 查询失败，尝试只使用缓存数据
+      const cachedData = await fetchCacheFromWorkers(address.value);
+      if (cachedData && cachedData.events.length > 0) {
+        console.log('⚠️ RPC failed, using cached data as fallback');
+        rewardEvents.value = cachedData.events.map(e => ({
+          ...e,
+          blockNumber: BigInt(e.blockNumber),
+        })).sort((a, b) => b.timestamp - a.timestamp);
+      }
     } finally {
       isLoading.value = false;
     }

@@ -1,11 +1,9 @@
 <template>
   <div class="modern-announcement-banner mb-4 overflow-hidden">
     <div class="flex items-center gap-3">
-      <!-- 喇叭图标 -->
+      <!-- 公告图标 -->
       <div class="announcement-icon">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-        </svg>
+        <img src="/icons/notice.png" alt="公告" class="w-5 h-5" />
       </div>
       
       <!-- 滚动文字容器 -->
@@ -18,7 +16,7 @@
           >
             <span class="font-semibold text-gray-900">{{ announcements[currentIndex]?.title }}</span>
             <span class="mx-2 text-gray-400">|</span>
-            <span class="text-gray-600">{{ announcements[currentIndex]?.summary }}</span>
+            <span class="text-gray-600">{{ announcements[currentIndex]?.content?.substring(0, 50) }}...</span>
           </div>
         </transition>
       </div>
@@ -40,12 +38,12 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
 interface Announcement {
-  id: number;
+  id: string;
   title: string;
-  summary: string;
-  content?: string;
-  timestamp?: number;
-  isImportant?: boolean;
+  content: string;
+  type: 'normal' | 'important' | 'urgent';
+  active: boolean;
+  createdAt: string;
 }
 
 const props = defineProps<{
@@ -126,9 +124,6 @@ onUnmounted(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 6px;
-  background: #3b82f6;
-  color: white;
   flex-shrink: 0;
 }
 

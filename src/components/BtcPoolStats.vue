@@ -3,32 +3,32 @@
     <div v-if="isLoading" class="text-center py-4 text-gray-500">
       {{ t('common.loading') }}...
     </div>
-    <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
+    <div v-else class="grid grid-cols-3 md:grid-cols-3 gap-4 md:gap-6 text-center">
       <div class="group">
-        <p class="text-sm text-gray-500 mb-2">{{ t('miningPool.platformHashrate') }}</p>
-        <p class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+        <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.platformHashrate') }}</p>
+        <p class="text-base md:text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
           {{ totalHashrate }} T
         </p>
       </div>
       <div class="group">
-        <p class="text-sm text-gray-500 mb-2">{{ t('miningPool.networkHashrate') }}</p>
-        <p class="text-xl font-bold text-gray-800">{{ globalHashrate }} T</p>
+        <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.networkHashrate') }}</p>
+        <p class="text-base md:text-xl font-bold text-gray-800">{{ globalHashrate }} T</p>
       </div>
       <div class="group">
-        <p class="text-sm text-gray-500 mb-2">{{ t('miningPool.dailyEarningsPerT') }}</p>
-        <p class="text-xl font-bold text-gray-800">{{ dailyRewardPerT }} BTC</p>
+        <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.dailyEarningsPerT') }}</p>
+        <p class="text-base md:text-xl font-bold text-gray-800">{{ dailyRewardPerT }} BTC</p>
       </div>
       <div class="group">
-        <p class="text-sm text-gray-500 mb-2">{{ t('miningPool.btcPrice') }}</p>
-        <p class="text-xl font-bold text-green-600">${{ btcPrice }}</p>
+        <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.btcPrice') }}</p>
+        <p class="text-base md:text-xl font-bold text-green-600">${{ btcPrice }}</p>
       </div>
       <div class="group">
-        <p class="text-sm text-gray-500 mb-2">{{ t('miningPool.totalMined') }}</p>
-        <p class="text-xl font-bold text-gray-800">{{ totalMined }} BTC</p>
+        <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.totalMined') }}</p>
+        <p class="text-base md:text-xl font-bold text-gray-800">{{ totalMined }} BTC</p>
       </div>
       <div class="group">
-        <p class="text-sm text-gray-500 mb-2">{{ t('miningPool.difficulty') }}</p>
-        <p class="text-xl font-bold text-gray-800">{{ difficulty }}</p>
+        <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.difficulty') }}</p>
+        <p class="text-base md:text-xl font-bold text-gray-800">{{ difficulty }}</p>
       </div>
     </div>
   </div>

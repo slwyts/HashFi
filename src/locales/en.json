@@ -1,12 +1,17 @@
 {
   "common": {
     "loading": "Loading",
+    "loadingEllipsis": "Loading...",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "connectWallet": "Connect Wallet",
     "processing": "Processing",
     "copySuccess": "Copy successful",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "confirm": "Confirm",
+    "error": "Error",
+    "apiNotConfigured": "API not configured",
+    "loadFailed": "Load failed, please try again later"
   },
   "bottomNav": {
     "staking": "Subscribe",
@@ -25,6 +30,7 @@
     "title": "Select Language"
   },
   "stakingPage": {
+    "selectPlan": "Select Subscription Plan",
     "dailyRate": "Daily Rate",
     "multiplier": "x Exit Multiplier",
     "stakeTitle": "Subscribe",
@@ -294,7 +300,9 @@
     "noAnnouncements": "No announcements",
     "publishTime": "Publish Time",
     "onChain": "On-Chain",
-    "local": "Platform"
+    "local": "Platform",
+    "notFound": "Announcement Not Found",
+    "notFoundDesc": "This announcement does not exist or has been deleted"
   },
   "transaction": {
     "waitingConfirmation": "Waiting for block confirmation...",
@@ -314,5 +322,134 @@
     "exited": "Exited",
     "exitConditionMet": "Exit condition met! You have been automatically removed from the active node list, but can still withdraw remaining dividends",
     "exitConditionDescription": "Can apply to exit node after reaching 3x application fee ({amount} USDT)"
+  },
+  "rules": {
+    "staking": {
+      "title": "Staking Rules",
+      "levels": {
+        "title": "Staking Levels",
+        "description": "The platform offers four staking levels with different reward multipliers and daily release rates:",
+        "bronze": {
+          "name": "Bronze Level",
+          "amount": "100 USDT - 499 USDT",
+          "multiplier": "1.5x",
+          "rate": "0.7%",
+          "suitable": "Beginners"
+        },
+        "silver": {
+          "name": "Silver Level",
+          "amount": "500 USDT - 999 USDT",
+          "multiplier": "2x",
+          "rate": "0.8%",
+          "suitable": "Intermediate"
+        },
+        "gold": {
+          "name": "Gold Level",
+          "amount": "1,000 USDT - 2,999 USDT",
+          "multiplier": "2.5x",
+          "rate": "0.9%",
+          "suitable": "Advanced"
+        },
+        "diamond": {
+          "name": "Diamond Level",
+          "amount": "3,000 USDT and above",
+          "multiplier": "3x",
+          "rate": "1%",
+          "suitable": "Premium",
+          "privilege": "No burn mechanism on referrals"
+        }
+      },
+      "rewards": {
+        "title": "Reward System",
+        "static": {
+          "title": "Static Rewards",
+          "items": [
+            "Settled in HAF tokens",
+            "Daily release based on investment percentage",
+            "90% of static rewards go to users",
+            "10% of static rewards go to Genesis Node pool",
+            "Order automatically ends when reaching exit multiplier"
+          ]
+        },
+        "burn": {
+          "title": "Burn Mechanism",
+          "what": "What is Burn?",
+          "whatDesc": "When a referrer's level is lower than the referee's investment level, the portion of rewards exceeding the referrer's level cap will be burned (not distributed)",
+          "rules": "Burn Rules:",
+          "rule1": "Same level referral → No burn, full rewards",
+          "rule2": "Cross-level referral → Burn to referrer's level cap",
+          "rule2Items": [
+            "Bronze refers Silver/Gold/Diamond → Max 499U rewards",
+            "Silver refers Gold/Diamond → Max 999U rewards",
+            "Gold refers Diamond → Max 2999U rewards"
+          ],
+          "rule3": "Diamond level → Never burns",
+          "exampleTitle": "Example:",
+          "example": "User A (Silver, 500U) refers User B (Gold, 1000U)\\nB's direct reward should be: 1000U × 5% = 50U\\nBut A is Silver level, max reward is 999U × 5% = 49.95U\\nThe excess 0.05U is burned"
+        }
+      },
+      "dynamic": {
+        "title": "Dynamic Rewards",
+        "direct": {
+          "title": "Direct Referral Rewards (100-day release)",
+          "gen1": "Level 1: 5% of investment",
+          "gen2": "Level 2: 3% of investment",
+          "gen3to6": "Level 3-6: 1% of investment"
+        },
+        "share": {
+          "title": "Sharing Rewards (100-day release)",
+          "desc1": "Refer N people, earn N levels, max 10 levels",
+          "desc2": "Earn 5% of downline static rewards per level",
+          "desc3": "Need corresponding number of valid direct referrals to unlock levels"
+        },
+        "team": {
+          "title": "Team Rewards (Instant)",
+          "desc": "Auto-upgrade based on small area performance, accelerate static rewards:",
+          "calculation": "Team performance calculation: Exclude largest area, sum all other direct areas"
+        }
+      },
+      "genesis": {
+        "title": "Global Genesis Node",
+        "requirements": "Requirements",
+        "req1": "Cost: 5,000 USDT",
+        "req2": "Must have staking history",
+        "req3": "Admin approval required",
+        "rewardsTitle": "Rewards",
+        "reward1": "Receive 10% of global static rewards",
+        "reward2": "Shared equally among all Genesis Nodes",
+        "reward3": "3x exit (auto-exit after receiving 15,000 USDT)",
+        "reward4": "No more dividends after exit"
+      },
+      "important": {
+        "title": "Important Notice",
+        "advantages": "Advantages",
+        "adv1": "On-chain smart contract, transparent",
+        "adv2": "Decentralized wallet, secure assets",
+        "adv3": "Auto reward distribution",
+        "risks": "Risk Warning",
+        "risk1": "Cryptocurrency investment carries risks",
+        "risk2": "Invest rationally within your means",
+        "risk3": "Recommend diversified multi-level investment",
+        "risk4": "Diamond level enjoys no-burn privilege",
+        "notes": "Notes",
+        "note1": "Must bind referrer before staking",
+        "note2": "HAF price set by admin, auto-increases daily",
+        "note3": "Withdrawal fee: 5%",
+        "note4": "Swap fee: 1%"
+      },
+      "faq": {
+        "title": "FAQ",
+        "q1": "How to avoid burn?",
+        "a1": "Invest directly at Diamond level (3000U+), never burns.",
+        "q2": "How are dynamic rewards released?",
+        "a2": "Direct and sharing rewards release linearly over 100 days, 1% daily.",
+        "q3": "How is team level calculated?",
+        "a3": "System auto-calculates your small area performance (excluding largest), auto-upgrades when requirements met.",
+        "q4": "What are Genesis Node benefits?",
+        "a4": "Receive 10% of global static rewards until reaching 15,000 USDT."
+      },
+      "footer": "Platform reserves final interpretation rights",
+      "fullMarkdown": "# Staking Rules\n\n## Staking Levels\n\nThe platform offers four staking levels with different reward multipliers and daily release rates:\n\n### 1. Bronze Level\n- **Minimum Stake Amount:** 100 USDT - 499 USDT\n- **Exit Multiplier:** 1.5x\n- **Daily Rate:** 0.7%\n- **Suitable For:** Beginners\n\n### 2. Silver Level\n- **Stake Amount:** 500 USDT - 999 USDT\n- **Exit Multiplier:** 2x\n- **Daily Release Rate:** 0.8%\n- **Suitable For:** Advanced Users\n\n### 3. Gold Level\n- **Stake Amount:** 1,000 USDT - 2,999 USDT\n- **Exit Multiplier:** 2.5x\n- **Daily Release Rate:** 0.9%\n- **Suitable For:** Experienced Users\n\n### 4. Diamond Level\n- **Stake Amount:** 3,000 USDT and above\n- **Exit Multiplier:** 3x\n- **Daily Release Rate:** 1%\n- **Suitable For:** Professional Users\n- **Privilege:** No burn mechanism for referrals\n\n---\n\n## Rewards Explanation\n\n### Static Rewards\n- Settled in HAF token\n- Daily release calculated by percentage of investment\n- 90% of static rewards go to users\n- 10% of static rewards go to global Genesis Node pool\n- Orders automatically end when exit multiplier is reached\n\n### Burn Mechanism\n\n**What is Burn?**\n\nWhen referrer's level is lower than referee's investment level, rewards exceeding referrer's level cap will be burned (not distributed)\n\n**Burn Rules:**\n\n1. Same level referral → No burn, full rewards\n2. Cross-level referral → Burn to referrer's level cap\n   - Bronze refers Silver/Gold/Diamond → Only get rewards for 499U\n   - Silver refers Gold/Diamond → Only get rewards for 999U\n   - Gold refers Diamond → Only get rewards for 2999U\n3. Diamond level → Never burn\n\n**Example:**\n\nUser A (Silver level, invested 500U) refers User B (Gold level, invested 1000U)\nB's direct referral reward should be: 1000U × 5% = 50U\nBut A is Silver level, can only get 999U × 5% = 49.95U\nThe excess 0.05U is burned\n\n---\n\n## Dynamic Rewards\n\n### Direct Referral Reward (100-day release period)\n- 1st generation: 5% of investment\n- 2nd generation: 3% of investment\n- 3rd to 6th generation: 1% of investment\n\n### Sharing Reward (100-day release period)\n- Refer N people, earn N generations, max 10 generations\n- Each generation gets 5% of downline static rewards\n- Requires corresponding number of valid direct referrals to unlock generations\n\n### Team Reward (Instant distribution)\n\nAuto-upgrade based on small area performance, accelerate static rewards:\n\n| Team Level | Small Area Performance | Acceleration Rate |\n|---------|------------|----------|\n| V1 | 5,000 USDT | 5% |\n| V2 | 20,000 USDT | 10% |\n| V3 | 100,000 USDT | 15% |\n| V4 | 300,000 USDT | 20% |\n| V5 | 1,000,000 USDT | 25% |\n\n**Team Performance Calculation:** Exclude largest area, sum all other direct referral area performances\n\n---\n\n## Global Genesis Node\n\n### Application Requirements\n- Cost 5,000 USDT\n- Must have staked before\n- Requires admin approval\n\n### Reward Rules\n- Receive 10% of global static reward releases\n- Evenly distributed among all Genesis Nodes\n- 3x exit (auto-exit after receiving 15,000 USDT)\n- No node dividends after exit\n\n---\n\n## Important Notice\n\n### ✅ Advantages\n- On-chain smart contract, transparent\n- Decentralized wallet, secure assets\n- Auto reward distribution, no manual operation\n\n### ⚠️ Risk Warning\n- Cryptocurrency investment involves risks\n- Invest rationally, within your means\n- Recommend diversified investment across levels\n- Diamond level enjoys no-burn privilege\n\n### 📝 Notes\n- Must bind referrer before staking\n- HAF price set by backend, auto-increases daily\n- Withdrawal fee: 5%\n- Swap fee: 1%\n\n---\n\n## FAQ\n\n**How to avoid burn?**\n\nDirectly invest in Diamond level (3000U and above), never burn.\n\n**How are dynamic rewards released?**\n\nDirect and sharing rewards release linearly over 100 days, 1% of total daily.\n\n**How is team level calculated?**\n\nSystem auto-calculates your small area performance (excluding largest), auto-upgrades when requirements met.\n\n**What are Genesis Node benefits?**\n\nReceive 10% of global static rewards until reaching 15,000 USDT.\n\n---\n\n*Platform reserves final interpretation rights*"
+    }
   }
 }
