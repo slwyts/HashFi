@@ -11,17 +11,10 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     using SafeMath for uint256;
 
-    // --- 外部合约依赖 ---
     IERC20 public usdtToken;
 
-    // --- 代币经济模型变更 ---
-    /**
-     * @dev HAF代币的总供应量，固定为2亿。
-     */
     uint256 public constant TOTAL_SUPPLY = 200_000_000 * 1e18;
 
-
-    // --- 事件 ---
     event Staked(address indexed user, uint256 orderId, uint256 amount, uint8 level);
     event ReferrerBound(address indexed user, address indexed referrer);
     event Withdrawn(address indexed user, uint256 hafAmount, uint256 fee);
@@ -34,12 +27,9 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     event TokensBurned(address indexed user, uint256 hafAmount, uint256 usdtAmount);
     event TeamLevelUpdated(address indexed user, uint8 oldLevel, uint8 newLevel);
 
-    // 详细的收益记录事件
     enum RewardType { Static, Direct, Share, Team }
     event RewardDistributed(address indexed user, address indexed fromUser, RewardType rewardType, uint256 usdtAmount, uint256 hafAmount);
 
-
-    // --- 数据结构 ---
     
     struct RewardRecord {
         uint256 timestamp;
@@ -252,7 +242,13 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     function bindReferrer(address _referrer) external whenNotPaused {
         User storage user = users[msg.sender];
         require(user.referrer == address(0), "Referrer already bound");
-        // 允许绑定 owner 作为推荐人（即使没有投资），或者已经投资过的用户
+        
+        if (msg.sender == owner()) {
+            user.referrer = address(0x0000000000000000000000000000000000000001);
+            emit ReferrerBound(msg.sender, address(0x0000000000000000000000000000000000000001));
+            return;
+        }
+
         require(_referrer == owner() || users[_referrer].totalStakedAmount > 0, "Referrer does not exist");
         require(_referrer != msg.sender, "Cannot refer yourself");
         user.referrer = _referrer;
@@ -516,11 +512,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             if (nodeUser.genesisDividendsWithdrawn >= maxDividend) {
                 _removeActiveGenesisNode(_node);
             }
-            
-            // ========== FIXED: 只更新状态，不直接分发代币 ==========
-            // 结算函数只负责计算收益并更新状态
-            // 实际的代币分发由 withdraw() 函数统一处理
-            // ================================================
         }
     }
     
@@ -784,15 +775,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             return 0;
         }
         
-        // ✅ 修复3: 优化计算顺序，避免溢出和精度损失
         uint256 elapsedTime = block.timestamp.sub(user.dynamicRewardStartTime);
         uint256 totalReleased;
         
-        // 如果已超过释放周期，全部释放
         if (elapsedTime >= DYNAMIC_RELEASE_PERIOD) {
             totalReleased = user.dynamicRewardTotal;
         } else {
-            // 按比例释放，优化计算顺序
             totalReleased = user.dynamicRewardTotal.mul(elapsedTime).div(DYNAMIC_RELEASE_PERIOD);
         }
         
@@ -803,9 +791,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         return 0;
     }
     
-    /**
-     * @dev 内部函数: 计算待领取的创世节点收益
-     */
+
     function _calculatePendingGenesis(address _user) internal view returns (uint256) {
         User storage user = users[_user];
         
@@ -1141,7 +1127,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         withdrawalFeeRate = _newFeeRate;
     }
     
-    // ========== NEW: 管理员控制函数 ==========
     
     /**
      * @dev 修改质押级别参数
