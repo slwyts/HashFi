@@ -50,6 +50,7 @@ interface RewardEvent {
 
 interface RewardCache {
   address: string;
+  contractAddress: string;     // ✅ 新增：合约地址
   lastBlockNumber: string;
   events: RewardEvent[];
   updatedAt: string;
@@ -301,7 +302,7 @@ async function deleteAnnouncement(request: Request, env: Env, id: string): Promi
 }
 
 // 获取收益记录缓存
-async function getRewardCache(env: Env, address: string): Promise<Response> {
+async function getRewardCache(env: Env, address: string, contractAddress?: string): Promise<Response> {
   try {
     const cacheKey = `reward_cache_${address.toLowerCase()}`;
     const cacheJson = await env.HASHFI_DATA.get(cacheKey);
@@ -313,6 +314,23 @@ async function getRewardCache(env: Env, address: string): Promise<Response> {
     }
     
     const cache: RewardCache = JSON.parse(cacheJson);
+    
+    // ✅ 检查合约地址是否匹配
+    if (contractAddress && cache.contractAddress) {
+      if (cache.contractAddress.toLowerCase() !== contractAddress.toLowerCase()) {
+        console.log(`Contract address mismatch: cached=${cache.contractAddress}, requested=${contractAddress}`);
+        
+        // 合约地址不匹配，删除旧缓存
+        await env.HASHFI_DATA.delete(cacheKey);
+        
+        return new Response(JSON.stringify({ 
+          cache: null, 
+          message: 'Contract address changed, cache cleared' 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
     
     return new Response(JSON.stringify({ cache }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -337,15 +355,25 @@ async function updateRewardCache(request: Request, env: Env): Promise<Response> 
       });
     }
     
+    if (!data.contractAddress) {
+      return new Response(JSON.stringify({ error: 'Contract address is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     const cacheKey = `reward_cache_${data.address.toLowerCase()}`;
+    
+    // ✅ 保存合约地址到缓存
     const cache: RewardCache = {
       ...data,
+      contractAddress: data.contractAddress.toLowerCase(),
       updatedAt: new Date().toISOString(),
     };
     
-    // 缓存 24 小时
+    // 缓存 3 个月 (90天)
     await env.HASHFI_DATA.put(cacheKey, JSON.stringify(cache), {
-      expirationTtl: 86400, // 24 hours
+      expirationTtl: 7776000, // 90 days = 90 * 24 * 60 * 60
     });
     
     return new Response(JSON.stringify({ success: true, cache }), {
@@ -408,7 +436,8 @@ export default {
       // 收益记录缓存API
       if (path.startsWith('/reward-cache/') && method === 'GET') {
         const address = path.split('/').pop();
-        return getRewardCache(env, address!);
+        const contractAddress = url.searchParams.get('contract');
+        return getRewardCache(env, address!, contractAddress || undefined);
       }
       if (path === '/reward-cache' && method === 'POST') {
         return updateRewardCache(request, env);

@@ -26,6 +26,7 @@ export interface RewardEvent {
 
 interface RewardCache {
   address: string;
+  contractAddress: string;  // ✅ 新增：合约地址
   lastBlockNumber: string;
   events: Array<Omit<RewardEvent, 'blockNumber'> & { blockNumber: string }>;
   updatedAt: string;
@@ -38,10 +39,18 @@ async function fetchCacheFromWorkers(address: string): Promise<RewardCache | nul
   if (!API_URL) return null;
   
   try {
-    const response = await fetch(`${API_URL}/reward-cache/${address}`);
+    // ✅ 请求时带上当前合约地址
+    const url = `${API_URL}/reward-cache/${address}?contract=${CONTRACT_ADDRESS}`;
+    const response = await fetch(url);
     if (!response.ok) return null;
     
     const data = await response.json();
+    
+    // ✅ Workers 会自动检查合约地址，如果不匹配会返回 null
+    if (data.message) {
+      console.log('💡', data.message);
+    }
+    
     return data.cache || null;
   } catch (error) {
     console.warn('Failed to fetch reward cache from Workers:', error);
@@ -60,9 +69,10 @@ async function uploadCacheToWorkers(
   if (!API_URL) return;
   
   try {
-    // 转换 bigint 为 string 以便 JSON 序列化
+    // ✅ 转换 bigint 为 string 并包含合约地址
     const cache: RewardCache = {
       address,
+      contractAddress: CONTRACT_ADDRESS,  // ✅ 保存当前合约地址
       lastBlockNumber: lastBlockNumber.toString(),
       events: events.map(e => ({
         ...e,
