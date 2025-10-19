@@ -59,9 +59,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         // 分享奖相关
         uint256 totalStaticOutput; // 个人所有订单累计产出的总静态收益 (USDT本位)
-        
-        // ✅ 移除 rewardRecords 数组，改用事件记录
-        // RewardRecord[] rewardRecords;  // 已删除，节省 gas
     }
 
     struct Order {
@@ -102,7 +99,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 lastUpdateTime;     // 最后更新时间
     }
     
-    // ========== NEW: 全局统计数据结构 ==========
     struct GlobalStatistics {
         uint256 totalDepositedUsdt;      // 总入金 (累计)
         uint256 totalWithdrawnHaf;       // 总提现HAF数量
