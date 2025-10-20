@@ -57,7 +57,7 @@
                 </svg>
               </div>
               <div class="flex-1">
-                <h5 class="font-bold text-lg text-gray-800 mb-3">赠送11300美金大算力矿机</h5>
+                <h5 class="font-bold text-lg text-gray-800 mb-3">赠送11888美金大算力矿机</h5>
                 <div class="space-y-2 text-sm text-gray-700">
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
@@ -72,7 +72,7 @@
                     <span><strong>电费运维：</strong>赠送一年电费及运维费用（价值4300美金）</span>
                   </div>
                   <div class="bg-blue-100 rounded-lg p-3 mt-3">
-                    <p class="font-semibold text-blue-800">实物矿机，总价值 11300 美金</p>
+                    <p class="font-semibold text-blue-800">实物矿机，总价值 11888 美金</p>
                   </div>
                 </div>
               </div>

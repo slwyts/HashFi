@@ -52,7 +52,9 @@
           <li @click="showBindReferrerModal = true" class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
             <div class="flex items-center">
               <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-3 shadow-md group-hover:shadow-lg transition-shadow">
-                <img src="/icons/link.svg" class="w-5 h-5 brightness-0 invert" alt="link icon">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
               </div>
               <span class="font-semibold text-gray-800">{{ t('profilePage.bindReferrer') }}</span>
             </div>
@@ -80,7 +82,7 @@
         </div>
       </div>
 
-      <!-- 关于我们 -->
+      <!-- 关于我们 & 联系我们 -->
       <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
         <ul class="divide-y divide-gray-100">
            <li @click="showInfo('aboutUs')" class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
@@ -93,6 +95,17 @@
               <span class="font-semibold text-gray-800">{{ t('profilePage.aboutUs') }}</span>
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+          </li>
+          <li @click="showInfo('contactUs')" class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
+            <div class="flex items-center">
+              <div class="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center mr-3 shadow-md group-hover:shadow-lg transition-shadow">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span class="font-semibold text-gray-800">{{ t('profilePage.contactUs') }}</span>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-green-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
           </li>
         </ul>
       </div>
@@ -377,7 +390,7 @@ const modalTitle = ref('');
 const modalContent = ref('');
 
 // 使用通用内容页面显示详细信息
-const showInfo = (type: 'aboutUs') => {
+const showInfo = (type: 'aboutUs' | 'contactUs') => {
   const contentMap = {
     aboutUs: {
       title: t('profilePage.aboutUs'),
@@ -511,6 +524,11 @@ Hash Fi 致力于成为"挖矿界的微策略 (MicroStrategy)"，通过：
 
 *让每个人都能轻松参与比特币挖矿红利分配*
       `
+    },
+    contactUs: {
+      title: t('profilePage.contactUs'),
+      type: 'markdown',
+      content: t('contactUs.content')
     }
   };
 
