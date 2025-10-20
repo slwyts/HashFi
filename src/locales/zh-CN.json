@@ -202,6 +202,7 @@
     "notConnected": "未连接",
     "helpCenter": "帮助中心",
     "aboutUs": "关于我们",
+    "contactUs": "联系我们",
     "disconnect": "断开连接",
     "adminPanel": "管理员面板",
     "bindReferrerTitle": "绑定推荐人",
@@ -328,6 +329,9 @@
     "exited": "已退出",
     "exitConditionMet": "已达到退出条件！您已自动从活跃节点列表中移除，但仍可提取剩余分红",
     "exitConditionDescription": "达到3倍申请费用({amount} USDT)后可申请退出节点"
+  },
+  "contactUs": {
+    "content": "# 联系我们\n\n## 📧 官方邮箱\n\n**通用咨询**：contact@hashfi.io\n\n**技术支持**：support@hashfi.io\n\n**商务合作**：business@hashfi.io\n\n## 💬 社交媒体\n\n**Telegram**：@HashFi_Official\n\n**Twitter**：@HashFi_DeFi"
   },
   "rules": {
     "staking": {

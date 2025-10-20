@@ -28,27 +28,29 @@
       <div class="p-5 bg-purple-50 rounded-lg">
         <h3 class="text-lg font-semibold mb-4 text-gray-800">设置用户团队等级</h3>
         <p class="text-sm text-gray-600 mb-4">手动调整用户的团队等级（V0-V5），影响其静态收益加速</p>
-        <div class="flex flex-col md:flex-row gap-3">
+        <div class="space-y-3">
           <input
             v-model="teamLevelAddress"
             type="text"
-            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono min-w-0"
-            placeholder="0x..."
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono"
+            placeholder="输入用户地址 0x..."
           />
-          <div class="w-full md:w-auto">
-            <CustomSelect
-              v-model="teamLevel"
-              :options="teamLevelOptions"
-              placeholder="选择等级"
-            />
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+              <CustomSelect
+                v-model="teamLevel"
+                :options="teamLevelOptions"
+                placeholder="选择等级"
+              />
+            </div>
+            <button
+              @click="handleSetTeamLevel"
+              :disabled="isProcessing() || !teamLevelAddress"
+              class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
+            >
+              设置等级
+            </button>
           </div>
-          <button
-            @click="handleSetTeamLevel"
-            :disabled="isProcessing() || !teamLevelAddress"
-            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
-          >
-            设置等级
-          </button>
         </div>
         
         <!-- 团队等级说明 -->
