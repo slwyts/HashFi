@@ -35,7 +35,7 @@ reconnect(wagmiConfig);
 createWeb3Modal({
   wagmiConfig,
   projectId,
-  enableAnalytics: true,
+  enableAnalytics: false,
   defaultChain: import.meta.env.VITE_CHAIN_ID === '97' ? bscTestnet : bsc,
   enableOnramp: false,
   featuredWalletIds: [
