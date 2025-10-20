@@ -54,7 +54,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         // 动态奖励 (直推奖+分享奖)
         uint256 dynamicRewardTotal; // 累计获得的动态总奖励 (HAF本位)
         uint256 dynamicRewardReleased; // 已释放的动态奖励 (HAF本位)
-        uint256 dynamicRewardStartTime; // 第一个动态奖励的开始时间
+        uint256 lastDynamicUpdateTime; // 上次更新动态奖励的时间
         uint256 dynamicRewardClaimed; // 已领取的动态奖励 (HAF本位)
 
         // 分享奖相关
@@ -297,6 +297,9 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     function withdraw() external nonReentrant whenNotPaused autoUpdatePrice {
         _settleUserRewards(msg.sender);
+        
+        // ✅ 在计算前更新动态奖励释放进度
+        _updateDynamicRewardRelease(msg.sender);
         
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
         uint256 totalClaimableHaf = pendingStaticHaf.add(pendingDynamicHaf).add(pendingGenesisHaf);
@@ -542,10 +545,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             if(actualRewardUsdt > 0) {
                 uint256 rewardHaf = actualRewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
                 User storage referrerUser = users[referrer];
+                
+                // ✅ 在新增奖励前，先更新旧奖励的释放进度
+                _updateDynamicRewardRelease(referrer);
+                
+                // 累加新奖励到总额
                 referrerUser.dynamicRewardTotal = referrerUser.dynamicRewardTotal.add(rewardHaf);
-                if (referrerUser.dynamicRewardStartTime == 0) {
-                    referrerUser.dynamicRewardStartTime = block.timestamp;
-                }
             }
             
             currentUser = referrer;
@@ -563,6 +568,51 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
     }
 
+    /**
+     * @dev 内部函数：更新用户动态奖励的释放进度
+     * 在每次新增动态奖励前调用，将旧奖励按时间比例释放
+     */
+    function _updateDynamicRewardRelease(address _user) internal {
+        User storage user = users[_user];
+        
+        // 如果没有待释放的奖励，直接返回
+        if (user.dynamicRewardTotal <= user.dynamicRewardReleased) {
+            user.lastDynamicUpdateTime = block.timestamp;
+            return;
+        }
+        
+        // 如果是第一次，初始化时间
+        if (user.lastDynamicUpdateTime == 0) {
+            user.lastDynamicUpdateTime = block.timestamp;
+            return;
+        }
+        
+        // 计算距离上次更新过了多少天
+        uint256 daysPassed = (block.timestamp.sub(user.lastDynamicUpdateTime)).div(TIME_UNIT);
+        if (daysPassed == 0) return;
+        
+        // 计算未释放的奖励总额
+        uint256 unreleased = user.dynamicRewardTotal.sub(user.dynamicRewardReleased);
+        
+        // 按100天释放，每天释放 unreleased/100
+        uint256 dailyRelease = unreleased.div(100);
+        uint256 newRelease = dailyRelease.mul(daysPassed);
+        
+        // 如果超过100天，全部释放
+        if (daysPassed >= 100) {
+            newRelease = unreleased;
+        }
+        
+        // 确保不超过未释放总额
+        if (newRelease > unreleased) {
+            newRelease = unreleased;
+        }
+        
+        // 更新已释放金额和更新时间
+        user.dynamicRewardReleased = user.dynamicRewardReleased.add(newRelease);
+        user.lastDynamicUpdateTime = block.timestamp;
+    }
+    
     function _distributeShareRewards(address _user, uint256 _staticRewardUsdt) internal {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
@@ -605,10 +655,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
             if(actualRewardUsdt > 0){
                 uint256 rewardHaf = actualRewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
+                
+                // ✅ 在新增奖励前，先更新旧奖励的释放进度
+                _updateDynamicRewardRelease(referrer);
+                
+                // 累加新奖励到总额
                 referrerUser.dynamicRewardTotal = referrerUser.dynamicRewardTotal.add(rewardHaf);
-                if (referrerUser.dynamicRewardStartTime == 0) {
-                    referrerUser.dynamicRewardStartTime = block.timestamp;
-                }
                 // ✅ 删除：不在这里记录事件，在 withdraw() 时统一记录
                 // _addRewardRecord(referrer, _user, RewardType.Share, actualRewardUsdt, rewardHaf);
             }
@@ -738,33 +790,45 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     
     /**
      * @dev 内部函数: 计算待领取的动态收益
-     * ✅ 修复：按天释放，每天释放 总额/100天
+     * ✅ 新方案：基于已释放金额和上次更新时间计算
      */
     function _calculatePendingDynamic(address _user) internal view returns (uint256) {
         User storage user = users[_user];
         
-        if (user.dynamicRewardTotal == 0 || user.dynamicRewardStartTime == 0) {
+        // 如果没有动态奖励，直接返回0
+        if (user.dynamicRewardTotal == 0) {
             return 0;
         }
         
-        // ✅ 计算已经过了多少天
-        uint256 daysPassed = (block.timestamp.sub(user.dynamicRewardStartTime)).div(TIME_UNIT);
+        // 计算当前应该释放的总金额
+        uint256 currentReleased = user.dynamicRewardReleased;
         
-        // ✅ 如果超过100天，全部释放
-        if (daysPassed >= 100) {
-            if (user.dynamicRewardTotal > user.dynamicRewardClaimed) {
-                return user.dynamicRewardTotal.sub(user.dynamicRewardClaimed);
+        // 如果有未释放的部分，计算新增释放
+        if (user.dynamicRewardTotal > currentReleased && user.lastDynamicUpdateTime > 0) {
+            uint256 daysPassed = (block.timestamp.sub(user.lastDynamicUpdateTime)).div(TIME_UNIT);
+            
+            if (daysPassed > 0) {
+                uint256 unreleased = user.dynamicRewardTotal.sub(currentReleased);
+                uint256 dailyRelease = unreleased.div(100);
+                uint256 newRelease = dailyRelease.mul(daysPassed);
+                
+                // 如果超过100天，全部释放
+                if (daysPassed >= 100) {
+                    newRelease = unreleased;
+                }
+                
+                // 确保不超过未释放总额
+                if (newRelease > unreleased) {
+                    newRelease = unreleased;
+                }
+                
+                currentReleased = currentReleased.add(newRelease);
             }
-            return 0;
         }
         
-        // ✅ 每天释放 总额/100
-        uint256 dailyRelease = user.dynamicRewardTotal.div(100);
-        uint256 totalReleased = dailyRelease.mul(daysPassed);
-        
-        // ✅ 返回已释放但未领取的部分
-        if (totalReleased > user.dynamicRewardClaimed) {
-            return totalReleased.sub(user.dynamicRewardClaimed);
+        // 返回已释放但未领取的部分
+        if (currentReleased > user.dynamicRewardClaimed) {
+            return currentReleased.sub(user.dynamicRewardClaimed);
         }
         
         return 0;

@@ -8,7 +8,7 @@ const DEPLOY_BLOCK = BigInt(import.meta.env.VITE_CONTRACT_DEPLOY_BLOCK || 0);
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 // 每次查询的最大区块范围
-const MAX_BLOCK_RANGE = 100000; // BSC Testnet 可以支持 9000+ 区块
+const MAX_BLOCK_RANGE = 49000;
 
 // RewardType 枚举: 0=Static, 1=Direct, 2=Share, 3=Team, 4=Genesis
 export type RewardType = 0 | 1 | 2 | 3 | 4;
@@ -26,7 +26,7 @@ export interface RewardEvent {
 
 interface RewardCache {
   address: string;
-  contractAddress: string;  // ✅ 新增：合约地址
+  contractAddress: string;
   lastBlockNumber: string;
   events: Array<Omit<RewardEvent, 'blockNumber'> & { blockNumber: string }>;
   updatedAt: string;
@@ -72,7 +72,7 @@ async function uploadCacheToWorkers(
     // ✅ 转换 bigint 为 string 并包含合约地址
     const cache: RewardCache = {
       address,
-      contractAddress: CONTRACT_ADDRESS,  // ✅ 保存当前合约地址
+      contractAddress: CONTRACT_ADDRESS,
       lastBlockNumber: lastBlockNumber.toString(),
       events: events.map(e => ({
         ...e,
