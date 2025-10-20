@@ -57,7 +57,7 @@ export interface Order {
 }
 export interface TeamMemberInfo { memberAddress: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; }
 export interface RewardRecord { timestamp: bigint; fromUser: Address; rewardType: number; usdtAmount: bigint; hafAmount: bigint; }
-export interface UserInfo { referrer: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; directReferrals: Address[]; orderIds: bigint[]; isGenesisNode: boolean; genesisDividendsWithdrawn: bigint; dynamicRewardTotal: bigint; dynamicRewardReleased: bigint; dynamicRewardStartTime: bigint; dynamicRewardClaimed: bigint; totalStaticOutput: bigint; rewardRecords: RewardRecord[]; }
+export interface UserInfo { referrer: Address; teamLevel: number; totalStakedAmount: bigint; teamTotalPerformance: bigint; directReferrals: Address[]; orderIds: bigint[]; isGenesisNode: boolean; genesisDividendsWithdrawn: bigint; dynamicRewardTotal: bigint; dynamicRewardReleased: bigint; lastDynamicUpdateTime: bigint; dynamicRewardClaimed: bigint; totalStaticOutput: bigint; rewardRecords: RewardRecord[]; }
 export interface StakingLevelInfo { minAmount: bigint; maxAmount: bigint; multiplier: bigint; dailyRate: bigint; }
 export interface TeamLevelInfo { requiredPerformance: bigint; accelerationBonus: bigint; }
 

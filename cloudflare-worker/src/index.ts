@@ -316,16 +316,17 @@ async function getRewardCache(env: Env, address: string, contractAddress?: strin
     const cache: RewardCache = JSON.parse(cacheJson);
     
     // ✅ 检查合约地址是否匹配
-    if (contractAddress && cache.contractAddress) {
-      if (cache.contractAddress.toLowerCase() !== contractAddress.toLowerCase()) {
-        console.log(`Contract address mismatch: cached=${cache.contractAddress}, requested=${contractAddress}`);
+    if (contractAddress) {
+      // 如果请求带了合约地址，但缓存中没有或不匹配，清空缓存
+      if (!cache.contractAddress || cache.contractAddress.toLowerCase() !== contractAddress.toLowerCase()) {
+        console.log(`Contract address mismatch or missing: cached=${cache.contractAddress}, requested=${contractAddress}`);
         
-        // 合约地址不匹配，删除旧缓存
+        // 合约地址不匹配或缺失，删除旧缓存
         await env.HASHFI_DATA.delete(cacheKey);
         
         return new Response(JSON.stringify({ 
           cache: null, 
-          message: 'Contract address changed, cache cleared' 
+          message: 'Contract address changed or missing in cache, cache cleared' 
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
