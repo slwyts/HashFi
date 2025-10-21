@@ -31,8 +31,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev 奖励类型枚举
      * Static  - 静态奖：基础每日释放收益（0.7%-1%日利率）
-     * Direct  - 直推奖（推荐奖）：1-6代推荐奖励（一代5%、二代3%、三至六代1%）（100天线性释放）（有烧伤机制）
-     * Share   - 分享奖：最多10代，伞下静态收益的5%（100天线性释放）（无烧伤机制）
+     * Direct  - 直推奖（推荐奖）：1-6代推荐奖励（一代5%、二代3%、三至六代1%）（DYNAMIC_RELEASE_PERIOD线性释放，主网100天，测试网10个时间单位）（有烧伤机制）
+     * Share   - 分享奖：最多10代，伞下静态收益的5%（立即可提取）（无烧伤机制）
      * Team    - 团队奖：V1-V5等级，自身静态收益加速5%-25%
      * Genesis - 创世节点奖：全网静态收益10%的均分奖励
      */
@@ -63,7 +63,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         bool isGenesisNode;
         uint256 genesisDividendsWithdrawn; // 已领取的创世节点分红 (USDT本位)
 
-        // 直推奖励（100天线性释放）
+        // 直推奖励（DYNAMIC_RELEASE_PERIOD线性释放）
         uint256 directRewardTotal; // 累计获得的直推奖总额 (HAF本位)
         uint256 directRewardReleased; // 已释放的直推奖励 (HAF本位)
         uint256 lastDirectUpdateTime; // 上次更新直推奖励释放的时间
@@ -551,7 +551,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 // ✅ 在新增奖励前，先更新旧奖励的释放进度
                 _updateDirectRewardRelease(referrer);
                 
-                // 累加新奖励到总额（直推奖100天线性释放）
+                // 累加新奖励到总额（直推奖DYNAMIC_RELEASE_PERIOD线性释放）
                 referrerUser.directRewardTotal = referrerUser.directRewardTotal.add(rewardHaf);
                 
                 // ⚠️ 直推奖不在投资时记录，在提现时才记录
@@ -575,7 +575,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev 内部函数：更新用户动态奖励的释放进度
      * 在每次新增动态奖励前调用，将旧奖励按时间比例释放
-     * ✅ 修复：使用固定的每日释放额度（总额的1/100），而不是剩余金额的1/100
+     * ✅ 修复：使用固定的每日释放额度（总额的1/释放份数），而不是剩余金额的1/释放份数
+     * ✅ 使用 DYNAMIC_RELEASE_PERIOD 和 TIME_UNIT 自动计算释放份数
      */
     function _updateDirectRewardRelease(address _user) internal {
         User storage user = users[_user];
@@ -592,19 +593,24 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             return;
         }
         
-        // 计算距离上次更新过了多少天
+        // 计算距离上次更新过了多少时间单位（天数）
         uint256 daysPassed = (block.timestamp.sub(user.lastDirectUpdateTime)).div(TIME_UNIT);
         if (daysPassed == 0) return;
         
-        // ✅ 使用固定的每日释放额度：总金额的1/100
-        uint256 dailyRelease = user.directRewardTotal.div(100);
+        // ✅ 计算释放总份数：DYNAMIC_RELEASE_PERIOD / TIME_UNIT
+        // 主网：100 days / 1 day = 100份
+        // 测试网：100 minutes / 10 minutes = 10份
+        uint256 totalReleasePeriods = DYNAMIC_RELEASE_PERIOD.div(TIME_UNIT);
+        
+        // ✅ 使用固定的每日释放额度：总金额 / 释放份数
+        uint256 dailyRelease = user.directRewardTotal.div(totalReleasePeriods);
         uint256 newRelease = dailyRelease.mul(daysPassed);
         
         // 计算未释放的奖励总额
         uint256 unreleased = user.directRewardTotal.sub(user.directRewardReleased);
         
-        // 如果超过100天或新增释放超过未释放总额，全部释放
-        if (daysPassed >= 100 || newRelease >= unreleased) {
+        // 如果超过释放周期或新增释放超过未释放总额，全部释放
+        if (daysPassed >= totalReleasePeriods || newRelease >= unreleased) {
             newRelease = unreleased;
         }
         
@@ -792,7 +798,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 pendingDirect = 0;
         uint256 pendingShare = 0;
         
-        // 1. 计算直推奖的已释放但未领取部分（100天线性释放）
+        // 1. 计算直推奖的已释放但未领取部分（线性释放）
         if (user.directRewardTotal > 0) {
             uint256 currentReleased = user.directRewardReleased;
             
@@ -801,14 +807,17 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 uint256 daysPassed = (block.timestamp.sub(user.lastDirectUpdateTime)).div(TIME_UNIT);
                 
                 if (daysPassed > 0) {
-                    // ✅ 使用固定的每日释放额度：总金额的1/100
-                    uint256 dailyRelease = user.directRewardTotal.div(100);
+                    // ✅ 计算释放总份数：DYNAMIC_RELEASE_PERIOD / TIME_UNIT
+                    uint256 totalReleasePeriods = DYNAMIC_RELEASE_PERIOD.div(TIME_UNIT);
+                    
+                    // ✅ 使用固定的每日释放额度：总金额 / 释放份数
+                    uint256 dailyRelease = user.directRewardTotal.div(totalReleasePeriods);
                     uint256 newRelease = dailyRelease.mul(daysPassed);
                     
                     uint256 unreleased = user.directRewardTotal.sub(currentReleased);
                     
-                    // 如果超过100天或新增释放超过未释放总额，全部释放
-                    if (daysPassed >= 100 || newRelease >= unreleased) {
+                    // 如果超过释放周期或新增释放超过未释放总额，全部释放
+                    if (daysPassed >= totalReleasePeriods || newRelease >= unreleased) {
                         newRelease = unreleased;
                     }
                     
