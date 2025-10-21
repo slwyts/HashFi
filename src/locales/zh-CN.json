@@ -106,20 +106,23 @@
     "tabs": {
       "all": "全部",
       "static": "静态",
-      "dynamic": "动态",
+      "direct": "直推",
+      "share": "分享",
+      "team": "团队",
       "genesis": "创世节点"
     },
     "types": {
       "static": "静态收益",
-      "dynamic": "动态收益",
-      "staticBonus": "静态加速",
+      "direct": "直推奖",
+      "share": "分享奖",
+      "team": "团队奖",
       "genesis": "创世节点分红"
     },
     "labels": {
       "dailyRelease": "每日释放",
-      "referralReward": "推荐奖励",
-      "teamShare": "团队分成",
-      "bonusReward": "加速奖励",
+      "directReward": "直推奖励",
+      "shareReward": "分享奖励",
+      "teamBonus": "团队加速",
       "nodeDividend": "节点分红"
     }
   },

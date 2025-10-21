@@ -28,9 +28,15 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     event TeamLevelUpdated(address indexed user, uint8 oldLevel, uint8 newLevel);
     event RewardBurned(address indexed referrer, address indexed investor, uint256 fullRewardUsdt, uint256 actualRewardUsdt, uint256 burnedUsdt);
 
+    /**
+     * @dev 奖励类型枚举
+     * Static  - 静态奖：基础每日释放收益（0.7%-1%日利率）
+     * Direct  - 直推奖（推荐奖）：1-6代推荐奖励（一代5%、二代3%、三至六代1%）（100天线性释放）（有烧伤机制）
+     * Share   - 分享奖：最多10代，伞下静态收益的5%（100天线性释放）（无烧伤机制）
+     * Team    - 团队奖：V1-V5等级，自身静态收益加速5%-25%
+     * Genesis - 创世节点奖：全网静态收益10%的均分奖励
+     */
     enum RewardType { Static, Direct, Share, Team, Genesis }
-    event RewardDistributed(address indexed user, address indexed fromUser, RewardType rewardType, uint256 usdtAmount, uint256 hafAmount);
-
     
     struct RewardRecord {
         uint256 timestamp;
@@ -38,6 +44,12 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         RewardType rewardType;
         uint256 usdtAmount;
         uint256 hafAmount;
+    }
+    
+    struct WithdrawRecord {
+        uint256 timestamp;
+        uint256 hafAmount;
+        uint256 fee;
     }
 
     struct User {
@@ -51,14 +63,22 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         bool isGenesisNode;
         uint256 genesisDividendsWithdrawn; // 已领取的创世节点分红 (USDT本位)
 
-        // 动态奖励 (直推奖+分享奖)
-        uint256 dynamicRewardTotal; // 累计获得的动态总奖励 (HAF本位)
-        uint256 dynamicRewardReleased; // 已释放的动态奖励 (HAF本位)
-        uint256 lastDynamicUpdateTime; // 上次更新动态奖励的时间
-        uint256 dynamicRewardClaimed; // 已领取的动态奖励 (HAF本位)
+        // 直推奖励（100天线性释放）
+        uint256 directRewardTotal; // 累计获得的直推奖总额 (HAF本位)
+        uint256 directRewardReleased; // 已释放的直推奖励 (HAF本位)
+        uint256 lastDirectUpdateTime; // 上次更新直推奖励释放的时间
+        uint256 directRewardClaimed; // 已领取的直推奖励 (HAF本位)
+
+        // 分享奖励（立即可提取）
+        uint256 shareRewardTotal; // 累计获得的分享奖总额 (HAF本位)
+        uint256 shareRewardClaimed; // 已领取的分享奖励 (HAF本位)
 
         // 分享奖相关
         uint256 totalStaticOutput; // 个人所有订单累计产出的总静态收益 (USDT本位)
+        
+        // 收益记录
+        RewardRecord[] rewardRecords; // 收益记录数组
+        WithdrawRecord[] withdrawRecords; // 提现记录数组
     }
 
     struct Order {
@@ -85,18 +105,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     struct TeamLevelInfo {
         uint256 requiredPerformance; // 达成需要的小区业绩 (USDT本位)
         uint256 accelerationBonus; // 静态收益加速释放比例 (%)
-    }
-    
-    struct BtcMiningStats {
-        uint256 totalHashrate;      // 总算力 (H/s)
-        uint256 globalHashrate;     // 全网算力 (H/s)
-        uint256 dailyRewardPerT;    // 每T日收益 (使用6位小数)
-        uint256 currentDifficulty;  // 当前难度
-        uint256 btcPrice;           // BTC币价 (使用6位小数，如 50000.50 表示为 50000500000)
-        uint256 nextHalvingTime;    // 下次减产时间 (Unix timestamp)
-        uint256 totalMined;         // 累计已挖 (BTC数量，使用18位小数)
-        uint256 yesterdayMined;     // 昨日已挖 (BTC数量，使用18位小数)
-        uint256 lastUpdateTime;     // 最后更新时间
     }
     
     struct GlobalStatistics {
@@ -155,8 +163,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     mapping(address => bool) public genesisNodeApplications; 
     mapping(address => bool) public isActiveGenesisNode;
     
-    BtcMiningStats public btcStats;
-    
     GlobalStatistics public globalStats;
 
     constructor(address _usdtAddress, address _initialOwner) ERC20("Hash Fi Token", "HAF") Ownable(_initialOwner) {
@@ -188,44 +194,25 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         teamLevels.push(TeamLevelInfo(100000 * 1e18, 15)); // V3
         teamLevels.push(TeamLevelInfo(300000 * 1e18, 20)); // V4
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
-
-        btcStats = BtcMiningStats({
-            totalHashrate: 0,
-            globalHashrate: 0,
-            dailyRewardPerT: 0,
-            currentDifficulty: 0,
-            btcPrice: 0,
-            nextHalvingTime: 0,
-            totalMined: 0,
-            yesterdayMined: 0,
-            lastUpdateTime: block.timestamp
-        });
     }
 
     /**
      * @dev 在交易前自动检查并更新HAF价格(懒加载触发)
      */
     modifier autoUpdatePrice() {
-        _updatePriceIfNeeded();
-        _;
-    }
-    
-    /**
-     * @dev 内部函数:检查并更新价格
-     */
-    function _updatePriceIfNeeded() internal {
-        if (!autoPriceUpdateEnabled) return;
-        
-        uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / TIME_UNIT;
-        if (daysPassed > 0) {
-            // 计算复利:每天涨千分之一
-            for (uint i = 0; i < daysPassed; i++) {
-                uint256 increase = hafPrice.mul(dailyPriceIncreaseRate).div(1000);
-                hafPrice = hafPrice.add(increase);
+        if (autoPriceUpdateEnabled) {
+            uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / TIME_UNIT;
+            if (daysPassed > 0) {
+                // 计算复利:每天涨千分之一
+                for (uint i = 0; i < daysPassed; i++) {
+                    uint256 increase = hafPrice.mul(dailyPriceIncreaseRate).div(1000);
+                    hafPrice = hafPrice.add(increase);
+                }
+                lastPriceUpdateTime = lastPriceUpdateTime.add(daysPassed.mul(TIME_UNIT));
+                emit PriceUpdated(hafPrice);
             }
-            lastPriceUpdateTime = lastPriceUpdateTime.add(daysPassed.mul(TIME_UNIT));
-            emit PriceUpdated(hafPrice);
         }
+        _;
     }
     // ================================================
 
@@ -251,9 +238,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint8 level = _getStakingLevelByAmount(_amount);
         require(level > 0, "Invalid staking amount");
 
-        // ✅ 修改：移除质押时的自动结算，减少重复记录产生
-        // _settleUserRewards(msg.sender);  // 注释掉这一行
-
         usdtToken.transferFrom(msg.sender, address(this), _amount);
 
         uint256 orderId = orders.length;
@@ -267,15 +251,17 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         user.orderIds.push(orderId);
         user.totalStakedAmount = user.totalStakedAmount.add(_amount);
 
-        // ========== NEW: 更新全局统计 ==========
         globalStats.totalDepositedUsdt = globalStats.totalDepositedUsdt.add(_amount);
         if (user.orderIds.length == 1) {
-            // 首次质押，增加活跃用户数
             globalStats.totalActiveUsers = globalStats.totalActiveUsers.add(1);
         }
-        // ================================================
 
+        // ✅ 更新上级业绩和发放直推奖（仅累加，不记录）
         _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
+        
+        // ✅ 发放分享奖（投资时立即结算并记录）
+        _distributeShareRewardsOnStake(msg.sender, _amount);
+        
         emit Staked(msg.sender, orderId, _amount, level);
     }
 
@@ -287,10 +273,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         usdtToken.transferFrom(msg.sender, address(this), genesisNodeCost);
         
-        // ========== MODIFIED: 改为待审核状态 ==========
         genesisNodeApplications[msg.sender] = true;
-        pendingGenesisApplications.push(msg.sender); // 添加到待审核列表
-        // ================================================
+        pendingGenesisApplications.push(msg.sender); 
 
         emit GenesisNodeApplied(msg.sender);
     }
@@ -298,8 +282,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     function withdraw() external nonReentrant whenNotPaused autoUpdatePrice {
         _settleUserRewards(msg.sender);
         
-        // ✅ 在计算前更新动态奖励释放进度
-        _updateDynamicRewardRelease(msg.sender);
+        // ✅ 在计算前更新直推奖励释放进度
+        _updateDirectRewardRelease(msg.sender);
         
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
         uint256 totalClaimableHaf = pendingStaticHaf.add(pendingDynamicHaf).add(pendingGenesisHaf);
@@ -307,12 +291,26 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         User storage user = users[msg.sender];
         
-        if (pendingDynamicHaf > 0) {
-            uint256 dynamicUsdtAmount = pendingDynamicHaf.mul(hafPrice).div(PRICE_PRECISION);
-            _addRewardRecord(msg.sender, address(0), RewardType.Direct, dynamicUsdtAmount, pendingDynamicHaf);
+        // ✅ 分别计算直推奖和分享奖的待领取金额
+        uint256 pendingDirect = 0;
+        if (user.directRewardTotal > user.directRewardClaimed) {
+            if (user.directRewardReleased > user.directRewardClaimed) {
+                pendingDirect = user.directRewardReleased.sub(user.directRewardClaimed);
+            }
+        }
+        uint256 pendingShare = 0;
+        if (user.shareRewardTotal > user.shareRewardClaimed) {
+            pendingShare = user.shareRewardTotal.sub(user.shareRewardClaimed);
         }
         
-        user.dynamicRewardClaimed = user.dynamicRewardClaimed.add(pendingDynamicHaf);
+        // ✅ 记录直推奖（提现时才记录）
+        if (pendingDirect > 0) {
+            uint256 directUsdt = pendingDirect.mul(hafPrice).div(PRICE_PRECISION);
+            _addRewardRecord(msg.sender, address(0), RewardType.Direct, directUsdt, pendingDirect);
+        }
+        
+        user.directRewardClaimed = user.directRewardClaimed.add(pendingDirect);
+        user.shareRewardClaimed = user.shareRewardClaimed.add(pendingShare);
        
         uint256 fee = totalClaimableHaf.mul(withdrawalFeeRate).div(100);
         uint256 amountAfterFee = totalClaimableHaf.sub(fee);
@@ -323,6 +321,13 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
         globalStats.totalWithdrawnHaf = globalStats.totalWithdrawnHaf.add(amountAfterFee);
         globalStats.totalFeeCollectedHaf = globalStats.totalFeeCollectedHaf.add(fee);
+
+        // ✅ 记录提现记录
+        user.withdrawRecords.push(WithdrawRecord({
+            timestamp: block.timestamp,
+            hafAmount: amountAfterFee,
+            fee: fee
+        }));
 
         emit Withdrawn(msg.sender, amountAfterFee, fee);
     }
@@ -541,16 +546,18 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 emit RewardBurned(referrer, _user, fullRewardUsdt, actualRewardUsdt, burnedRewardUsdt);
             }
             
-            // 发放实际奖励（只累加到总额，不触发事件）
+            // 发放实际奖励（不记录，在提现时才记录）
             if(actualRewardUsdt > 0) {
                 uint256 rewardHaf = actualRewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
                 User storage referrerUser = users[referrer];
                 
                 // ✅ 在新增奖励前，先更新旧奖励的释放进度
-                _updateDynamicRewardRelease(referrer);
+                _updateDirectRewardRelease(referrer);
                 
-                // 累加新奖励到总额
-                referrerUser.dynamicRewardTotal = referrerUser.dynamicRewardTotal.add(rewardHaf);
+                // 累加新奖励到总额（直推奖100天线性释放）
+                referrerUser.directRewardTotal = referrerUser.directRewardTotal.add(rewardHaf);
+                
+                // ⚠️ 直推奖不在投资时记录，在提现时才记录
             }
             
             currentUser = referrer;
@@ -572,27 +579,27 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
      * @dev 内部函数：更新用户动态奖励的释放进度
      * 在每次新增动态奖励前调用，将旧奖励按时间比例释放
      */
-    function _updateDynamicRewardRelease(address _user) internal {
+    function _updateDirectRewardRelease(address _user) internal {
         User storage user = users[_user];
         
         // 如果没有待释放的奖励，直接返回
-        if (user.dynamicRewardTotal <= user.dynamicRewardReleased) {
-            user.lastDynamicUpdateTime = block.timestamp;
+        if (user.directRewardTotal <= user.directRewardReleased) {
+            user.lastDirectUpdateTime = block.timestamp;
             return;
         }
         
         // 如果是第一次，初始化时间
-        if (user.lastDynamicUpdateTime == 0) {
-            user.lastDynamicUpdateTime = block.timestamp;
+        if (user.lastDirectUpdateTime == 0) {
+            user.lastDirectUpdateTime = block.timestamp;
             return;
         }
         
         // 计算距离上次更新过了多少天
-        uint256 daysPassed = (block.timestamp.sub(user.lastDynamicUpdateTime)).div(TIME_UNIT);
+        uint256 daysPassed = (block.timestamp.sub(user.lastDirectUpdateTime)).div(TIME_UNIT);
         if (daysPassed == 0) return;
         
         // 计算未释放的奖励总额
-        uint256 unreleased = user.dynamicRewardTotal.sub(user.dynamicRewardReleased);
+        uint256 unreleased = user.directRewardTotal.sub(user.directRewardReleased);
         
         // 按100天释放，每天释放 unreleased/100
         uint256 dailyRelease = unreleased.div(100);
@@ -609,10 +616,53 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         }
         
         // 更新已释放金额和更新时间
-        user.dynamicRewardReleased = user.dynamicRewardReleased.add(newRelease);
-        user.lastDynamicUpdateTime = block.timestamp;
+        user.directRewardReleased = user.directRewardReleased.add(newRelease);
+        user.lastDirectUpdateTime = block.timestamp;
     }
     
+    /**
+     * @dev 投资时发放分享奖（立即结算并记录）
+     * 按投资金额的5%直接发放给符合条件的上级
+     */
+    function _distributeShareRewardsOnStake(address _user, uint256 _stakeAmount) internal {
+        address currentUser = _user;
+        address referrer = users[currentUser].referrer;
+        
+        for (uint i = 0; i < 10 && referrer != address(0); i++) {
+            User storage referrerUser = users[referrer];
+            uint256 activeDirectCount = 0;
+            for (uint j = 0; j < referrerUser.directReferrals.length; j++) {
+                if (users[referrerUser.directReferrals[j]].totalStakedAmount > 0) {
+                    activeDirectCount++;
+                }
+            }
+
+            if (activeDirectCount <= i) {
+                break;
+            }
+            
+            // ✅ 分享奖无烧伤机制 - 按投资额的5%计算
+            uint256 rewardUsdt = _stakeAmount.mul(5).div(100);
+
+            if(rewardUsdt > 0){
+                uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
+                
+                // ✅ 分享奖立即可提取，直接累加到 shareRewardTotal
+                referrerUser.shareRewardTotal = referrerUser.shareRewardTotal.add(rewardHaf);
+                
+                // ✅ 立即记录分享奖
+                _addRewardRecord(referrer, _user, RewardType.Share, rewardUsdt, rewardHaf);
+            }
+            
+            currentUser = referrer;
+            referrer = users[currentUser].referrer;
+        }
+    }
+    
+    /**
+     * @dev 提现时发放分享奖（基于静态收益的5%）
+     * 这个函数在用户提现结算静态收益时调用，不再记录（因为已经在投资时记录过了）
+     */
     function _distributeShareRewards(address _user, uint256 _staticRewardUsdt) internal {
         address currentUser = _user;
         address referrer = users[currentUser].referrer;
@@ -630,39 +680,16 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 break;
             }
             
-            // ✅ 计算完整奖励（未烧伤前）
-            uint256 fullRewardUsdt = _staticRewardUsdt.mul(5).div(100);
-            uint256 actualRewardUsdt = fullRewardUsdt;
+            // ✅ 分享奖无烧伤机制 - 直接按5%计算
+            uint256 rewardUsdt = _staticRewardUsdt.mul(5).div(100);
 
-            uint8 referrerLevel = _getUserHighestLevel(referrer);
-            
-            // ✅ 修复：烧伤逻辑
-            if (referrerLevel < 4) {
-                uint256 referrerMaxAmount = stakingLevels[referrerLevel].maxAmount;
-                uint256 userTotalStaked = users[_user].totalStakedAmount;
+            if(rewardUsdt > 0){
+                uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
                 
-                // 如果下级投资额超过推荐人级别上限，按比例烧伤
-                if (userTotalStaked > referrerMaxAmount) {
-                    actualRewardUsdt = fullRewardUsdt.mul(referrerMaxAmount).div(userTotalStaked);
-                    
-                    // 记录烧伤的奖励
-                    uint256 burnedRewardUsdt = fullRewardUsdt.sub(actualRewardUsdt);
-                    if (burnedRewardUsdt > 0) {
-                        emit RewardBurned(referrer, _user, fullRewardUsdt, actualRewardUsdt, burnedRewardUsdt);
-                    }
-                }
-            }
-
-            if(actualRewardUsdt > 0){
-                uint256 rewardHaf = actualRewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
+                // ✅ 分享奖立即可提取，直接累加到 shareRewardTotal
+                referrerUser.shareRewardTotal = referrerUser.shareRewardTotal.add(rewardHaf);
                 
-                // ✅ 在新增奖励前，先更新旧奖励的释放进度
-                _updateDynamicRewardRelease(referrer);
-                
-                // 累加新奖励到总额
-                referrerUser.dynamicRewardTotal = referrerUser.dynamicRewardTotal.add(rewardHaf);
-                // ✅ 删除：不在这里记录事件，在 withdraw() 时统一记录
-                // _addRewardRecord(referrer, _user, RewardType.Share, actualRewardUsdt, rewardHaf);
+                // ⚠️ 不再记录（已经在投资时记录过）
             }
             
             currentUser = referrer;
@@ -701,7 +728,13 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     
     // 内部函数，用于添加收益记录
     function _addRewardRecord(address _user, address _fromUser, RewardType _type, uint256 _usdtAmount, uint256 _hafAmount) internal {
-        emit RewardDistributed(_user, _fromUser, _type, _usdtAmount, _hafAmount);
+        users[_user].rewardRecords.push(RewardRecord({
+            timestamp: block.timestamp,
+            fromUser: _fromUser,
+            rewardType: _type,
+            usdtAmount: _usdtAmount,
+            hafAmount: _hafAmount
+        }));
     }
 
 
@@ -792,46 +825,55 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
      * @dev 内部函数: 计算待领取的动态收益
      * ✅ 新方案：基于已释放金额和上次更新时间计算
      */
+    /**
+     * @dev 内部函数: 计算待领取的动态收益
+     * 包含：直推奖的已释放部分 + 分享奖的全部待领取部分
+     */
     function _calculatePendingDynamic(address _user) internal view returns (uint256) {
         User storage user = users[_user];
         
-        // 如果没有动态奖励，直接返回0
-        if (user.dynamicRewardTotal == 0) {
-            return 0;
-        }
+        uint256 pendingDirect = 0;
+        uint256 pendingShare = 0;
         
-        // 计算当前应该释放的总金额
-        uint256 currentReleased = user.dynamicRewardReleased;
-        
-        // 如果有未释放的部分，计算新增释放
-        if (user.dynamicRewardTotal > currentReleased && user.lastDynamicUpdateTime > 0) {
-            uint256 daysPassed = (block.timestamp.sub(user.lastDynamicUpdateTime)).div(TIME_UNIT);
+        // 1. 计算直推奖的已释放但未领取部分（100天线性释放）
+        if (user.directRewardTotal > 0) {
+            uint256 currentReleased = user.directRewardReleased;
             
-            if (daysPassed > 0) {
-                uint256 unreleased = user.dynamicRewardTotal.sub(currentReleased);
-                uint256 dailyRelease = unreleased.div(100);
-                uint256 newRelease = dailyRelease.mul(daysPassed);
+            // 如果有未释放的部分，计算新增释放
+            if (user.directRewardTotal > currentReleased && user.lastDirectUpdateTime > 0) {
+                uint256 daysPassed = (block.timestamp.sub(user.lastDirectUpdateTime)).div(TIME_UNIT);
                 
-                // 如果超过100天，全部释放
-                if (daysPassed >= 100) {
-                    newRelease = unreleased;
+                if (daysPassed > 0) {
+                    uint256 unreleased = user.directRewardTotal.sub(currentReleased);
+                    uint256 dailyRelease = unreleased.div(100);
+                    uint256 newRelease = dailyRelease.mul(daysPassed);
+                    
+                    // 如果超过100天，全部释放
+                    if (daysPassed >= 100) {
+                        newRelease = unreleased;
+                    }
+                    
+                    // 确保不超过未释放总额
+                    if (newRelease > unreleased) {
+                        newRelease = unreleased;
+                    }
+                    
+                    currentReleased = currentReleased.add(newRelease);
                 }
-                
-                // 确保不超过未释放总额
-                if (newRelease > unreleased) {
-                    newRelease = unreleased;
-                }
-                
-                currentReleased = currentReleased.add(newRelease);
+            }
+            
+            // 返回已释放但未领取的部分
+            if (currentReleased > user.directRewardClaimed) {
+                pendingDirect = currentReleased.sub(user.directRewardClaimed);
             }
         }
         
-        // 返回已释放但未领取的部分
-        if (currentReleased > user.dynamicRewardClaimed) {
-            return currentReleased.sub(user.dynamicRewardClaimed);
+        // 2. 计算分享奖的待领取部分（立即可提取）
+        if (user.shareRewardTotal > user.shareRewardClaimed) {
+            pendingShare = user.shareRewardTotal.sub(user.shareRewardClaimed);
         }
         
-        return 0;
+        return pendingDirect.add(pendingShare);
     }
     
 
@@ -871,9 +913,11 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev 提示：收益记录已改为事件方式，请前端监听 RewardDistributed 事件
-     * 可以通过过滤 user 参数来获取指定用户的收益记录
+     * @dev 获取用户收益记录（全部返回）
      */
+    function getUserRewardRecords(address _user) external view returns (RewardRecord[] memory) {
+        return users[_user].rewardRecords;
+    }
     
     function getDirectReferrals(address _user) external view returns (TeamMemberInfo[] memory) {
         address[] memory directReferrals = users[_user].directReferrals;
@@ -1146,13 +1190,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     function setAutoPriceUpdate(bool _enabled) external onlyOwner {
         autoPriceUpdateEnabled = _enabled;
     }
-    
-    /**
-     * @dev 手动触发价格更新(公开函数,任何人都可调用)
-     */
-    function updatePrice() external {
-        _updatePriceIfNeeded();
-    }
 
     function setWithdrawalFee(uint256 _newFeeRate) external onlyOwner {
         require(_newFeeRate <= 100, "Fee rate cannot exceed 100%");
@@ -1236,33 +1273,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         swapFeeRate = _newFeeRate;
     }
 
-    function updateBtcStats(
-        uint256 _totalHashrate,
-        uint256 _globalHashrate,
-        uint256 _dailyRewardPerT,
-        uint256 _currentDifficulty,
-        uint256 _btcPrice,
-        uint256 _nextHalvingTime
-    ) external onlyOwner {
-        btcStats.totalHashrate = _totalHashrate;
-        btcStats.globalHashrate = _globalHashrate;
-        btcStats.dailyRewardPerT = _dailyRewardPerT;
-        btcStats.currentDifficulty = _currentDifficulty;
-        btcStats.btcPrice = _btcPrice;
-        btcStats.nextHalvingTime = _nextHalvingTime;
-        btcStats.lastUpdateTime = block.timestamp;
-    }
-
-    function updateTotalMined(uint256 _increment) external onlyOwner {
-        btcStats.totalMined = btcStats.totalMined.add(_increment);
-        btcStats.yesterdayMined = _increment;
-        btcStats.lastUpdateTime = block.timestamp;
-    }
-
-    function getBtcStats() external view returns (BtcMiningStats memory) {
-        return btcStats;
-    }
-
     function getPendingGenesisApplications() external view onlyOwner returns (address[] memory) {
         return pendingGenesisApplications;
     }
@@ -1297,12 +1307,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
 
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
-        require(_tokenAddress != address(0), "Token address cannot be zero");
         IERC20 token = IERC20(_tokenAddress);
         uint256 balance = token.balanceOf(address(this));
-        require(_amount > 0, "Amount must be greater than zero");
-        require(balance >= _amount, "Insufficient token balance in contract");
-        
         token.transfer(owner(), _amount);
     }
 }

@@ -105,20 +105,23 @@
     "tabs": {
       "all": "All",
       "static": "Static",
-      "dynamic": "Dynamic",
+      "direct": "Direct",
+      "share": "Share",
+      "team": "Team",
       "genesis": "Genesis"
     },
     "types": {
-      "static": "Static Income",
-      "dynamic": "Dynamic Income",
-      "staticBonus": "Static Bonus",
+      "static": "Static Reward",
+      "direct": "Direct Reward",
+      "share": "Share Reward",
+      "team": "Team Reward",
       "genesis": "Genesis Node Dividend"
     },
     "labels": {
       "dailyRelease": "Daily Release",
-      "referralReward": "Referral Reward",
-      "teamShare": "Team Share",
-      "bonusReward": "Bonus Reward",
+      "directReward": "Direct Reward",
+      "shareReward": "Share Reward",
+      "teamBonus": "Team Bonus",
       "nodeDividend": "Node Dividend"
     }
   },

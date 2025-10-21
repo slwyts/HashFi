@@ -7,15 +7,34 @@ interface BitcoinData {
   updatedAt: string;
 }
 
+interface MiningPoolData {
+  platformHashrate: number;
+  dailyRewardPerT: number;
+  totalMined: number;
+  updatedAt: string;
+}
+
+interface CombinedData {
+  // 实时数据
+  btcPrice: number;
+  networkHashrate: number;
+  difficulty: number;
+  // 平台数据
+  platformHashrate: number;
+  dailyRewardPerT: number;
+  totalMined: number;
+  updatedAt: string;
+}
+
 const WORKER_API = import.meta.env.VITE_API_URL || 'https://hashfi-api.a3144390867.workers.dev';
 
 // 全局缓存
-let cachedData: BitcoinData | null = null;
+let cachedData: CombinedData | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 10 * 60 * 1000; // 10分钟
 
 export function useBitcoinData() {
-  const btcData = ref<BitcoinData | null>(null);
+  const btcData = ref<CombinedData | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -32,24 +51,41 @@ export function useBitcoinData() {
     error.value = null;
 
     try {
-      const response = await fetch(`${WORKER_API}/btc-data`);
+      // 并行请求实时数据和平台数据
+      const [btcResponse, poolResponse] = await Promise.all([
+        fetch(`${WORKER_API}/btc-data`),
+        fetch(`${WORKER_API}/mining-pool-data`),
+      ]);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch Bitcoin data');
+      if (!btcResponse.ok || !poolResponse.ok) {
+        throw new Error('Failed to fetch data');
       }
 
-      const result = await response.json();
+      const btcResult = await btcResponse.json();
+      const poolResult = await poolResponse.json();
       
-      if (result.success && result.data) {
-        cachedData = result.data;
+      if (btcResult.success && poolResult.success) {
+        const combined: CombinedData = {
+          // 实时数据
+          btcPrice: btcResult.data.price,
+          networkHashrate: btcResult.data.hashrate,
+          difficulty: btcResult.data.difficulty,
+          // 平台数据
+          platformHashrate: poolResult.data.platformHashrate,
+          dailyRewardPerT: poolResult.data.dailyRewardPerT,
+          totalMined: poolResult.data.totalMined,
+          updatedAt: btcResult.data.updatedAt,
+        };
+        
+        cachedData = combined;
         lastFetchTime = now;
-        btcData.value = result.data;
-        console.log('Bitcoin data fetched:', result.data);
+        btcData.value = combined;
+        console.log('Bitcoin and pool data fetched:', combined);
       } else {
         throw new Error('Invalid response format');
       }
     } catch (err) {
-      console.error('Error fetching Bitcoin data:', err);
+      console.error('Error fetching data:', err);
       error.value = err instanceof Error ? err.message : 'Unknown error';
       
       // 如果有缓存数据，即使过期也使用
@@ -73,3 +109,4 @@ export function useBitcoinData() {
     refetch: fetchBitcoinData,
   };
 }
+
