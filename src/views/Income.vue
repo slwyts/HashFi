@@ -143,14 +143,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAccount, useReadContract } from '@wagmi/vue';
 import { formatUnits } from 'viem';
 import { abi } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
-import { useRewardEvents, type RewardType } from '@/composables/useRewardEvents';
+import { useRewardRecords, type RewardType } from '@/composables/useRewardRecords';
 
 const { t } = useI18n();
 const { address } = useAccount();
@@ -257,7 +257,7 @@ const handleWithdraw = async () => {
           // 刷新所有相关数据
           await Promise.all([
             refetchRewards(),
-            fetchRewardEvents(),
+            refreshRecords(),
           ]);
         },
       }
@@ -268,39 +268,60 @@ const handleWithdraw = async () => {
   }
 };
 
-// ========== 3. 使用事件监听获取收益记录 ==========
+// ========== 3. 使用合约数组查询获取收益记录 ==========
 const {
-  rewardEvents,
-  isLoading: isLoadingRecords,
-  getEventsByType,
-  fetchRewardEvents,
-} = useRewardEvents();
+  rewardRecords,
+  isLoadingRewards: isLoadingRecords,
+  rewardSummary,
+  getRewardsByType,
+  refetchRewards: refreshRecords,
+} = useRewardRecords();
+
+// 🐛 调试：监听 rewardRecords 变化
+watch(
+  () => rewardRecords.value,
+  (newRecords) => {
+    console.log('📝 Income页面 - rewardRecords 更新:', {
+      count: newRecords.length,
+      records: newRecords
+    });
+  },
+  { immediate: true }
+);
 
 // ========== 4. 标签页筛选 ==========
-// 简化为3个标签：全部、静态、动态、创世节点
-const activeTab = ref<'all' | 'static' | 'dynamic' | 'genesis'>('all');
+// 5个标签对应5种奖励类型：全部、静态、直推、分享、团队、创世节点
+const activeTab = ref<'all' | 'static' | 'direct' | 'share' | 'team' | 'genesis'>('all');
 
 const tabs = [
   { key: 'all' as const, name: 'incomePage.tabs.all' },
   { key: 'static' as const, name: 'incomePage.tabs.static' },
-  { key: 'dynamic' as const, name: 'incomePage.tabs.dynamic' },
+  { key: 'direct' as const, name: 'incomePage.tabs.direct' },
+  { key: 'share' as const, name: 'incomePage.tabs.share' },
+  { key: 'team' as const, name: 'incomePage.tabs.team' },
   { key: 'genesis' as const, name: 'incomePage.tabs.genesis' },
 ];
 
 const filteredRecords = computed(() => {
   if (activeTab.value === 'all') {
-    return rewardEvents.value;
+    return rewardRecords.value;
   } else if (activeTab.value === 'static') {
-    // 静态 = Static(0) + Team(3)
-    return rewardEvents.value.filter((e: any) => e.rewardType === 0 || e.rewardType === 3);
-  } else if (activeTab.value === 'dynamic') {
-    // 动态 = Direct(1) + Share(2)
-    return rewardEvents.value.filter((e: any) => e.rewardType === 1 || e.rewardType === 2);
+    // 静态收益 = Static(0)
+    return getRewardsByType(0);
+  } else if (activeTab.value === 'direct') {
+    // 直推奖 = Direct(1)
+    return getRewardsByType(1);
+  } else if (activeTab.value === 'share') {
+    // 分享奖 = Share(2)
+    return getRewardsByType(2);
+  } else if (activeTab.value === 'team') {
+    // 团队奖 = Team(3)
+    return getRewardsByType(3);
   } else if (activeTab.value === 'genesis') {
     // 创世节点 = Genesis(4)
-    return rewardEvents.value.filter((e: any) => e.rewardType === 4);
+    return getRewardsByType(4);
   }
-  return rewardEvents.value;
+  return rewardRecords.value;
 });
 
 // ========== 5. 辅助函数 ==========
@@ -308,9 +329,9 @@ const filteredRecords = computed(() => {
 const getRewardTypeName = (type: RewardType): string => {
   const typeMap: Record<RewardType, string> = {
     0: 'incomePage.types.static',       // 静态收益
-    1: 'incomePage.types.dynamic',      // 动态收益（直推）
-    2: 'incomePage.types.dynamic',      // 动态收益（分享）
-    3: 'incomePage.types.staticBonus',  // 静态加速
+    1: 'incomePage.types.direct',       // 直推奖
+    2: 'incomePage.types.share',        // 分享奖
+    3: 'incomePage.types.team',         // 团队奖
     4: 'incomePage.types.genesis',      // 创世节点
   };
   return typeMap[type] || 'incomePage.types.static';
@@ -319,9 +340,9 @@ const getRewardTypeName = (type: RewardType): string => {
 const getRewardTypeColor = (type: RewardType): string => {
   const colorMap: Record<RewardType, string> = {
     0: 'bg-gradient-to-br from-blue-500 to-blue-600',      // 静态 - 蓝色
-    1: 'bg-gradient-to-br from-green-500 to-green-600',    // 动态 - 绿色
-    2: 'bg-gradient-to-br from-green-500 to-green-600',    // 动态 - 绿色（和直推一样）
-    3: 'bg-gradient-to-br from-purple-500 to-purple-600',  // 静态加速 - 紫色
+    1: 'bg-gradient-to-br from-green-500 to-green-600',    // 直推 - 绿色
+    2: 'bg-gradient-to-br from-teal-500 to-teal-600',      // 分享 - 青色
+    3: 'bg-gradient-to-br from-purple-500 to-purple-600',  // 团队 - 紫色
     4: 'bg-gradient-to-br from-yellow-500 to-yellow-600',  // 创世节点 - 金色
   };
   return colorMap[type] || 'bg-gradient-to-br from-gray-500 to-gray-600';
@@ -331,9 +352,9 @@ const getRewardTypeColor = (type: RewardType): string => {
 const getRewardTypeLabel = (type: RewardType): string => {
   const labelMap: Record<RewardType, string> = {
     0: 'incomePage.labels.dailyRelease',    // 每日释放
-    1: 'incomePage.labels.referralReward',  // 推荐奖励
-    2: 'incomePage.labels.teamShare',       // 团队分成
-    3: 'incomePage.labels.bonusReward',     // 加速奖励
+    1: 'incomePage.labels.directReward',    // 直推奖励
+    2: 'incomePage.labels.shareReward',     // 分享奖励
+    3: 'incomePage.labels.teamBonus',       // 团队加速
     4: 'incomePage.labels.nodeDividend',    // 节点分红
   };
   return labelMap[type] || 'incomePage.labels.dailyRelease';
@@ -343,9 +364,9 @@ const getRewardTypeLabel = (type: RewardType): string => {
 const getRewardTypeBadge = (type: RewardType): string => {
   const badgeMap: Record<RewardType, string> = {
     0: 'bg-blue-100 text-blue-700',      // 静态 - 蓝色徽章
-    1: 'bg-green-100 text-green-700',    // 动态 - 绿色徽章
-    2: 'bg-green-100 text-green-700',    // 动态 - 绿色徽章
-    3: 'bg-purple-100 text-purple-700',  // 静态加速 - 紫色徽章
+    1: 'bg-green-100 text-green-700',    // 直推 - 绿色徽章
+    2: 'bg-teal-100 text-teal-700',      // 分享 - 青色徽章
+    3: 'bg-purple-100 text-purple-700',  // 团队 - 紫色徽章
     4: 'bg-yellow-100 text-yellow-700',  // 创世节点 - 金色徽章
   };
   return badgeMap[type] || 'bg-gray-100 text-gray-700';

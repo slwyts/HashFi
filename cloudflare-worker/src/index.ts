@@ -36,26 +36,6 @@ interface Announcement {
   createdAt: string;
 }
 
-// 收益记录缓存
-interface RewardEvent {
-  timestamp: number;
-  blockNumber: string;
-  transactionHash: string;
-  fromUser: string;
-  rewardType: 0 | 1 | 2 | 3;
-  usdtAmount: string;
-  hafAmount: string;
-  formattedDate: string;
-}
-
-interface RewardCache {
-  address: string;
-  contractAddress: string;     // ✅ 新增：合约地址
-  lastBlockNumber: string;
-  events: RewardEvent[];
-  updatedAt: string;
-}
-
 // 比特币数据类型定义
 interface BitcoinData {
   price: number;           // BTC 价格（美元）
@@ -67,6 +47,14 @@ interface BitcoinData {
 interface BitcoinCache {
   data: BitcoinData;
   cachedAt: number;        // 缓存时间戳
+}
+
+// ✅ 新增：矿池平台数据类型
+interface MiningPoolData {
+  platformHashrate: number;     // 平台总算力（T）
+  dailyRewardPerT: number;      // 每T日收益（BTC）
+  totalMined: number;           // 累计已挖（BTC）
+  updatedAt: string;            // 更新时间
 }
 
 // 简单的签名验证 (装个样子,只要有签名就行 😏)
@@ -314,93 +302,6 @@ async function deleteAnnouncement(request: Request, env: Env, id: string): Promi
   }
 }
 
-// 获取收益记录缓存
-async function getRewardCache(env: Env, address: string, contractAddress?: string): Promise<Response> {
-  try {
-    const cacheKey = `reward_cache_${address.toLowerCase()}`;
-    const cacheJson = await env.HASHFI_DATA.get(cacheKey);
-    
-    if (!cacheJson) {
-      return new Response(JSON.stringify({ cache: null }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    const cache: RewardCache = JSON.parse(cacheJson);
-    
-    // ✅ 检查合约地址是否匹配
-    if (contractAddress) {
-      // 如果请求带了合约地址，但缓存中没有或不匹配，清空缓存
-      if (!cache.contractAddress || cache.contractAddress.toLowerCase() !== contractAddress.toLowerCase()) {
-        console.log(`Contract address mismatch or missing: cached=${cache.contractAddress}, requested=${contractAddress}`);
-        
-        // 合约地址不匹配或缺失，删除旧缓存
-        await env.HASHFI_DATA.delete(cacheKey);
-        
-        return new Response(JSON.stringify({ 
-          cache: null, 
-          message: 'Contract address changed or missing in cache, cache cleared' 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-    
-    return new Response(JSON.stringify({ cache }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to get reward cache' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-}
-
-// 更新收益记录缓存
-async function updateRewardCache(request: Request, env: Env): Promise<Response> {
-  try {
-    const data = await request.json() as RewardCache;
-    
-    if (!data.address) {
-      return new Response(JSON.stringify({ error: 'Address is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    if (!data.contractAddress) {
-      return new Response(JSON.stringify({ error: 'Contract address is required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    
-    const cacheKey = `reward_cache_${data.address.toLowerCase()}`;
-    
-    // ✅ 保存合约地址到缓存
-    const cache: RewardCache = {
-      ...data,
-      contractAddress: data.contractAddress.toLowerCase(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    // 缓存 3 个月 (90天)
-    await env.HASHFI_DATA.put(cacheKey, JSON.stringify(cache), {
-      expirationTtl: 7776000, // 90 days = 90 * 24 * 60 * 60
-    });
-    
-    return new Response(JSON.stringify({ success: true, cache }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'Failed to update reward cache' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-}
-
 // 获取比特币实时数据
 async function getBitcoinData(env: Env): Promise<Response> {
   try {
@@ -526,6 +427,105 @@ async function getBitcoinData(env: Env): Promise<Response> {
   }
 }
 
+// ✅ 获取矿池平台数据
+async function getMiningPoolData(env: Env): Promise<Response> {
+  try {
+    const poolDataJson = await env.HASHFI_DATA.get('mining_pool_data');
+    
+    if (!poolDataJson) {
+      // 返回默认值
+      const defaultData: MiningPoolData = {
+        platformHashrate: 0,
+        dailyRewardPerT: 0,
+        totalMined: 0,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        data: defaultData 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const poolData: MiningPoolData = JSON.parse(poolDataJson);
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      data: poolData 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
+  } catch (error) {
+    console.error('Failed to get mining pool data:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to get mining pool data',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// ✅ 更新矿池平台数据（需要授权）
+async function updateMiningPoolData(request: Request, env: Env): Promise<Response> {
+  if (!isAuthorized(request)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const data = await request.json() as Partial<MiningPoolData>;
+    
+    // 获取现有数据
+    const existingDataJson = await env.HASHFI_DATA.get('mining_pool_data');
+    let poolData: MiningPoolData;
+    
+    if (existingDataJson) {
+      poolData = JSON.parse(existingDataJson);
+      // 更新字段
+      if (data.platformHashrate !== undefined) poolData.platformHashrate = data.platformHashrate;
+      if (data.dailyRewardPerT !== undefined) poolData.dailyRewardPerT = data.dailyRewardPerT;
+      if (data.totalMined !== undefined) poolData.totalMined = data.totalMined;
+    } else {
+      // 创建新数据
+      poolData = {
+        platformHashrate: data.platformHashrate || 0,
+        dailyRewardPerT: data.dailyRewardPerT || 0,
+        totalMined: data.totalMined || 0,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    
+    poolData.updatedAt = new Date().toISOString();
+    
+    // 保存到 KV
+    await env.HASHFI_DATA.put('mining_pool_data', JSON.stringify(poolData));
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      data: poolData 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    
+  } catch (error) {
+    console.error('Failed to update mining pool data:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to update mining pool data',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
 // 主处理函数
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -572,19 +572,17 @@ export default {
         return deleteAnnouncement(request, env, id!);
       }
 
-      // 收益记录缓存API
-      if (path.startsWith('/reward-cache/') && method === 'GET') {
-        const address = path.split('/').pop();
-        const contractAddress = url.searchParams.get('contract');
-        return getRewardCache(env, address!, contractAddress || undefined);
-      }
-      if (path === '/reward-cache' && method === 'POST') {
-        return updateRewardCache(request, env);
-      }
-
       // 比特币数据API
       if (path === '/btc-data' && method === 'GET') {
         return getBitcoinData(env);
+      }
+
+      // ✅ 矿池平台数据API
+      if (path === '/mining-pool-data' && method === 'GET') {
+        return getMiningPoolData(env);
+      }
+      if (path === '/mining-pool-data' && method === 'POST') {
+        return updateMiningPoolData(request, env);
       }
 
       // 404
