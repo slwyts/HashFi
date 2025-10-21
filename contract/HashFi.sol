@@ -259,9 +259,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         // ✅ 更新上级业绩和发放直推奖（仅累加，不记录）
         _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
         
-        // ✅ 发放分享奖（投资时立即结算并记录）
-        _distributeShareRewardsOnStake(msg.sender, _amount);
-        
         emit Staked(msg.sender, orderId, _amount, level);
     }
 
@@ -621,47 +618,10 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev 投资时发放分享奖（立即结算并记录）
-     * 按投资金额的5%直接发放给符合条件的上级
-     */
-    function _distributeShareRewardsOnStake(address _user, uint256 _stakeAmount) internal {
-        address currentUser = _user;
-        address referrer = users[currentUser].referrer;
-        
-        for (uint i = 0; i < 10 && referrer != address(0); i++) {
-            User storage referrerUser = users[referrer];
-            uint256 activeDirectCount = 0;
-            for (uint j = 0; j < referrerUser.directReferrals.length; j++) {
-                if (users[referrerUser.directReferrals[j]].totalStakedAmount > 0) {
-                    activeDirectCount++;
-                }
-            }
-
-            if (activeDirectCount <= i) {
-                break;
-            }
-            
-            // ✅ 分享奖无烧伤机制 - 按投资额的5%计算
-            uint256 rewardUsdt = _stakeAmount.mul(5).div(100);
-
-            if(rewardUsdt > 0){
-                uint256 rewardHaf = rewardUsdt.mul(PRICE_PRECISION).div(hafPrice);
-                
-                // ✅ 分享奖立即可提取，直接累加到 shareRewardTotal
-                referrerUser.shareRewardTotal = referrerUser.shareRewardTotal.add(rewardHaf);
-                
-                // ✅ 立即记录分享奖
-                _addRewardRecord(referrer, _user, RewardType.Share, rewardUsdt, rewardHaf);
-            }
-            
-            currentUser = referrer;
-            referrer = users[currentUser].referrer;
-        }
-    }
-    
-    /**
      * @dev 提现时发放分享奖（基于静态收益的5%）
-     * 这个函数在用户提现结算静态收益时调用，不再记录（因为已经在投资时记录过了）
+     * 当下级用户产生静态收益时，按静态收益的5%发放给上级
+     * 规则：推荐几人拿几代，最多拿10代
+     * 计算方式：日收益 × 90%（用户实得部分）× 5% = 分享奖
      */
     function _distributeShareRewards(address _user, uint256 _staticRewardUsdt) internal {
         address currentUser = _user;
@@ -680,7 +640,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 break;
             }
             
-            // ✅ 分享奖无烧伤机制 - 直接按5%计算
+            // ✅ 分享奖无烧伤机制 - 按静态收益的5%计算
             uint256 rewardUsdt = _staticRewardUsdt.mul(5).div(100);
 
             if(rewardUsdt > 0){
@@ -689,7 +649,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 // ✅ 分享奖立即可提取，直接累加到 shareRewardTotal
                 referrerUser.shareRewardTotal = referrerUser.shareRewardTotal.add(rewardHaf);
                 
-                // ⚠️ 不再记录（已经在投资时记录过）
+                // ✅ 记录分享奖（在静态收益结算时记录）
+                _addRewardRecord(referrer, _user, RewardType.Share, rewardUsdt, rewardHaf);
             }
             
             currentUser = referrer;
@@ -1111,9 +1072,17 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
 
     function _calculateBurnableAmount(uint256 _originalAmount, uint8 _investorLevel, uint8 _referrerLevel) internal view returns (uint256) {
-        if (_referrerLevel >= _investorLevel || _referrerLevel == 4) {
+        // 投资者是钻石等级（含）以上，无烧伤
+        if (_investorLevel >= 4) {
             return _originalAmount;
         }
+        
+        // 推荐人等级 >= 投资者等级，无烧伤
+        if (_referrerLevel >= _investorLevel) {
+            return _originalAmount;
+        }
+        
+        // 跨级别烧伤：推荐人只能拿自己等级的最高投资额对应的奖励
         if (_originalAmount <= stakingLevels[_referrerLevel].maxAmount) {
             return _originalAmount;
         }
