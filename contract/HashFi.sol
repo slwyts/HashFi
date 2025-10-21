@@ -575,6 +575,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev 内部函数：更新用户动态奖励的释放进度
      * 在每次新增动态奖励前调用，将旧奖励按时间比例释放
+     * ✅ 修复：使用固定的每日释放额度（总额的1/100），而不是剩余金额的1/100
      */
     function _updateDirectRewardRelease(address _user) internal {
         User storage user = users[_user];
@@ -595,20 +596,15 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 daysPassed = (block.timestamp.sub(user.lastDirectUpdateTime)).div(TIME_UNIT);
         if (daysPassed == 0) return;
         
+        // ✅ 使用固定的每日释放额度：总金额的1/100
+        uint256 dailyRelease = user.directRewardTotal.div(100);
+        uint256 newRelease = dailyRelease.mul(daysPassed);
+        
         // 计算未释放的奖励总额
         uint256 unreleased = user.directRewardTotal.sub(user.directRewardReleased);
         
-        // 按100天释放，每天释放 unreleased/100
-        uint256 dailyRelease = unreleased.div(100);
-        uint256 newRelease = dailyRelease.mul(daysPassed);
-        
-        // 如果超过100天，全部释放
-        if (daysPassed >= 100) {
-            newRelease = unreleased;
-        }
-        
-        // 确保不超过未释放总额
-        if (newRelease > unreleased) {
+        // 如果超过100天或新增释放超过未释放总额，全部释放
+        if (daysPassed >= 100 || newRelease >= unreleased) {
             newRelease = unreleased;
         }
         
@@ -805,17 +801,14 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 uint256 daysPassed = (block.timestamp.sub(user.lastDirectUpdateTime)).div(TIME_UNIT);
                 
                 if (daysPassed > 0) {
-                    uint256 unreleased = user.directRewardTotal.sub(currentReleased);
-                    uint256 dailyRelease = unreleased.div(100);
+                    // ✅ 使用固定的每日释放额度：总金额的1/100
+                    uint256 dailyRelease = user.directRewardTotal.div(100);
                     uint256 newRelease = dailyRelease.mul(daysPassed);
                     
-                    // 如果超过100天，全部释放
-                    if (daysPassed >= 100) {
-                        newRelease = unreleased;
-                    }
+                    uint256 unreleased = user.directRewardTotal.sub(currentReleased);
                     
-                    // 确保不超过未释放总额
-                    if (newRelease > unreleased) {
+                    // 如果超过100天或新增释放超过未释放总额，全部释放
+                    if (daysPassed >= 100 || newRelease >= unreleased) {
                         newRelease = unreleased;
                     }
                     
