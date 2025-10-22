@@ -171,55 +171,55 @@ const { data: claimableRewards, isLoading: isLoadingRewards, refetch: refetchRew
 
 // 待领取收益显示
 const pendingStaticDisplay = computed(() => {
-  if (!claimableRewards.value) return '0.00';
+  if (!claimableRewards.value) return '0.0000';
   try {
     const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.0000';
     const value = formatUnits(rewards[0], 18);
-    return parseFloat(value).toFixed(2);
+    return parseFloat(value).toFixed(4);
   } catch (error) {
     console.error('Error calculating pendingStatic:', error);
-    return '0.00';
+    return '0.0000';
   }
 });
 
 const pendingDynamicDisplay = computed(() => {
-  if (!claimableRewards.value) return '0.00';
+  if (!claimableRewards.value) return '0.0000';
   try {
     const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.0000';
     const value = formatUnits(rewards[1], 18);
-    return parseFloat(value).toFixed(2);
+    return parseFloat(value).toFixed(4);
   } catch (error) {
     console.error('Error calculating pendingDynamic:', error);
-    return '0.00';
+    return '0.0000';
   }
 });
 
 const pendingGenesisDisplay = computed(() => {
-  if (!claimableRewards.value) return '0.00';
+  if (!claimableRewards.value) return '0.0000';
   try {
     const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.0000';
     const value = formatUnits(rewards[2], 18);
-    return parseFloat(value).toFixed(2);
+    return parseFloat(value).toFixed(4);
   } catch (error) {
     console.error('Error calculating pendingGenesis:', error);
-    return '0.00';
+    return '0.0000';
   }
 });
 
 const totalClaimableDisplay = computed(() => {
-  if (!claimableRewards.value) return '0.00';
+  if (!claimableRewards.value) return '0.0000';
   try {
     const rewards = claimableRewards.value as readonly [bigint, bigint, bigint];
-    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.00';
+    if (!rewards || !Array.isArray(rewards) || rewards.length < 3) return '0.0000';
     const total = rewards[0] + rewards[1] + rewards[2];
     const value = formatUnits(total, 18);
-    return parseFloat(value).toFixed(2);
+    return parseFloat(value).toFixed(4);
   } catch (error) {
     console.error('Error calculating totalClaimable:', error);
-    return '0.00';
+    return '0.0000';
   }
 });
 

@@ -204,12 +204,12 @@ const { data: claimableData } = useReadContract({
 
 // 计算总 HAF 资产（余额 + 可提取收益）
 const totalHafBalance = computed(() => {
-  if (!address.value) return '0.00';
+  if (!address.value) return '0.0000';
   
   const balance = hafBalance.value ? Number(formatEther(hafBalance.value.value)) : 0;
   const claimable = claimableData.value ? Number(formatEther((claimableData.value as any).totalClaimableHaf || 0n)) : 0;
   
-  return (balance + claimable).toFixed(2);
+  return (balance + claimable).toFixed(4);
 });
 
 // 计算美元价值
