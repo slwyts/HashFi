@@ -361,11 +361,11 @@ async function getBitcoinData(env: Env): Promise<Response> {
       }
     }
     
-    // 处理算力（GH/s 转换为 EH/s）
+    // 处理算力（从 blockchain.info 返回值转换为 EH/s）
     if (blockchainData.status === 'fulfilled' && blockchainData.value?.hashrate) {
-      // blockchain.info 返回的是 GH/s，需要转换为 EH/s
-      // 1 EH/s = 1,000,000 GH/s
-      hashrate = blockchainData.value.hashrate / 1_000_000;
+      // blockchain.info 返回的单位是 GH/s（千兆哈希/秒）
+      // 1 EH/s = 1,000,000,000 GH/s (10^9)
+      hashrate = blockchainData.value.hashrate / 1_000_000_000;
     }
     
     // 处理难度
