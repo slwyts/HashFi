@@ -12,7 +12,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h2 class="text-xl font-bold text-white">创世节点中心</h2>
+        <h2 class="text-xl font-bold text-white">{{ t('genesisNode.title') }}</h2>
       </div>
     </div>
 
@@ -31,22 +31,22 @@
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
             </svg>
           </div>
-          <h3 class="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">成为创世节点</h3>
-          <p class="text-gray-600 mb-6">享受平台全球分红权益，共建生态未来</p>
+          <h3 class="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.becomeNode') }}</h3>
+          <p class="text-gray-600 mb-6">{{ t('genesisNode.applyDescription') }}</p>
         </div>
         
         <!-- 费用信息 -->
         <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-6">
           <div class="text-center">
-            <p class="text-sm text-gray-600 mb-2">申请费用</p>
+            <p class="text-sm text-gray-600 mb-2">{{ t('genesisNode.applicationFee') }}</p>
             <p class="text-4xl font-bold text-blue-600 mb-2">{{ nodeCostDisplay }} USDT</p>
-            <p class="text-sm text-gray-500">您的余额: {{ usdtBalanceDisplay }} USDT</p>
+            <p class="text-sm text-gray-500">{{ t('genesisNode.yourBalance') }}: {{ usdtBalanceDisplay }} USDT</p>
           </div>
         </div>
 
         <!-- 节点权益 -->
         <div class="space-y-6 mb-8">
-          <h4 class="text-xl font-bold text-center mb-6 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">节点权益</h4>
+          <h4 class="text-xl font-bold text-center mb-6 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.nodeRights') }}</h4>
           
           <!-- 权益1：矿机赠送 -->
           <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
@@ -57,22 +57,22 @@
                 </svg>
               </div>
               <div class="flex-1">
-                <h5 class="font-bold text-lg text-gray-800 mb-3">赠送11888美金大算力矿机</h5>
+                <h5 class="font-bold text-lg text-gray-800 mb-3">{{ t('genesisNode.right1Title') }}</h5>
                 <div class="space-y-2 text-sm text-gray-700">
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                    <span><strong>矿机型号：</strong>阿瓦隆天花板水冷1566HA—算力500T</span>
+                    <span><strong>{{ t('genesisNode.right1Model') }}</strong>{{ t('genesisNode.right1ModelDesc') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                    <span><strong>矿机价值：</strong>7000美金</span>
+                    <span><strong>{{ t('genesisNode.right1Value') }}</strong>{{ t('genesisNode.right1ValueDesc') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                    <span><strong>电费运维：</strong>赠送一年电费及运维费用（价值4300美金）</span>
+                    <span><strong>{{ t('genesisNode.right1Fee') }}</strong>{{ t('genesisNode.right1FeeDesc') }}</span>
                   </div>
                   <div class="bg-blue-100 rounded-lg p-3 mt-3">
-                    <p class="font-semibold text-blue-800">实物矿机，总价值 11888 美金</p>
+                    <p class="font-semibold text-blue-800">{{ t('genesisNode.right1Summary') }}</p>
                   </div>
                 </div>
               </div>
@@ -89,19 +89,19 @@
                 </svg>
               </div>
               <div class="flex-1">
-                <h5 class="font-bold text-lg text-gray-800 mb-3">享受全球总业绩静态10%加权分红</h5>
+                <h5 class="font-bold text-lg text-gray-800 mb-3">{{ t('genesisNode.right2Title') }}</h5>
                 <div class="space-y-2 text-sm text-gray-700">
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
-                    <span>参与全平台用户静态收益的10%分红</span>
+                    <span>{{ t('genesisNode.right2Item1') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
-                    <span>按照节点权重进行分红分配</span>
+                    <span>{{ t('genesisNode.right2Item2') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
-                    <span>每日自动结算，实时到账</span>
+                    <span>{{ t('genesisNode.right2Item3') }}</span>
                   </div>
                 </div>
               </div>
@@ -117,19 +117,19 @@
                 </svg>
               </div>
               <div class="flex-1">
-                <h5 class="font-bold text-lg text-gray-800 mb-3">市场扶持政策</h5>
+                <h5 class="font-bold text-lg text-gray-800 mb-3">{{ t('genesisNode.right3Title') }}</h5>
                 <div class="space-y-2 text-sm text-gray-700">
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
-                    <span><strong>工作室补贴：</strong>推广工作室资源支持</span>
+                    <span><strong>{{ t('genesisNode.right3Item1') }}</strong>{{ t('genesisNode.right3Item1Desc') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
-                    <span><strong>讲师补贴：</strong>专业培训讲师资源</span>
+                    <span><strong>{{ t('genesisNode.right3Item2') }}</strong>{{ t('genesisNode.right3Item2Desc') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
-                    <span><strong>酒会沙龙补贴：</strong>高端商务活动支持</span>
+                    <span><strong>{{ t('genesisNode.right3Item3') }}</strong>{{ t('genesisNode.right3Item3Desc') }}</span>
                   </div>
                 </div>
               </div>
@@ -145,19 +145,19 @@
                 </svg>
               </div>
               <div class="flex-1">
-                <h5 class="font-bold text-lg text-gray-800 mb-3">Hash Fi 基金会生态治理权</h5>
+                <h5 class="font-bold text-lg text-gray-800 mb-3">{{ t('genesisNode.right4Title') }}</h5>
                 <div class="space-y-2 text-sm text-gray-700">
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
-                    <span>参与平台重大决策投票权</span>
+                    <span>{{ t('genesisNode.right4Item1') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
-                    <span>共建去中心化生态发展</span>
+                    <span>{{ t('genesisNode.right4Item2') }}</span>
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
-                    <span>享有平台未来发展方向话语权</span>
+                    <span>{{ t('genesisNode.right4Item3') }}</span>
                   </div>
                 </div>
               </div>
@@ -193,15 +193,15 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h3 class="text-2xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">申请已提交</h3>
-          <p class="text-gray-600 mb-6">您的创世节点申请正在审核中，请耐心等待</p>
+          <h3 class="text-2xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.applicationSubmittedTitle') }}</h3>
+          <p class="text-gray-600 mb-6">{{ t('genesisNode.applicationSubmittedDesc') }}</p>
           
           <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <h4 class="font-semibold text-blue-800 mb-2">审核说明</h4>
+            <h4 class="font-semibold text-blue-800 mb-2">{{ t('genesisNode.reviewNoticeTitle') }}</h4>
             <ul class="text-sm text-blue-700 text-left space-y-1">
-              <li>• 审核周期通常为1-3个工作日</li>
-              <li>• 审核通过后您将成为正式创世节点</li>
-              <li>• 审核未通过将全额退还申请费用</li>
+              <li>{{ t('genesisNode.reviewNotice1') }}</li>
+              <li>{{ t('genesisNode.reviewNotice2') }}</li>
+              <li>{{ t('genesisNode.reviewNotice3') }}</li>
             </ul>
           </div>
 
@@ -209,7 +209,7 @@
             @click="router.back()"
             class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
           >
-            返回
+            {{ t('genesisNode.backButton') }}
           </button>
         </div>
       </div>
@@ -232,8 +232,8 @@
               </svg>
             </div>
             <div>
-              <h3 class="text-xl font-bold text-white">创世节点</h3>
-              <p class="text-blue-100 opacity-90">Genesis Node</p>
+              <h3 class="text-xl font-bold text-white">{{ t('genesisNode.nodeStatus') }}</h3>
+              <p class="text-blue-100 opacity-90">{{ t('genesisNode.genesisNodeEn') }}</p>
             </div>
           </div>
           <div class="text-right">
@@ -253,23 +253,23 @@
 
       <!-- 分红统计 -->
       <div class="card p-6">
-        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">我的分红统计</h3>
+        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.myDividends') }}</h3>
         
         <div class="grid grid-cols-2 gap-4 mb-6">
           <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 text-center border border-green-100">
             <p class="text-2xl font-bold text-green-600">{{ claimableGenesisRewards }}</p>
-            <p class="text-sm text-gray-600">可提取(USDT)</p>
+            <p class="text-sm text-gray-600">{{ t('genesisNode.claimable') }}</p>
           </div>
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 text-center border border-blue-100">
             <p class="text-2xl font-bold text-blue-600">{{ withdrawnDividends }}</p>
-            <p class="text-sm text-gray-600">已提取(USDT)</p>
+            <p class="text-sm text-gray-600">{{ t('genesisNode.withdrawn') }}</p>
           </div>
         </div>
 
         <!-- 退出进度 -->
         <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
-            <span class="text-sm font-medium text-gray-700">退出进度</span>
+            <span class="text-sm font-medium text-gray-700">{{ t('genesisNode.exitProgress') }}</span>
             <span class="text-sm text-blue-600 font-semibold">{{ exitProgress }}%</span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-3">
@@ -280,7 +280,7 @@
           </div>
           <div class="flex justify-between text-xs text-gray-500 mt-1">
             <span>0 USDT</span>
-            <span>{{ maxWithdrawAmount }} USDT (3x)</span>
+            <span>{{ maxWithdrawAmount }} USDT {{ t('genesisNode.exitMax') }}</span>
           </div>
           <p class="text-xs text-gray-500 mt-2">
             <span v-if="!hasReachedExitCondition">
@@ -299,25 +299,25 @@
           :disabled="isProcessing"
           class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:transform-none"
         >
-          {{ isProcessing ? '提取中...' : `提取 ${claimableGenesisRewards} USDT` }}
+          {{ isProcessing ? t('genesisNode.withdrawing') : t('genesisNode.withdrawButton', { amount: claimableGenesisRewards }) }}
         </button>
       </div>
 
       <!-- 全网数据 -->
       <div class="card p-6">
-        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">全网节点数据</h3>
+        <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.globalData') }}</h3>
         
         <div class="grid grid-cols-1 gap-4">
           <div class="flex justify-between items-center py-3 border-b border-blue-100">
-            <span class="text-gray-600">活跃节点数量</span>
+            <span class="text-gray-600">{{ t('genesisNode.activeNodes') }}</span>
             <span class="font-bold text-blue-600">{{ activeNodesCount }}</span>
           </div>
           <div class="flex justify-between items-center py-3 border-b border-blue-100">
-            <span class="text-gray-600">全球分红池</span>
+            <span class="text-gray-600">{{ t('genesisNode.globalPool') }}</span>
             <span class="font-bold text-green-600">{{ totalDividendsDisplay }} USDT</span>
           </div>
           <div class="flex justify-between items-center py-3">
-            <span class="text-gray-600">平均每节点分红</span>
+            <span class="text-gray-600">{{ t('genesisNode.averageDividend') }}</span>
             <span class="font-bold text-indigo-600">{{ averageDividendDisplay }} USDT</span>
           </div>
         </div>
@@ -539,8 +539,8 @@ const handleApply = async () => {
       abi,
       functionName: 'applyForGenesisNode',
       args: [],
-      pendingMessage: '申请创世节点中...',
-      successMessage: '创世节点申请已提交，等待审核！',
+      pendingMessage: t('genesisNode.applying'),
+      successMessage: t('nodeCenter.applySuccess'),
       operation: 'Apply for Genesis Node',
       onConfirmed: () => {
         refetchUser();
@@ -551,15 +551,15 @@ const handleApply = async () => {
     console.error('Apply genesis node error:', error);
     
     // 处理常见错误
-    let errorMessage = '申请失败';
+    let errorMessage = t('stakingPage.stakeFailed');
     if (error.message?.includes('User must stake first')) {
-      errorMessage = '请先进行质押';
+      errorMessage = t('genesisNode.pleaseStakeFirst');
     } else if (error.message?.includes('Already a genesis node')) {
-      errorMessage = '您已经是创世节点了';
+      errorMessage = t('genesisNode.alreadyGenesisNode');
     } else if (error.message?.includes('Application already pending')) {
-      errorMessage = '申请已提交，请等待审核';
+      errorMessage = t('genesisNode.applicationPending');
     } else if (error.message?.includes('insufficient allowance')) {
-      errorMessage = '请先授权USDT';
+      errorMessage = t('stakingPage.approveUsdt');
     }
     
     toast.error(errorMessage);
@@ -580,8 +580,8 @@ const handleWithdraw = async () => {
       abi,
       functionName: 'withdraw',
       args: [],
-      pendingMessage: '提取分红中...',
-      successMessage: `成功提取 ${claimableGenesisRewards.value} USDT 分红！`,
+      pendingMessage: t('genesisNode.withdrawing'),
+      successMessage: `${t('incomePage.withdrawSuccess')} ${claimableGenesisRewards.value} USDT`,
       operation: 'Withdraw Genesis Rewards',
       onConfirmed: () => {
         refetchUser();
@@ -590,7 +590,7 @@ const handleWithdraw = async () => {
     
   } catch (error: any) {
     console.error('Withdraw error:', error);
-    toast.error('提取失败: ' + (error.message || '未知错误'));
+    toast.error(t('admin.withdrawFailed') + ': ' + (error.message || t('common.error')));
   } finally {
     isProcessing.value = false;
   }
