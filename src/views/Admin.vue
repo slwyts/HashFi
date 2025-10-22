@@ -101,6 +101,9 @@
       <!-- 公告管理 -->
       <AnnouncementManagement v-show="activeTab === 'announcements'" />
 
+      <!-- 平台内容管理 -->
+      <ContentManagement v-show="activeTab === 'content'" />
+
       <!-- 系统设置 -->
       <SystemSettings v-show="activeTab === 'settings'" />
 
@@ -123,6 +126,7 @@ import BannerManagement from '../components/admin/BannerManagement.vue';
 import AnnouncementManagement from '../components/admin/AnnouncementManagement.vue';
 import SystemSettings from '../components/admin/SystemSettings.vue';
 import AdvancedOperations from '../components/admin/AdvancedOperations.vue';
+import ContentManagement from '../components/admin/ContentManagement.vue';
 
 const toast = useToast();
 
@@ -136,7 +140,7 @@ const { address } = useAccount();
 const { signMessageAsync } = useSignMessage();
 const isAuthenticated = ref(false);
 
-const activeTab = ref<'dashboard' | 'genesis' | 'data' | 'users' | 'settings' | 'advanced' | 'banners' | 'announcements'>('dashboard');
+const activeTab = ref<'dashboard' | 'genesis' | 'data' | 'users' | 'settings' | 'advanced' | 'banners' | 'announcements' | 'content'>('dashboard');
 
 const tabs = [
   { key: 'dashboard' as const, name: '仪表盘' },
@@ -145,6 +149,7 @@ const tabs = [
   { key: 'users' as const, name: '用户管理' },
   { key: 'banners' as const, name: '轮播图' },
   { key: 'announcements' as const, name: '公告' },
+  { key: 'content' as const, name: '平台内容' },
   { key: 'settings' as const, name: '系统设置' },
   { key: 'advanced' as const, name: '高级操作' },
 ];

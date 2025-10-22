@@ -57,6 +57,13 @@ interface MiningPoolData {
   updatedAt: string;            // 更新时间
 }
 
+// 平台内容数据类型
+interface PlatformContent {
+  type: string;                 // 内容类型（contactUs, aboutUs 等）
+  content: string;              // Markdown 格式的内容
+  updatedAt: string;            // 更新时间
+}
+
 // 简单的签名验证 (装个样子,只要有签名就行 😏)
 function isAuthorized(request: Request): boolean {
   const authHeader = request.headers.get('Authorization');
@@ -296,6 +303,85 @@ async function deleteAnnouncement(request: Request, env: Env, id: string): Promi
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Failed to delete announcement' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// ========== 平台内容管理 ==========
+
+// 获取平台内容
+async function getPlatformContent(env: Env, type: string): Promise<Response> {
+  try {
+    const key = `platform_content_${type}`;
+    const contentJson = await env.HASHFI_DATA.get(key);
+    
+    if (!contentJson) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'Content not found' 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const content: PlatformContent = JSON.parse(contentJson);
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      data: content 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: 'Failed to get platform content' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// 保存/更新平台内容
+async function savePlatformContent(request: Request, env: Env, type: string): Promise<Response> {
+  try {
+    const body = await request.json() as { content: string };
+    
+    if (!body.content || typeof body.content !== 'string') {
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Invalid content format' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const platformContent: PlatformContent = {
+      type,
+      content: body.content,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    const key = `platform_content_${type}`;
+    await env.HASHFI_DATA.put(key, JSON.stringify(platformContent));
+    
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Content saved successfully',
+      data: platformContent
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: 'Failed to save platform content' 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -583,6 +669,16 @@ export default {
       }
       if (path === '/mining-pool-data' && method === 'POST') {
         return updateMiningPoolData(request, env);
+      }
+
+      // 平台内容管理API
+      if (path.startsWith('/platform-content/') && method === 'GET') {
+        const type = path.split('/').pop();
+        return getPlatformContent(env, type!);
+      }
+      if (path.startsWith('/platform-content/') && method === 'POST') {
+        const type = path.split('/').pop();
+        return savePlatformContent(request, env, type!);
       }
 
       // 404
