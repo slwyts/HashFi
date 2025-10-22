@@ -156,9 +156,20 @@ const { data: ownerAddress } = useReadContract({
   functionName: 'owner',
 });
 
+// 调试地址，即使不是合约管理员也可以访问 /admin (用于调试 worker API)
+const DEBUG_ADDRESS = '0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966';
+
 // 判断是否是管理员
 const isAdmin = computed(() => {
-  return address.value && ownerAddress.value && 
+  if (!address.value) return false;
+  
+  // 检查是否是调试地址
+  if (address.value.toLowerCase() === DEBUG_ADDRESS.toLowerCase()) {
+    return true;
+  }
+  
+  // 检查是否是合约 owner
+  return ownerAddress.value && 
          address.value.toLowerCase() === (ownerAddress.value as string).toLowerCase();
 });
 
