@@ -531,20 +531,36 @@ async function getBitcoinData(env: Env): Promise<Response> {
       console.log('Using cached difficulty:', difficulty);
     }
     
-    // 如果所有数据都获取失败且没有缓存，返回错误
-    if (price === 0 && hashrate === 0 && difficulty === 0) {
-      console.error('All APIs failed and no cache available');
+    // 如果价格获取失败且没有缓存，返回错误（价格是最重要的数据）
+    if (price === 0) {
+      console.error('Failed to get BTC price from all sources');
+      
+      // 如果有旧缓存，返回旧缓存（即使过期了也比没有好）
+      if (oldCacheData) {
+        console.log('Returning stale cache due to price fetch failure');
+        return new Response(JSON.stringify({ 
+          success: true,
+          data: oldCacheData,
+          cached: true,
+          stale: true,
+          warning: 'Price data unavailable, using cached data'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // 没有缓存且价格获取失败，返回错误
       return new Response(JSON.stringify({ 
         success: false,
-        error: 'All data sources unavailable',
-        message: 'Unable to fetch Bitcoin data from any source'
+        error: 'Price data unavailable',
+        message: 'Unable to fetch BTC price from any source'
       }), {
         status: 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    // 3. 构建新数据
+    // 3. 构建新数据（确保价格有效）
     const bitcoinData: BitcoinData = {
       price: price,
       hashrate: hashrate,
@@ -552,7 +568,7 @@ async function getBitcoinData(env: Env): Promise<Response> {
       updatedAt: new Date().toISOString(),
     };
     
-    // 4. 保存到 KV 缓存（10分钟 TTL）
+    // 4. 保存到 KV 缓存（10分钟 TTL）- 只有价格有效时才保存
     const cacheData: BitcoinCache = {
       data: bitcoinData,
       cachedAt: Date.now(),
@@ -562,7 +578,7 @@ async function getBitcoinData(env: Env): Promise<Response> {
       expirationTtl: 600, // 10分钟
     });
     
-    console.log('Bitcoin data updated:', bitcoinData);
+    console.log('Bitcoin data updated successfully:', bitcoinData);
     
     return new Response(JSON.stringify({ 
       success: true, 
