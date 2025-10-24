@@ -140,7 +140,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
     // ========== 价格自动上涨机制 ==========
     uint256 private lastPriceUpdateTime; // 上次价格更新时间（内部使用）
     uint256 public dailyPriceIncreaseRate = 1; // 每日涨幅 千分之一 = 0.1%
-    bool public autoPriceUpdateEnabled = true; // 是否启用自动涨价
+    bool public autoPriceUpdateEnabled = false; // 是否启用自动涨价
     // ================================================
     
     // ========== 测试网时间单位配置 ==========
