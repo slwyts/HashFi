@@ -243,8 +243,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 orderId = orders.length;
         uint256 quota = _amount.mul(stakingLevels[level].multiplier).div(100);
         
-        // 计算总释放HAF额度：quota(USDT) / 当前HAF价格
-        uint256 quotaHaf = quota.mul(PRICE_PRECISION).div(hafPrice);
+        // ✅ 计算总释放HAF额度（用户实得90%部分）：quota(USDT) / 当前HAF价格 × 90%
+        uint256 quotaHaf = quota.mul(PRICE_PRECISION).div(hafPrice).mul(90).div(100);
         
         orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, quotaHaf, 0, block.timestamp, block.timestamp, false));
         User storage user = users[msg.sender];
@@ -403,8 +403,11 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             globalStats.totalCompletedOrders = globalStats.totalCompletedOrders.add(1);
         }
         
+        // ✅ 修复：releasedHaf 记录用户实得的90%部分（扣除10%创世池后）
+        uint256 userActualHaf = actualBaseReleaseHaf.mul(90).div(100);
+        
         // 更新已释放的HAF数量和USDT额度
-        order.releasedHaf = order.releasedHaf.add(actualBaseReleaseHaf);
+        order.releasedHaf = order.releasedHaf.add(userActualHaf);
         order.releasedQuota = order.releasedQuota.add(actualBaseReleaseUsdt);
         
         // 团队加速是额外奖励，基于实际释放的基础部分计算
@@ -426,9 +429,8 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
                 globalGenesisPool = globalGenesisPool.add(genesisPart);
             }
             
-            // 记录基础静态收益
-            uint256 baseStaticHaf = actualBaseReleaseHaf.mul(90).div(100);
-            _addRewardRecord(order.user, address(0), RewardType.Static, userBasePart, baseStaticHaf);
+            // ✅ 记录基础静态收益（userActualHaf 已经是90%）
+            _addRewardRecord(order.user, address(0), RewardType.Static, userBasePart, userActualHaf);
             
             // 更新用户总静态产出（用于计算分享奖）
             user.totalStaticOutput = user.totalStaticOutput.add(userBasePart);
@@ -744,41 +746,34 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
             uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
             if (daysPassed == 0) continue;
 
-            // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF
+            // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF（用户实得90%）
             uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
             uint256 dailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
             uint256 dailyReleaseHaf = dailyReleaseUsdt.mul(PRICE_PRECISION).div(hafPrice);
             
             uint256 baseTotalReleaseHaf = dailyReleaseHaf.mul(daysPassed);
-            uint256 baseTotalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
             
-            // 检查HAF数量是否超过总额度
-            uint256 actualReleaseHaf = baseTotalReleaseHaf;
-            uint256 actualReleaseUsdt = baseTotalReleaseUsdt;
+            // ✅ 用户实得90%
+            uint256 userActualReleaseHaf = baseTotalReleaseHaf.mul(90).div(100);
             
-            if (order.releasedHaf.add(baseTotalReleaseHaf) >= order.totalQuotaHaf) {
+            // 检查HAF数量是否超过总额度（totalQuotaHaf已经是90%）
+            uint256 actualReleaseHaf = userActualReleaseHaf;
+            
+            if (order.releasedHaf.add(userActualReleaseHaf) >= order.totalQuotaHaf) {
                 actualReleaseHaf = order.totalQuotaHaf.sub(order.releasedHaf);
-                if (baseTotalReleaseHaf > 0) {
-                    actualReleaseUsdt = baseTotalReleaseUsdt.mul(actualReleaseHaf).div(baseTotalReleaseHaf);
-                }
             }
             
-            // 团队加速是额外奖励
+            // 团队加速是额外奖励（也是用户实得90%）
             uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
-            uint256 accelerationHaf = 0;
+            uint256 bonusHaf = 0;
             
             if (accelerationBonus > 0) {
-                accelerationHaf = actualReleaseHaf.mul(accelerationBonus).div(100);
-            }
-            
-            // 计算总HAF收益（基础90% + 加速90%）
-            uint256 baseHaf = actualReleaseHaf.mul(90).div(100);
-            uint256 bonusHaf = 0;
-            if (accelerationHaf > 0) {
+                uint256 accelerationHaf = actualReleaseHaf.mul(accelerationBonus).div(100);
                 bonusHaf = accelerationHaf.mul(90).div(100);
             }
             
-            total = total.add(baseHaf).add(bonusHaf);
+            // 计算总HAF收益（基础90% + 加速90%）
+            total = total.add(actualReleaseHaf).add(bonusHaf);
         }
         
         return total;
@@ -912,7 +907,7 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 daysPassed = (block.timestamp.sub(order.lastSettleTime)).div(TIME_UNIT);
         if (daysPassed == 0) return (0, 0);
 
-        // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF
+        // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF（用户实得90%）
         uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
         uint256 dailyReleaseUsdt = order.amount.mul(baseDailyRate).div(10000);
         uint256 dailyReleaseHaf = dailyReleaseUsdt.mul(PRICE_PRECISION).div(hafPrice);
@@ -920,42 +915,36 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
         uint256 baseTotalReleaseHaf = dailyReleaseHaf.mul(daysPassed);
         uint256 baseTotalReleaseUsdt = dailyReleaseUsdt.mul(daysPassed);
         
-        // 检查HAF数量是否超过总额度
-        uint256 actualReleaseHaf = baseTotalReleaseHaf;
-        uint256 actualReleaseUsdt = baseTotalReleaseUsdt;
+        // ✅ 用户实得90%
+        uint256 userActualReleaseHaf = baseTotalReleaseHaf.mul(90).div(100);
+        uint256 userActualReleaseUsdt = baseTotalReleaseUsdt.mul(90).div(100);
         
-        if (order.releasedHaf.add(baseTotalReleaseHaf) >= order.totalQuotaHaf) {
+        // 检查HAF数量是否超过总额度（totalQuotaHaf已经是90%）
+        uint256 actualReleaseHaf = userActualReleaseHaf;
+        uint256 actualReleaseUsdt = userActualReleaseUsdt;
+        
+        if (order.releasedHaf.add(userActualReleaseHaf) >= order.totalQuotaHaf) {
             actualReleaseHaf = order.totalQuotaHaf.sub(order.releasedHaf);
-            if (baseTotalReleaseHaf > 0) {
-                actualReleaseUsdt = baseTotalReleaseUsdt.mul(actualReleaseHaf).div(baseTotalReleaseHaf);
+            if (userActualReleaseHaf > 0) {
+                actualReleaseUsdt = userActualReleaseUsdt.mul(actualReleaseHaf).div(userActualReleaseHaf);
             }
         }
         
-        // 团队加速是额外奖励
+        // 团队加速是额外奖励（也是用户实得90%）
         uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
-        uint256 accelerationHaf = 0;
-        uint256 accelerationUsdt = 0;
+        uint256 accelerationPartHaf = 0;
+        uint256 accelerationPartUsdt = 0;
         
         if (accelerationBonus > 0) {
-            accelerationHaf = actualReleaseHaf.mul(accelerationBonus).div(100);
-            accelerationUsdt = actualReleaseUsdt.mul(accelerationBonus).div(100);
-        }
-
-        // 计算总USDT和HAF（基础90% + 加速90%）
-        uint256 userPartUsdt = actualReleaseUsdt.mul(90).div(100);
-        uint256 accelerationPartUsdt = 0;
-        if (accelerationUsdt > 0) {
+            uint256 accelerationHaf = actualReleaseHaf.mul(accelerationBonus).div(100);
+            uint256 accelerationUsdt = actualReleaseUsdt.mul(accelerationBonus).div(100);
+            accelerationPartHaf = accelerationHaf.mul(90).div(100);
             accelerationPartUsdt = accelerationUsdt.mul(90).div(100);
         }
-        
-        uint256 userPartHaf = actualReleaseHaf.mul(90).div(100);
-        uint256 accelerationPartHaf = 0;
-        if (accelerationHaf > 0) {
-            accelerationPartHaf = accelerationHaf.mul(90).div(100);
-        }
-        
-        pendingUsdt = userPartUsdt.add(accelerationPartUsdt);
-        pendingHaf = userPartHaf.add(accelerationPartHaf);
+
+        // 计算总USDT和HAF（已经是用户实得90%）
+        pendingUsdt = actualReleaseUsdt.add(accelerationPartUsdt);
+        pendingHaf = actualReleaseHaf.add(accelerationPartHaf);
         
         return (pendingUsdt, pendingHaf);
     }
@@ -1279,7 +1268,6 @@ contract HashFi is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
-        uint256 balance = token.balanceOf(address(this));
         token.transfer(owner(), _amount);
     }
 }

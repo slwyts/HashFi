@@ -386,9 +386,9 @@ const currentStakes = computed(() => {
 
       let releasedHAF = 0;
       if (order.releasedHaf !== undefined) {
-        // 新版合约：直接读取 releasedHaf（基础静态总释放，未扣 10% 创世）
+        // ✅ 新版合约：releasedHaf 已经是用户实得90%部分（合约已扣10%创世池）
         releasedHAF = Number(formatEther(order.releasedHaf || 0n));
-        console.log(`Current Order ${orderId}: Using releasedHaf from contract (gross base):`, releasedHAF);
+        console.log(`Current Order ${orderId}: Using releasedHaf from contract (user net 90%):`, releasedHAF);
       }
       
       // 根据 level 判断方案等级
@@ -404,8 +404,8 @@ const currentStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        // 显示为用户可得（扣除10%创世池后）
-        releasedHAF: (releasedHAF * 0.9).toFixed(4),
+        // ✅ 直接显示合约值（合约已扣10%创世池，前端不再处理）
+        releasedHAF: releasedHAF.toFixed(4),
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),
@@ -436,13 +436,14 @@ const historyStakes = computed(() => {
       // 否则降级为计算方式（向后兼容旧版本）
       let releasedHAF = 0;
       if (order.releasedHaf !== undefined) {
-        // 新版合约：直接读取 releasedHaf（基础静态总释放，未扣 10% 创世）
+        // ✅ 新版合约：releasedHaf 已经是用户实得90%部分（合约已扣10%创世池）
         releasedHAF = Number(formatEther(order.releasedHaf || 0n));
-        console.log(`History Order ${orderId}: Using releasedHaf from contract (gross base):`, releasedHAF);
+        console.log(`History Order ${orderId}: Using releasedHaf from contract (user net 90%):`, releasedHAF);
       } else {
-        // 旧版合约兼容：通过 releasedQuota / hafPrice 计算（同样为基础静态总释放，未扣 10% 创世）
-        releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
-        console.log(`History Order ${orderId}: Calculating releasedHAF (fallback, gross base):`, releasedHAF);
+        // 旧版合约兼容：通过 releasedQuota / hafPrice 计算（基础总释放，需手动扣10%）
+        const grossHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
+        releasedHAF = grossHAF * 0.9; // 扣除10%创世池
+        console.log(`History Order ${orderId}: Calculating releasedHAF (fallback, apply 90%):`, releasedHAF);
       }
       // =====================================
       
@@ -459,8 +460,8 @@ const historyStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        // 显示为用户可得（扣除10%创世池后再扣5%提现手续费）
-        releasedHAF: (releasedHAF * 0.9 * 0.95).toFixed(4),
+        // ✅ 直接显示合约值（合约已扣10%创世池，前端不再处理）
+        releasedHAF: releasedHAF.toFixed(4),
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),
