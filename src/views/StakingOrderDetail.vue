@@ -30,7 +30,7 @@
         <hr class="my-2 border-gray-200"/>
         <div class="flex justify-between">
           <span class="text-gray-500">{{ t('orderDetail.releasedHaf') }}</span>
-          <span class="font-semibold text-blue-600 font-mono">{{ (parseFloat(order.releasedHAF) * 0.95).toFixed(4) }} HAF</span>
+          <span class="font-semibold text-blue-600 font-mono">{{ (parseFloat(order.releasedHAF)).toFixed(4) }} HAF</span>
         </div>
         <div class="flex justify-between">
           <span class="text-gray-500">{{ t('orderDetail.stakingTime') }}</span>
