@@ -4,7 +4,6 @@ import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable } from "hardhat/config";
 import dotenv from "dotenv";
 
-// 加载 Hardhat 专用的环境变量文件
 dotenv.config({ path: ".env.hardhat" });
 
 const config: HardhatUserConfig = {
@@ -12,7 +11,7 @@ const config: HardhatUserConfig = {
   solidity: {
     profiles: {
       default: {
-        version: "0.8.28",
+        version: "0.8.30",
         settings: {
           optimizer: {
             enabled: true,
@@ -22,7 +21,7 @@ const config: HardhatUserConfig = {
         },
       },
       production: {
-        version: "0.8.28",
+        version: "0.8.30",
         settings: {
           optimizer: {
             enabled: true,

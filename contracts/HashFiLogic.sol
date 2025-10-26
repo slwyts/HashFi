@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.30;
 
 import "./HashFiStorage.sol";
 // import "@openzeppelin/contracts/utils/math/SafeMath.sol"; // 移除 SafeMath
