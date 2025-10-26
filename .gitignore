@@ -7,10 +7,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build outputs
 dist
 dist-ssr
 *.local
+
+# Hardhat files
+cache
+artifacts
+typechain-types
+
+# Coverage
+coverage
+coverage.json
+
+# Hardhat Ignition default folder for deployments against a local node
+ignition/deployments/chain-31337
+
+# Environment variables (只忽略包含敏感信息的本地环境变量)
+.env.local
+.env.*.local
+# Hardhat 私钥等敏感配置
+.env.hardhat
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +43,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Hardhat
+.hardhat

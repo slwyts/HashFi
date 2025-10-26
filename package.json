@@ -27,8 +27,13 @@
     "wagmi": "^2.17.2"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^3.0.0",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
+    "@types/node": "^22.8.5",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",
+    "dotenv": "^17.2.3",
+    "hardhat": "^3.0.9",
     "typescript": "~5.8.3",
     "vite": "^7.1.7",
     "vite-plugin-vue-devtools": "^8.0.2",
