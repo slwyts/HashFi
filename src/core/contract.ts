@@ -1,10 +1,10 @@
 import { computed, type Ref } from 'vue';
 import { useAccount, useReadContract, useWriteContract, useSimulateContract } from '@wagmi/vue';
 import { parseEther, type Address } from 'viem';
-import contractAbi from '../../contract/abi.json';
+import HashFiArtifact from '../../artifacts/contracts/HashFi.sol/HashFi.json';
 
 // 导出合约 ABI 供其他组件使用
-export const abi = contractAbi;
+export const abi = HashFiArtifact.abi;
 
 // ERC20 标准 ABI（用于 USDT 等代币的 approve 和 allowance 操作）
 export const erc20Abi = [
