@@ -239,19 +239,28 @@ const formattedAddress = computed(() => {
   return `${address.value.substring(0, 6)}...${address.value.substring(address.value.length - 4)}`;
 });
 
+// 获取用户最高等级（调用合约函数）
+const { data: userHighestLevel } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'getUserHighestLevel',
+  args: address ? [address] : undefined,
+  query: {
+    enabled: !!address,
+  }
+});
+
 // 用户等级
 const userLevel = computed(() => {
-  if (!userInfo.value) return '';
+  if (!userHighestLevel.value || !address.value) return '';
   
-  // userInfo 是数组: [referrer, teamLevel, totalStakedAmount, ...]
-  const info = userInfo.value as any[];
-  const totalInvested = Number(formatEther(info[2] || 0n)); // index 2 是 totalStakedAmount
+  const level = Number(userHighestLevel.value);
   
-  // 根据合约中的质押等级判断
-  if (totalInvested >= 3000) return 'stakingPage.diamond';  // 钻石: 3000+ USDT
-  if (totalInvested >= 1000) return 'stakingPage.gold';     // 黄金: 1000-2999 USDT  
-  if (totalInvested >= 500) return 'stakingPage.silver';    // 白银: 500-999 USDT
-  if (totalInvested >= 100) return 'stakingPage.bronze';    // 青铜: 100-499 USDT
+  // 根据合约返回的等级转换为显示文本
+  if (level === 4) return 'stakingPage.diamond';  // 钻石
+  if (level === 3) return 'stakingPage.gold';     // 黄金
+  if (level === 2) return 'stakingPage.silver';   // 白银
+  if (level === 1) return 'stakingPage.bronze';   // 青铜
   return ''; // 未投资
 });
 

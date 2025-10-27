@@ -222,7 +222,7 @@ abstract contract HashFiLogic is HashFiStorage {
 
         uint256[] memory directRewardRates = _getDirectRewardRates();
         for (uint i = 0; i < 6 && referrer != address(0); i++) {
-            uint8 referrerLevel = _getUserHighestLevel(referrer);
+            uint8 referrerLevel = getUserHighestLevel(referrer);
             uint256 receivableAmount = _calculateBurnableAmount(_amount, _level, referrerLevel);
             
             // 计算应得奖励
@@ -535,9 +535,9 @@ abstract contract HashFiLogic is HashFiStorage {
     }
 
     /**
-     * @dev (内部) 辅助：获取用户最高等级
+     * @dev 获取用户最高等级
      */
-    function _getUserHighestLevel(address _user) internal view returns (uint8) {
+    function getUserHighestLevel(address _user) public view returns (uint8) {
         if (_user == owner()) {
             return 4;
         }
