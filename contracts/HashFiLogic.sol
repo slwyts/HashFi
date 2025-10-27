@@ -316,11 +316,22 @@ abstract contract HashFiLogic is HashFiStorage {
         
         for (uint i = 0; i < 10 && referrer != address(0); i++) {
             User storage referrerUser = users[referrer];
+            
+            // ✅ 计算直接推荐的活跃人数
             uint256 activeDirectCount = 0;
             for (uint j = 0; j < referrerUser.directReferrals.length; j++) {
                 if (users[referrerUser.directReferrals[j]].totalStakedAmount > 0) {
                     activeDirectCount++;
                 }
+            }
+            
+            // ✅ 分享奖代数限制：直接推荐几个人拿几代
+            // 如果当前是第 i+1 代，但用户直推人数不足 i+1 个，则无法获得分享奖
+            if (activeDirectCount <= i) {
+                // 跳过本代，但继续向上查找（上级可能有足够推荐人数）
+                currentUser = referrer;
+                referrer = users[currentUser].referrer;
+                continue;
             }
 
             // ✅ 分享奖无烧伤机制 - 按静态收益的5%计算
