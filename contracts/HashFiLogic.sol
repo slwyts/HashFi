@@ -82,9 +82,11 @@ abstract contract HashFiLogic is HashFiStorage {
             globalStats.totalCompletedOrders = globalStats.totalCompletedOrders + 1;
         }
         
-        // 更新已释放的HAF数量和USDT额度
-        order.releasedHaf = order.releasedHaf + actualBaseReleaseHaf;
-        order.releasedQuota = order.releasedQuota + actualBaseReleaseUsdt;
+        // 更新已释放的HAF数量和USDT额度（用户实际可得90%）
+        uint256 userActualReleaseHaf = (actualBaseReleaseHaf * 90) / 100;
+        uint256 userActualReleaseUsdt = (actualBaseReleaseUsdt * 90) / 100;
+        order.releasedHaf = order.releasedHaf + userActualReleaseHaf;
+        order.releasedQuota = order.releasedQuota + userActualReleaseUsdt;
         
         // 团队加速是额外奖励，基于实际释放的基础部分计算
         uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;

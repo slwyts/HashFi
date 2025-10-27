@@ -369,10 +369,7 @@ const usdtBalance = computed(() => {
 
 // 用户质押订单列表（进行中的订单）
 const currentStakes = computed(() => {
-  if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];
-  // HAF价格用于向后兼容，如果合约没有releasedHaf字段时使用
-  const currentHafPrice = hafPriceData.value ? Number(formatUnits(hafPriceData.value as bigint, 18)) : 1;
-  
+  if (!userOrdersData.value || !Array.isArray(userOrdersData.value)) return [];  
   return (userOrdersData.value as any[])
     .map((order, index) => {
       // 合约 Order 结构体字段映射
@@ -404,7 +401,7 @@ const currentStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        releasedHAF: (releasedHAF * 0.95).toFixed(4),
+        releasedHAF: releasedHAF.toFixed(4),
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),
@@ -429,21 +426,13 @@ const historyStakes = computed(() => {
       const releasedQuota = Number(formatEther(order.releasedQuota || 0n));
       const startTime = Number(order.startTime || 0n);
       const isCompleted = order.isCompleted || false;
-      
-      // ========== ✅ 优先使用合约存储的releasedHaf字段 ==========
-      // 如果合约已更新（包含releasedHaf字段），直接读取
-      // 否则降级为计算方式（向后兼容旧版本）
+
       let releasedHAF = 0;
       if (order.releasedHaf !== undefined) {
-        // 新版合约：直接读取releasedHaf字段
         releasedHAF = Number(formatEther(order.releasedHaf || 0n));
         console.log(`History Order ${orderId}: Using releasedHaf from contract:`, releasedHAF);
-      } else {
-        // 旧版合约兼容：通过releasedQuota / hafPrice计算
-        releasedHAF = currentHafPrice > 0 ? (releasedQuota / currentHafPrice) : 0;
-        console.log(`History Order ${orderId}: Calculating releasedHAF (fallback):`, releasedHAF);
       }
-      // =====================================
+
       
       // 根据 level 判断方案等级
       let planName = 'stakingPage.bronze';
@@ -458,7 +447,7 @@ const historyStakes = computed(() => {
         amount: amount.toFixed(2),
         totalQuota: totalQuota.toFixed(2),
         released: releasedQuota.toFixed(2),
-        releasedHAF: (releasedHAF * 0.95).toFixed(4),
+        releasedHAF: releasedHAF.toFixed(4),
         status: isCompleted ? '已完成' : '进行中',
         isActive: !isCompleted,
         time: new Date(startTime * 1000).toLocaleString('zh-CN'),

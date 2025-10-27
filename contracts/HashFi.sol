@@ -86,10 +86,11 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         usdtToken.transferFrom(msg.sender, address(this), _amount);
 
         uint256 orderId = orders.length;
-        uint256 quota = (_amount * stakingLevels[level].multiplier) / 100;
+        uint256 baseQuota = (_amount * stakingLevels[level].multiplier) / 100;
         
-        // 计算总释放HAF额度：quota(USDT) / 当前HAF价格
-        uint256 quotaHaf = (quota * PRICE_PRECISION) / hafPrice;
+        // 用户实际能获得90%，10%分给创世节点池
+        uint256 quota = (baseQuota * 90) / 100; // 用户实际可得的USDT额度
+        uint256 quotaHaf = (quota * PRICE_PRECISION) / hafPrice; // 对应的HAF数量
         
         orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, quotaHaf, 0, block.timestamp, block.timestamp, false));
         User storage user = users[msg.sender];
@@ -128,18 +129,15 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
      * @dev 提取奖励
      */
     function withdraw() external nonReentrant whenNotPaused autoUpdatePrice {
-        _settleUserRewards(msg.sender);
-        
-        // ✅ 在计算前更新直推奖励释放进度
         _updateDirectRewardRelease(msg.sender);
-        
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
+        
+        _settleUserRewards(msg.sender);
         uint256 totalClaimableHaf = pendingStaticHaf + pendingDynamicHaf + pendingGenesisHaf;
         require(totalClaimableHaf > 0, "No rewards to withdraw");
 
         User storage user = users[msg.sender];
         
-        // ✅ 分别计算直推奖和分享奖的待领取金额
         uint256 pendingDirect = 0;
         if (user.directRewardTotal > user.directRewardClaimed) {
             if (user.directRewardReleased > user.directRewardClaimed) {
@@ -151,7 +149,6 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
             pendingShare = user.shareRewardTotal - user.shareRewardClaimed;
         }
         
-        // ✅ 记录直推奖（提现时才记录）
         if (pendingDirect > 0) {
             uint256 directUsdt = (pendingDirect * hafPrice) / PRICE_PRECISION;
             _addRewardRecord(msg.sender, address(0), RewardType.Direct, directUsdt, pendingDirect);
@@ -170,7 +167,6 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         globalStats.totalWithdrawnHaf = globalStats.totalWithdrawnHaf + amountAfterFee;
         globalStats.totalFeeCollectedHaf = globalStats.totalFeeCollectedHaf + fee;
 
-        // ✅ 记录提现记录
         user.withdrawRecords.push(WithdrawRecord({
             timestamp: block.timestamp,
             hafAmount: amountAfterFee,
