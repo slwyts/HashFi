@@ -15,7 +15,7 @@ abstract contract HashFiView is HashFiLogic {
      */
     function getUserInfo(address _user) external view returns (User memory, uint8, uint256, uint256) {
         User storage u = users[_user];
-        uint8 highestLevel = _getUserHighestLevel(_user);
+        uint8 highestLevel = getUserHighestLevel(_user);
         
         uint256 maxP = 0;
         uint256 totalP = 0;
@@ -160,7 +160,7 @@ abstract contract HashFiView is HashFiLogic {
         totalReferrals = directReferrals.length;
         
         for (uint i = 0; i < directReferrals.length; i++) {
-            uint8 level = _getUserHighestLevel(directReferrals[i]);
+            uint8 level = getUserHighestLevel(directReferrals[i]);
             if (level == 1) bronzeCount++;
             else if (level == 2) silverCount++;
             else if (level == 3) goldCount++;
