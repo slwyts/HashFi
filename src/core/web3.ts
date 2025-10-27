@@ -2,6 +2,21 @@ import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi/vue'
 import { bsc, bscTestnet } from 'viem/chains'
 import { reconnect } from 'wagmi/actions'
 import { http } from 'viem'
+import { defineChain } from 'viem'
+
+// 自定义 Hardhat 本地链配置
+const hardhatLocal = defineChain({
+  id: 31337,
+  name: 'Hardhat Local',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+  },
+})
 
 const projectId = '8fad523df181cc16d6cfe41bf546b913' 
 
@@ -12,12 +27,15 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 }
 
-const chains = [bsc, bscTestnet] as const
+// 根据环境选择链
+const isLocal = import.meta.env.VITE_APP_MODE === 'localnet'
+const chains = isLocal ? [hardhatLocal, bscTestnet, bsc] as const : [bsc, bscTestnet] as const
 
 // 配置 RPC URLs（支持未连接钱包时读取数据）
 const transports = {
   [bsc.id]: http(import.meta.env.VITE_BSC_MAINNET_RPC_URL || 'https://bsc-rpc.publicnode.com'),
   [bscTestnet.id]: http(import.meta.env.VITE_BSC_TESTNET_RPC_URL || 'https://bsc-testnet-rpc.publicnode.com'),
+  [hardhatLocal.id]: http(import.meta.env.VITE_LOCAL_RPC_URL || 'http://127.0.0.1:8545'),
 }
 
 export const wagmiConfig = defaultWagmiConfig({
@@ -32,11 +50,19 @@ export const wagmiConfig = defaultWagmiConfig({
 
 reconnect(wagmiConfig);
 
+// 根据环境选择默认链
+let defaultChain: typeof bsc | typeof bscTestnet | typeof hardhatLocal = bsc
+if (import.meta.env.VITE_CHAIN_ID === '31337') {
+  defaultChain = hardhatLocal as any
+} else if (import.meta.env.VITE_CHAIN_ID === '97') {
+  defaultChain = bscTestnet
+}
+
 createWeb3Modal({
   wagmiConfig,
   projectId,
   enableAnalytics: false,
-  defaultChain: import.meta.env.VITE_CHAIN_ID === '97' ? bscTestnet : bsc,
+  defaultChain: defaultChain as any,
   enableOnramp: false,
   featuredWalletIds: [
     'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask

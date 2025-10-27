@@ -5,8 +5,8 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
  * 用于本地测试和开发环境
  */
 const FullDeployModule = buildModule("FullDeployModule", (m) => {
-  // 获取部署者地址作为初始 owner
-  const initialOwner = m.getAccount(0);
+  // 使用指定的 owner 地址
+  const initialOwner = "0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966";
 
   // 1. 部署测试 USDT
   const usdt = m.contract("USDT", [], {
