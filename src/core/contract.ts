@@ -146,7 +146,6 @@ export function useBindReferrer(referrerAddress: Ref<Address | undefined>) {
         abi,
         functionName: 'bindReferrer',
         args: computed(() => (referrerAddress.value ? [referrerAddress.value] : undefined)),
-        query: { enabled: !!referrerAddress.value },
         chainId: CHAIN_ID
     });
     const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
@@ -181,7 +180,6 @@ export function useSwapUsdtToHaf(usdtAmount: Ref<number | null>) {
         abi,
         functionName: 'swapUsdtToHaf',
         args: computed(() => (usdtAmount.value && usdtAmount.value > 0 ? [parseEther(usdtAmount.value.toString())] : undefined)),
-        query: { enabled: !!usdtAmount.value && usdtAmount.value > 0 },
         chainId: CHAIN_ID
     });
     const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
@@ -194,7 +192,6 @@ export function useSwapHafToUsdt(hafAmount: Ref<number | null>) {
         abi,
         functionName: 'swapHafToUsdt',
         args: computed(() => (hafAmount.value && hafAmount.value > 0 ? [parseEther(hafAmount.value.toString())] : undefined)),
-        query: { enabled: !!hafAmount.value && hafAmount.value > 0 },
         chainId: CHAIN_ID
     });
     const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
@@ -213,7 +210,6 @@ export function useSetHafPrice(newPrice: Ref<number | null>) {
         abi,
         functionName: 'setHafPrice',
         args: computed(() => (newPrice.value && newPrice.value > 0 ? [BigInt(Math.floor(newPrice.value * 1e6))] : undefined)), // 价格精度为 1e6
-        query: { enabled: !!newPrice.value && newPrice.value > 0 },
         chainId: CHAIN_ID
     });
     const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
@@ -226,7 +222,6 @@ export function useSetWithdrawalFee(newFeeRate: Ref<number | null>) {
         abi,
         functionName: 'setWithdrawalFee',
         args: computed(() => (newFeeRate.value !== null ? [newFeeRate.value] : undefined)),
-        query: { enabled: newFeeRate.value !== null && newFeeRate.value >= 0 && newFeeRate.value <= 100 },
         chainId: CHAIN_ID
     });
     const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();

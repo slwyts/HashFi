@@ -75,7 +75,7 @@ const emit = defineEmits<{
 }>();
 
 const visible = ref(props.visible);
-let timer: number | null = null;
+let timer: ReturnType<typeof setTimeout> | null = null;
 
 const toastClasses = computed(() => {
   switch (props.type) {
