@@ -25,7 +25,7 @@ coverage
 coverage.json
 
 # Hardhat Ignition default folder for deployments against a local node
-ignition/deployments/chain-31337
+ignition/deployments
 
 # Environment variables (只忽略包含敏感信息的本地环境变量)
 .env.local

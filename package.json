@@ -12,7 +12,9 @@
     "testnet": "./scripts/start-auto-testnet.sh",
     "testnet:dev": "./scripts/start-auto-testnet.sh --no-logs && sleep 3 && npm run dev:local",
     "stop": "./scripts/stop-testnet.sh",
-    "time": "./scripts/time-jump.sh"
+    "time": "./scripts/time-jump.sh",
+    "check:balance": "dotenv -e .env.hardhat -- npx tsx scripts/check-balance.ts",
+    "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
