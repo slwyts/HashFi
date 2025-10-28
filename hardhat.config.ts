@@ -52,6 +52,13 @@ const config: HardhatUserConfig = {
       url: configVariable("SEPOLIA_RPC_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
+    bscTestnet: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable("BSC_TESTNET_RPC_URL"),
+      accounts: [configVariable("BSC_TESTNET_PRIVATE_KEY")],
+      chainId: 97,
+    },
   },
 };
 
