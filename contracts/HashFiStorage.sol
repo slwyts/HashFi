@@ -69,6 +69,7 @@ abstract contract HashFiStorage is Ownable {
 
         bool isGenesisNode;
         uint256 genesisDividendsWithdrawn; // 已领取的创世节点分红 (USDT本位)
+        uint256 genesisRewardDebt; // 创世节点奖励债务（用于计算待领取金额）
 
         // 直推奖励（DYNAMIC_RELEASE_PERIOD线性释放）
         uint256 directRewardTotal; // 累计获得的直推奖总额 (HAF本位)
@@ -157,6 +158,7 @@ abstract contract HashFiStorage is Ownable {
     // 创世节点
     uint256 public genesisNodeCost = 5000 * 1e18;
     uint256 public globalGenesisPool; // 全局创世节点分红池 (USDT本位)
+    uint256 public accGenesisRewardPerNode; // 每个节点累积的奖励（精度放大1e18）
     uint256 internal totalGenesisShares; // 创世节点总份额（内部使用）
     address[] internal genesisNodes; // 所有创世节点列表
     address[] internal activeGenesisNodes; // 活跃创世节点列表

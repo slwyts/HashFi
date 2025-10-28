@@ -28,6 +28,9 @@ abstract contract HashFiAdmin is HashFiLogic {
         activeGenesisNodes.push(_applicant);
         isActiveGenesisNode[_applicant] = true;
         
+        // ✅ 初始化奖励债务为当前累积值（新节点从加入时开始计算奖励）
+        user.genesisRewardDebt = accGenesisRewardPerNode;
+        
         emit GenesisNodeApproved(_applicant);
     }
     
