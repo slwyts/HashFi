@@ -105,6 +105,13 @@ abstract contract HashFiLogic is HashFiStorage {
             
             if (genesisPart > 0) {
                 globalGenesisPool = globalGenesisPool + genesisPart;
+                
+                // 更新每个节点的累积奖励
+                uint256 activeNodesCount = activeGenesisNodes.length;
+                if (activeNodesCount > 0) {
+                    // accGenesisRewardPerNode += (新增分红 * 1e18) / 节点数
+                    accGenesisRewardPerNode = accGenesisRewardPerNode + (genesisPart * 1e18) / activeNodesCount;
+                }
             }
             
             // 记录基础静态收益
@@ -122,6 +129,12 @@ abstract contract HashFiLogic is HashFiStorage {
             
             if (teamGenesisUsdt > 0) {
                 globalGenesisPool = globalGenesisPool + teamGenesisUsdt;
+                
+                // 更新每个节点的累积奖励
+                uint256 activeNodesCount = activeGenesisNodes.length;
+                if (activeNodesCount > 0) {
+                    accGenesisRewardPerNode = accGenesisRewardPerNode + (teamGenesisUsdt * 1e18) / activeNodesCount;
+                }
             }
             
             uint256 teamBonusHaf = (accelerationReleaseHaf * 90) / 100;
@@ -131,6 +144,9 @@ abstract contract HashFiLogic is HashFiStorage {
 
     /**
      * @dev 结算创世节点奖励
+     * 采用MasterChef类似的机制：accRewardPerNode记录每个节点的累积奖励
+     * rewardDebt记录用户已结算的部分
+     * 待领取 = accRewardPerNode - rewardDebt
      */
     function _settleGenesisRewardForNode(address _node) internal {
         User storage nodeUser = users[_node];
@@ -141,27 +157,22 @@ abstract contract HashFiLogic is HashFiStorage {
             return;
         }
 
-        if (globalGenesisPool == 0) return;
+        // 计算待领取金额 = (每节点累积奖励 - 用户奖励债务) / 1e18
+        uint256 pending = 0;
+        if (accGenesisRewardPerNode > nodeUser.genesisRewardDebt) {
+            pending = (accGenesisRewardPerNode - nodeUser.genesisRewardDebt) / 1e18;
+        }
         
-        // ✅ 计算活跃节点数量
-        uint256 activeNodesCount = activeGenesisNodes.length;
-        if (activeNodesCount == 0) return;
-        
-        // ✅ 平均分配分红池 - 每个节点分配相同金额
-        uint256 claimableUsdt = globalGenesisPool / activeNodesCount;
-        
-        if (claimableUsdt > 0) {
-            uint256 actualClaim = claimableUsdt;
+        if (pending > 0) {
+            uint256 actualClaim = pending;
             
-            // ✅ 先计算本次可领取金额，再检查是否超过3倍上限
-            uint256 afterClaimTotal = nodeUser.genesisDividendsWithdrawn + claimableUsdt;
-            
-            // 如果本次领取后会超过上限，调整领取金额（烧伤多余部分）
+            // 检查是否超过3倍上限
+            uint256 afterClaimTotal = nodeUser.genesisDividendsWithdrawn + pending;
             if (afterClaimTotal > maxDividend) {
                 actualClaim = maxDividend - nodeUser.genesisDividendsWithdrawn;
             }
 
-            // 计算对应的HAF数量并发送事件
+            // 记录奖励
             if (actualClaim > 0) {
                 uint256 actualClaimHaf = (actualClaim * PRICE_PRECISION) / hafPrice;
                 _addRewardRecord(_node, address(0), RewardType.Genesis, actualClaim, actualClaimHaf);
@@ -169,13 +180,16 @@ abstract contract HashFiLogic is HashFiStorage {
             
             // 更新已领取金额
             nodeUser.genesisDividendsWithdrawn = nodeUser.genesisDividendsWithdrawn + actualClaim;
-            globalGenesisPool = globalGenesisPool - actualClaim;
+            globalGenesisPool = globalGenesisPool - actualClaim; // 从池子扣除
             
             // 如果达到上限，从活跃列表移除
             if (nodeUser.genesisDividendsWithdrawn >= maxDividend) {
                 _removeActiveGenesisNode(_node);
             }
         }
+        
+        // 更新奖励债务（无论是否领取都要更新，这样下次计算pending才是正确的）
+        nodeUser.genesisRewardDebt = accGenesisRewardPerNode;
     }
     
     /**
@@ -324,9 +338,7 @@ abstract contract HashFiLogic is HashFiStorage {
                     activeDirectCount++;
                 }
             }
-            
-            // ✅ 分享奖代数限制：直接推荐几个人拿几代
-            // 如果当前是第 i+1 代，但用户直推人数不足 i+1 个，则无法获得分享奖
+
             if (activeDirectCount <= i) {
                 // 跳过本代，但继续向上查找（上级可能有足够推荐人数）
                 currentUser = referrer;
@@ -516,21 +528,22 @@ abstract contract HashFiLogic is HashFiStorage {
         }
         
         uint256 maxDividend = genesisNodeCost * GENESIS_NODE_EXIT_MULTIPLIER;
-        if (user.genesisDividendsWithdrawn >= maxDividend || globalGenesisPool == 0) {
+        if (user.genesisDividendsWithdrawn >= maxDividend) {
             return 0;
         }
         
-        uint256 activeNodesCount = activeGenesisNodes.length;
-        if (activeNodesCount == 0) {
-            return 0;
+        // 计算待领取金额 = (每节点累积奖励 - 用户奖励债务) / 1e18
+        uint256 pendingUsdt = 0;
+        if (accGenesisRewardPerNode > user.genesisRewardDebt) {
+            pendingUsdt = (accGenesisRewardPerNode - user.genesisRewardDebt) / 1e18;
         }
         
-        uint256 claimableUsdt = globalGenesisPool / activeNodesCount;
-        if (user.genesisDividendsWithdrawn + claimableUsdt > maxDividend) {
-            claimableUsdt = maxDividend - user.genesisDividendsWithdrawn;
+        // 检查是否超过上限
+        if (user.genesisDividendsWithdrawn + pendingUsdt > maxDividend) {
+            pendingUsdt = maxDividend - user.genesisDividendsWithdrawn;
         }
         
-        return (claimableUsdt * PRICE_PRECISION) / hafPrice;
+        return (pendingUsdt * PRICE_PRECISION) / hafPrice;
     }
     
     /**
