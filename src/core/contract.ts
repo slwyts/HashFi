@@ -26,6 +26,7 @@ export const erc20Abi = [
 
 
 const HASHFI_CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as Address | undefined;
+const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as Address | undefined;
 const CHAIN_ID = import.meta.env.VITE_CHAIN_ID ? parseInt(import.meta.env.VITE_CHAIN_ID) : undefined;
 
 
@@ -35,11 +36,21 @@ if (!HASHFI_CONTRACT_ADDRESS) {
   );
 }
 
+if (!USDT_ADDRESS) {
+  throw new Error(
+    "VITE_USDT_ADDRESS is not defined. Please check your .env files (.env.development, .env.production)"
+  );
+}
+
 if (!CHAIN_ID) {
   throw new Error(
     "VITE_CHAIN_ID is not defined. Please check your .env files (.env.development, .env.production)"
   );
 }
+
+// 导出地址供其他模块使用（非 undefined）
+export const CONTRACT = HASHFI_CONTRACT_ADDRESS!;
+export const USDT = USDT_ADDRESS!;
 
 // --- 类型定义 ---
 export interface Order { 
@@ -174,24 +185,22 @@ export function useWithdraw() {
     return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
 }
 
-export function useSwapUsdtToHaf(usdtAmount: Ref<number | null>) {
+/**
+ * 统一的 swap 函数
+ * @param tokenIn 支付的代币地址 (HAF 合约地址 或 USDT 地址)
+ * @param amountIn 支付的数量
+ */
+export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | null>) {
     const { data: config, error: simulateError, refetch } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
-        functionName: 'swapUsdtToHaf',
-        args: computed(() => (usdtAmount.value && usdtAmount.value > 0 ? [parseEther(usdtAmount.value.toString())] : undefined)),
-        chainId: CHAIN_ID
-    });
-    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
-    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
-}
-
-export function useSwapHafToUsdt(hafAmount: Ref<number | null>) {
-    const { data: config, error: simulateError, refetch } = useSimulateContract({
-        address: HASHFI_CONTRACT_ADDRESS,
-        abi,
-        functionName: 'swapHafToUsdt',
-        args: computed(() => (hafAmount.value && hafAmount.value > 0 ? [parseEther(hafAmount.value.toString())] : undefined)),
+        functionName: 'swap',
+        args: computed(() => {
+            if (!tokenIn.value || !amountIn.value || amountIn.value <= 0) {
+                return undefined;
+            }
+            return [tokenIn.value, parseEther(amountIn.value.toString())] as const;
+        }),
         chainId: CHAIN_ID
     });
     const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();

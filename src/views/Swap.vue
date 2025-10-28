@@ -146,8 +146,8 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
-import { formatUnits, parseUnits, maxUint256 } from 'viem';
-import { abi, erc20Abi } from '@/core/contract';
+import { formatUnits, parseUnits, maxUint256, type Address } from 'viem';
+import { abi, erc20Abi, CONTRACT, USDT } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 
@@ -155,8 +155,8 @@ const { t } = useI18n();
 const { address } = useAccount();
 const toast = useToast();
 
-const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
-const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
+const CONTRACT_ADDRESS = CONTRACT;
+const USDT_ADDRESS = USDT;
 
 // ========== 1. 获取 HAF 价格 ==========
 const { data: hafPrice, refetch: refetchPrice } = useReadContract({
@@ -372,69 +372,39 @@ const handleSwap = async () => {
   if (!fromAmount.value || !address.value) return;
 
   try {
-    if (fromToken.name === 'USDT') {
-      // USDT → HAF (测试网USDT是18位精度)
-      const amount = parseUnits(fromAmount.value.toString(), 18);
-      console.log('💱 USDT→HAF 兑换:', {
-        输入金额: fromAmount.value,
-        Wei金额: amount.toString(),
-        预计获得HAF: toAmount.value
-      });
-      
-      await callContractWithRefresh(
-        {
-          address: CONTRACT_ADDRESS,
-          abi,
-          functionName: 'swapUsdtToHaf',
-          args: [amount],
-          pendingMessage: t('swapPage.swapping'),
-          successMessage: t('swapPage.swapSuccess'),
-          operation: 'USDT to HAF Swap',
-          onConfirmed: () => {
-            // 清空输入
-            fromAmount.value = null;
-            toAmount.value = null;
-          }
-        },
-        {
-          refreshBalance: async () => {
-            await refetchUsdtBalance();
-            await refetchHafBalance();
-          },
+    const amount = parseUnits(fromAmount.value.toString(), 18);
+    const tokenInAddress = fromToken.name === 'USDT' ? USDT_ADDRESS : CONTRACT_ADDRESS;
+    
+    console.log('💱 闪兑:', {
+      方向: `${fromToken.name} → ${toToken.name}`,
+      输入金额: fromAmount.value,
+      Wei金额: amount.toString(),
+      tokenIn地址: tokenInAddress,
+      预计获得: toAmount.value
+    });
+    
+    await callContractWithRefresh(
+      {
+        address: CONTRACT_ADDRESS,
+        abi,
+        functionName: 'swap',
+        args: [tokenInAddress, amount],
+        pendingMessage: t('swapPage.swapping'),
+        successMessage: t('swapPage.swapSuccess'),
+        operation: `${fromToken.name} to ${toToken.name} Swap`,
+        onConfirmed: () => {
+          // 清空输入
+          fromAmount.value = null;
+          toAmount.value = null;
         }
-      );
-    } else {
-      // HAF → USDT (HAF是18位精度)
-      const amount = parseUnits(fromAmount.value.toString(), 18);
-      console.log('💱 HAF→USDT 兑换:', {
-        输入金额: fromAmount.value,
-        Wei金额: amount.toString(),
-        预计获得USDT: toAmount.value
-      });
-      
-      await callContractWithRefresh(
-        {
-          address: CONTRACT_ADDRESS,
-          abi,
-          functionName: 'swapHafToUsdt',
-          args: [amount],
-          pendingMessage: t('swapPage.swapping'),
-          successMessage: t('swapPage.swapSuccess'),
-          operation: 'HAF to USDT Swap',
-          onConfirmed: () => {
-            // 清空输入
-            fromAmount.value = null;
-            toAmount.value = null;
-          }
+      },
+      {
+        refreshBalance: async () => {
+          await refetchUsdtBalance();
+          await refetchHafBalance();
         },
-        {
-          refreshBalance: async () => {
-            await refetchUsdtBalance();
-            await refetchHafBalance();
-          },
-        }
-      );
-    }
+      }
+    );
   } catch (error: any) {
     console.error('Swap error:', error);
     // 错误已经在 useEnhancedContract 中处理
