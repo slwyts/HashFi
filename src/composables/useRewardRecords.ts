@@ -25,6 +25,9 @@ export const useRewardRecords = () => {
 
   const rewardRecords = ref<RewardRecord[]>([]);
 
+  // 使用 computed 让 args 响应式更新
+  const userArgs = computed(() => address.value ? [address.value] as const : undefined);
+
   /**
    * 查询收益记录（全部返回）
    */
@@ -37,7 +40,7 @@ export const useRewardRecords = () => {
     address: CONTRACT_ADDRESS,
     abi,
     functionName: 'getUserRewardRecords',
-    args: address.value ? [address.value] : undefined,
+    args: userArgs,
     query: {
       enabled: !!address.value,
     }
@@ -125,7 +128,7 @@ export const useRewardRecords = () => {
     return summary;
   });
 
-  // 监听地址变化
+  // 监听地址变化，清空数据（wagmi 会自动重新查询）
   watch(
     () => address.value,
     (newAddress) => {

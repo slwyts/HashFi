@@ -326,7 +326,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatUnits } from 'viem';
@@ -377,7 +377,7 @@ const userIsNode = computed(() => {
 });
 
 // ========== 3. 获取申请状态 ==========
-const { data: applicationPending } = useReadContract({
+const { data: applicationPending, refetch: refetchApplication } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'genesisNodeApplications',
@@ -542,8 +542,12 @@ const handleApply = async () => {
       pendingMessage: t('genesisNode.applying'),
       successMessage: t('nodeCenter.applySuccess'),
       operation: 'Apply for Genesis Node',
-      onConfirmed: () => {
-        refetchUser();
+      onConfirmed: async () => {
+        // 刷新用户数据和申请状态
+        await Promise.all([
+          refetchUser(),
+          refetchApplication(),
+        ]);
       }
     }, {});
     
@@ -600,6 +604,20 @@ const handleWithdraw = async () => {
 onMounted(() => {
   console.log('GenesisNode component mounted');
 });
+
+// ========== 监听地址变化，自动刷新数据 ==========
+watch(
+  () => address.value,
+  async (newAddress, oldAddress) => {
+    if (newAddress && oldAddress && newAddress !== oldAddress) {
+      console.log('🔄 GenesisNode页面 - 地址切换，刷新数据');
+      await Promise.all([
+        refetchUser(),
+        refetchApplication(),
+      ]);
+    }
+  }
+);
 </script>
 
 <style scoped>

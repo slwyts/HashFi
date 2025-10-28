@@ -158,14 +158,17 @@ const toast = useToast();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
+// 使用 computed 让 args 响应式更新
+const userArgs = computed(() => address.value ? [address.value] as const : undefined);
+
 // ========== 1. 获取待领取收益 ==========
 const { data: claimableRewards, isLoading: isLoadingRewards, refetch: refetchRewards } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'getClaimableRewards',
-  args: address ? [address] : undefined,
+  args: userArgs,
   query: {
-    enabled: !!address,
+    enabled: !!address.value,
   }
 });
 
