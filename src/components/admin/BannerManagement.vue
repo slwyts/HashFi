@@ -73,10 +73,10 @@
     <!-- 编辑/创建模态框 -->
     <div
       v-if="showModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
       @click.self="closeModal"
     >
-      <div class="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <h3 class="text-xl font-bold mb-4">{{ editingBanner ? '编辑轮播图' : '添加轮播图' }}</h3>
         
         <div class="space-y-4">
