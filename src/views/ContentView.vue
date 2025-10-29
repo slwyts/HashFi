@@ -16,9 +16,18 @@
     <!-- 内容区域 -->
     <div class="flex-1 overflow-auto">
       <div class="max-w-4xl mx-auto p-6">
+        <!-- 加载状态 -->
+        <div v-if="isLoading" class="text-center py-12">
+          <svg class="animate-spin h-12 w-12 mx-auto text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-gray-500">{{ t('common.loadingEllipsis') }}</p>
+        </div>
+        
         <!-- Markdown 渲染 -->
         <div 
-          v-if="contentType === 'markdown'" 
+          v-else-if="contentType === 'markdown'" 
           class="prose prose-blue max-w-none"
           v-html="renderedMarkdown"
         ></div>
@@ -62,6 +71,7 @@ const { t } = useI18n();
 const title = ref('');
 const content = ref('');
 const contentType = ref<'markdown' | 'html' | 'pdf' | 'text'>('text');
+const isLoading = ref(false);
 
 // Markdown 渲染
 const renderedMarkdown = computed(() => {
@@ -76,9 +86,54 @@ const goBack = () => {
   router.back();
 };
 
+// 从 API 加载内容
+const loadContentFromApi = async (contentKey: string) => {
+  isLoading.value = true;
+  try {
+    const WORKER_API = import.meta.env.VITE_WORKER_API || 'https://hashfi-api.a3144390867.workers.dev';
+    const response = await fetch(`${WORKER_API}/platform-content/${contentKey}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.success && data.data) {
+      content.value = data.data.content || t(`${contentKey}.content`) || '';
+      contentType.value = 'markdown';
+      
+      // 设置标题
+      const titleMap: Record<string, string> = {
+        'contactUs': t('profilePage.contactUs'),
+        'aboutUs': t('profilePage.aboutUs'),
+      };
+      title.value = titleMap[contentKey] || contentKey;
+    } else {
+      // API 没有内容，使用默认国际化内容
+      content.value = t(`${contentKey}.content`) || '';
+      contentType.value = 'markdown';
+    }
+  } catch (error) {
+    console.error('从 API 加载内容失败:', error);
+    // 加载失败，使用国际化文本作为后备
+    content.value = t(`${contentKey}.content`) || t('common.loadFailed');
+    contentType.value = 'markdown';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 // 加载页面内容的函数
 const loadContent = () => {
-  // 从路由参数获取数据
+  // 优先检查是否有 contentKey（从 API 加载）
+  if (route.query.contentKey) {
+    const contentKey = route.query.contentKey as string;
+    loadContentFromApi(contentKey);
+    return;
+  }
+  
+  // 从路由参数获取数据（向后兼容旧方式）
   if (route.query.title) {
     title.value = route.query.title as string;
   }
