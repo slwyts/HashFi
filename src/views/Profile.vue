@@ -411,26 +411,11 @@ const modalContent = ref('');
 
 // 使用通用内容页面显示详细信息
 const showInfo = (type: 'aboutUs' | 'contactUs') => {
-  const contentMap = {
-    aboutUs: {
-      title: t('profilePage.aboutUs'),
-      type: 'markdown',
-      content: t('aboutUs.content')
-    },
-    contactUs: {
-      title: t('profilePage.contactUs'),
-      type: 'markdown',
-      content: t('contactUs.content')
-    }
-  };
-
-  const data = contentMap[type];
+  // 新方式：只传 contentKey，从 API 加载内容（URL 短，支持动态更新）
   router.push({
     path: '/content',
     query: {
-      title: data.title,
-      type: data.type,
-      content: data.content
+      contentKey: type
     }
   });
 };
