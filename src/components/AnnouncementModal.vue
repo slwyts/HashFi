@@ -4,10 +4,10 @@
     <transition name="modal">
       <div
         v-if="isVisible"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
         @click.self="handleClose"
       >
-        <div class="bg-white rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden border border-gray-200">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden border border-gray-200">
           <!-- 头部 -->
           <div class="border-b border-gray-200 p-5 relative">
             <div class="flex items-start gap-3">
