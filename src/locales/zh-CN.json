@@ -332,7 +332,7 @@
     "active": "活跃中",
     "exited": "已退出",
     "exitConditionMet": "已达到退出条件！您已自动从活跃节点列表中移除，但仍可提取剩余分红",
-    "exitConditionDescription": "达到3倍申请费用({amount} USDT)后可申请退出节点",
+    "exitConditionDescription": "达到3倍申请费用({amount} USDT)后退出节点",
     "becomeNode": "成为创世节点",
     "applyDescription": "享受平台全球分红权益，共建生态未来",
     "applicationFee": "申请费用",

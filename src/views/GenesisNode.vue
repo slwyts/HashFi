@@ -279,7 +279,7 @@
             ></div>
           </div>
           <div class="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0 USDT</span>
+            <span>{{ withdrawnDividends }} USDT</span>
             <span>{{ maxWithdrawAmount }} USDT {{ t('genesisNode.exitMax') }}</span>
           </div>
           <p class="text-xs text-gray-500 mt-2">
@@ -326,7 +326,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
 import { formatUnits } from 'viem';
@@ -343,6 +343,7 @@ const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
 
 const isProcessing = ref(false);
+let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
 // ========== 1. 获取创世节点费用 ==========
 const { data: genesisNodeCost } = useReadContract({
@@ -366,6 +367,7 @@ const { data: userData, refetch: refetchUser } = useReadContract({
   args: userArgs,
   query: {
     enabled: !!address.value,
+    refetchInterval: 10000, // 每10秒自动刷新
   }
 });
 
@@ -390,13 +392,14 @@ const { data: applicationPending, refetch: refetchApplication } = useReadContrac
 const isPendingApproval = computed(() => !!applicationPending.value);
 
 // ========== 4. 获取可提取的创世分红 ==========
-const { data: claimableRewards } = useReadContract({
+const { data: claimableRewards, refetch: refetchClaimableRewards } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'getClaimableRewards',
   args: userArgs,
   query: {
     enabled: !!address.value && userIsNode.value,
+    refetchInterval: 10000, // 每10秒自动刷新
   }
 });
 
@@ -413,18 +416,32 @@ const withdrawnDividends = computed(() => {
   const userArray = userData.value as any[];
   const withdrawn = userArray[5]; // genesisDividendsWithdrawn 是第6个元素（索引5）
   if (!withdrawn) return '0.00';
-  return parseFloat(formatUnits(withdrawn as bigint, 18)).toFixed(2);
+  const value = parseFloat(formatUnits(withdrawn as bigint, 18)).toFixed(2);
+  console.log('💰 GenesisNode - withdrawnDividends:', {
+    raw: withdrawn.toString(),
+    formatted: value
+  });
+  return value;
 });
 
 // ========== 6. 退出进度计算 ==========
 const maxWithdrawAmount = computed(() => {
-  return (parseFloat(nodeCostDisplay.value) * 3).toFixed(0);
+  const max = (parseFloat(nodeCostDisplay.value) * 3).toFixed(0);
+  console.log('🎯 GenesisNode - maxWithdrawAmount:', max);
+  return max;
 });
 
 const exitProgress = computed(() => {
   const withdrawn = parseFloat(withdrawnDividends.value);
   const max = parseFloat(maxWithdrawAmount.value);
-  return max > 0 ? Math.min((withdrawn / max) * 100, 100).toFixed(1) : '0';
+  const progress = max > 0 ? Math.min((withdrawn / max) * 100, 100) : 0;
+  console.log('📊 GenesisNode - exitProgress calculation:', {
+    withdrawn,
+    max,
+    progress: progress.toFixed(2)
+  });
+  // 如果进度小于0.1%，显示两位小数；否则显示一位小数
+  return progress < 0.1 ? progress.toFixed(2) : progress.toFixed(1);
 });
 
 // ========== 检查是否已达到退出条件 ==========
@@ -453,10 +470,13 @@ const usdtBalanceDisplay = computed(() => {
 });
 
 // ========== 8. 获取全网节点数据 ==========
-const { data: activeGenesisNodes } = useReadContract({
+const { data: activeGenesisNodes, refetch: refetchActiveNodes } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'getActiveGenesisNodes',
+  query: {
+    refetchInterval: 10000, // 每10秒自动刷新
+  }
 });
 
 const activeNodesCount = computed(() => {
@@ -464,10 +484,13 @@ const activeNodesCount = computed(() => {
   return (activeGenesisNodes.value as string[]).length.toString();
 });
 
-const { data: globalGenesisPool } = useReadContract({
+const { data: globalGenesisPool, refetch: refetchGenesisPool } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'globalGenesisPool',
+  query: {
+    refetchInterval: 10000, // 每10秒自动刷新
+  }
 });
 
 const totalDividendsDisplay = computed(() => {
@@ -587,8 +610,13 @@ const handleWithdraw = async () => {
       pendingMessage: t('genesisNode.withdrawing'),
       successMessage: `${t('incomePage.withdrawSuccess')} ${claimableGenesisRewards.value} USDT`,
       operation: 'Withdraw Genesis Rewards',
-      onConfirmed: () => {
-        refetchUser();
+      onConfirmed: async () => {
+        // 刷新所有相关数据
+        await Promise.all([
+          refetchUser(),
+          refetchClaimableRewards(),
+          refetchActiveNodes(),
+        ]);
       }
     }, {});
     
@@ -600,9 +628,34 @@ const handleWithdraw = async () => {
   }
 };
 
+// ========== 手动刷新所有数据 ==========
+const refreshAllData = async () => {
+  console.log('🔄 GenesisNode页面 - 刷新所有数据');
+  await Promise.all([
+    refetchUser(),
+    refetchApplication(),
+    refetchClaimableRewards(),
+    refetchActiveNodes(),
+    refetchGenesisPool(),
+  ]);
+};
+
 // ========== 组件挂载时的处理 ==========
 onMounted(() => {
   console.log('GenesisNode component mounted');
+  
+  // 立即刷新一次数据
+  if (address.value) {
+    refreshAllData();
+  }
+});
+
+// ========== 组件卸载时清理定时器 ==========
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+  }
 });
 
 // ========== 监听地址变化，自动刷新数据 ==========
@@ -611,10 +664,32 @@ watch(
   async (newAddress, oldAddress) => {
     if (newAddress && oldAddress && newAddress !== oldAddress) {
       console.log('🔄 GenesisNode页面 - 地址切换，刷新数据');
-      await Promise.all([
-        refetchUser(),
-        refetchApplication(),
-      ]);
+      await refreshAllData();
+    }
+  }
+);
+
+// ========== 监听用户节点状态变化，自动刷新 ==========
+watch(
+  () => userIsNode.value,
+  async (isNode, wasNode) => {
+    if (isNode && !wasNode) {
+      console.log('✅ GenesisNode页面 - 用户成为创世节点，刷新数据');
+      await refreshAllData();
+    }
+  }
+);
+
+// ========== 监听已提取金额变化，更新进度条 ==========
+watch(
+  () => withdrawnDividends.value,
+  (newValue, oldValue) => {
+    if (newValue !== oldValue) {
+      console.log('📊 GenesisNode页面 - 已提取金额更新:', {
+        old: oldValue,
+        new: newValue,
+        progress: exitProgress.value
+      });
     }
   }
 );
