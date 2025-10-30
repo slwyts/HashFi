@@ -304,7 +304,7 @@
       </div>
 
       <!-- 全网数据 -->
-      <div class="card p-6">
+      <!-- <div class="card p-6">
         <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.globalData') }}</h3>
         
         <div class="grid grid-cols-1 gap-4">
@@ -321,7 +321,7 @@
             <span class="font-bold text-indigo-600">{{ averageDividendDisplay }} USDT</span>
           </div>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
