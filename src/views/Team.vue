@@ -206,9 +206,9 @@ const allTeamMembers = ref<any[]>([]);
 const isLoadingTeam = ref(false);
 
 /**
- * 递归获取团队成员（最多10层）
+ * 递归获取团队成员（最多20层）
  */
-const fetchAllTeamMembers = async (userAddress: string, depth = 0, maxDepth = 10): Promise<any[]> => {
+const fetchAllTeamMembers = async (userAddress: string, depth = 0, maxDepth = 20): Promise<any[]> => {
   if (depth >= maxDepth) return [];
   
   try {

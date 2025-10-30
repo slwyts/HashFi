@@ -358,7 +358,6 @@ abstract contract HashFiLogic is HashFiStorage {
         for (uint i = 0; i < 10 && referrer != address(0); i++) {
             User storage referrerUser = users[referrer];
             
-            // ✅ 计算直接推荐的活跃人数
             uint256 activeDirectCount = 0;
             for (uint j = 0; j < referrerUser.directReferrals.length; j++) {
                 if (users[referrerUser.directReferrals[j]].totalStakedAmount > 0) {
@@ -366,14 +365,12 @@ abstract contract HashFiLogic is HashFiStorage {
                 }
             }
 
-            if (activeDirectCount <= i) {
-                // 跳过本代，但继续向上查找（上级可能有足够推荐人数）
+            if (activeDirectCount < (i + 1)) {
                 currentUser = referrer;
                 referrer = users[currentUser].referrer;
                 continue;
             }
 
-            // ✅ 分享奖无烧伤机制 - 按静态收益的5%计算
             uint256 rewardUsdt = (_staticRewardUsdt * 5) / 100;
 
             if(rewardUsdt > 0){
@@ -455,7 +452,6 @@ abstract contract HashFiLogic is HashFiStorage {
         }
     }
 
-    // --- 内部视图/计算函数 ---
 
     /**
      * @dev (内部) 视图：计算待领取的静态收益
