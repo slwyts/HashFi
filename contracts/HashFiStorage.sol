@@ -58,6 +58,18 @@ abstract contract HashFiStorage is Ownable {
         uint256 hafAmount;
         uint256 fee;
     }
+    
+    /**
+     * @dev 直推奖详细记录结构
+     * 用于记录每笔直推奖的来源、金额和释放进度
+     */
+    struct DirectRewardDetail {
+        address fromUser;           // 奖励来源（投资的下级地址）
+        uint256 totalAmount;        // 该笔奖励的总金额 (HAF)
+        uint256 releasedAmount;     // 已释放的金额 (HAF)
+        uint256 claimedAmount;      // 已领取的金额 (HAF)
+        uint256 startTime;          // 奖励开始时间
+    }
 
     struct User {
         address referrer;
@@ -76,6 +88,7 @@ abstract contract HashFiStorage is Ownable {
         uint256 directRewardReleased; // 已释放的直推奖励 (HAF本位)
         uint256 lastDirectUpdateTime; // 上次更新直推奖励释放的时间
         uint256 directRewardClaimed; // 已领取的直推奖励 (HAF本位)
+        DirectRewardDetail[] directRewardDetails; // 直推奖详细记录数组
 
         // 分享奖励（立即可提取）
         uint256 shareRewardTotal; // 累计获得的分享奖总额 (HAF本位)

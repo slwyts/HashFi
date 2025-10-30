@@ -138,23 +138,36 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
 
         User storage user = users[msg.sender];
         
-        uint256 pendingDirect = 0;
+        // ✅ 遍历所有直推奖详细记录，为每个来源分别创建 RewardRecord
+        uint256 totalPendingDirect = 0;
         if (user.directRewardTotal > user.directRewardClaimed) {
             if (user.directRewardReleased > user.directRewardClaimed) {
-                pendingDirect = user.directRewardReleased - user.directRewardClaimed;
+                // 遍历每笔直推奖记录
+                for (uint i = 0; i < user.directRewardDetails.length; i++) {
+                    DirectRewardDetail storage detail = user.directRewardDetails[i];
+                    
+                    // 计算这笔记录中未领取的部分
+                    if (detail.releasedAmount > detail.claimedAmount) {
+                        uint256 claimFromThis = detail.releasedAmount - detail.claimedAmount;
+                        
+                        // 记录这笔直推奖（带来源地址）
+                        uint256 usdtAmount = (claimFromThis * hafPrice) / PRICE_PRECISION;
+                        _addRewardRecord(msg.sender, detail.fromUser, RewardType.Direct, usdtAmount, claimFromThis);
+                        
+                        // 更新这笔记录的已领取金额
+                        detail.claimedAmount = detail.releasedAmount;
+                        totalPendingDirect = totalPendingDirect + claimFromThis;
+                    }
+                }
             }
         }
+        
         uint256 pendingShare = 0;
         if (user.shareRewardTotal > user.shareRewardClaimed) {
             pendingShare = user.shareRewardTotal - user.shareRewardClaimed;
         }
         
-        if (pendingDirect > 0) {
-            uint256 directUsdt = (pendingDirect * hafPrice) / PRICE_PRECISION;
-            _addRewardRecord(msg.sender, address(0), RewardType.Direct, directUsdt, pendingDirect);
-        }
-        
-        user.directRewardClaimed = user.directRewardClaimed + pendingDirect;
+        user.directRewardClaimed = user.directRewardClaimed + totalPendingDirect;
         user.shareRewardClaimed = user.shareRewardClaimed + pendingShare;
        
         uint256 fee = (totalClaimableHaf * withdrawalFeeRate) / 100;
