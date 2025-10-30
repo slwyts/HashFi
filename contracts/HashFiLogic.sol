@@ -617,11 +617,6 @@ abstract contract HashFiLogic is HashFiStorage {
      * @dev (内部) 辅助：计算烧伤机制
      */
     function _calculateBurnableAmount(uint256 _originalAmount, uint8 _investorLevel, uint8 _referrerLevel) internal view returns (uint256) {
-        // 投资者是钻石等级（含）以上，无烧伤
-        if (_investorLevel >= 4) {
-            return _originalAmount;
-        }
-        
         // 推荐人等级 >= 投资者等级，无烧伤
         if (_referrerLevel >= _investorLevel) {
             return _originalAmount;
