@@ -250,7 +250,7 @@ abstract contract HashFiLogic is HashFiStorage {
                 emit RewardBurned(referrer, _user, fullRewardUsdt, actualRewardUsdt, burnedRewardUsdt);
             }
             
-            // 发放实际奖励（不记录，在提现时才记录）
+            // 发放实际奖励（记录详细来源）
             if(actualRewardUsdt > 0) {
                 uint256 rewardHaf = (actualRewardUsdt * PRICE_PRECISION) / hafPrice;
                 User storage referrerUser = users[referrer];
@@ -261,7 +261,14 @@ abstract contract HashFiLogic is HashFiStorage {
                 // 累加新奖励到总额（直推奖DYNAMIC_RELEASE_PERIOD线性释放）
                 referrerUser.directRewardTotal = referrerUser.directRewardTotal + rewardHaf;
                 
-                // ⚠️ 直推奖不在投资时记录，在提现时才记录
+                // ✅ 记录这笔直推奖的详细信息（来源、金额、时间）
+                referrerUser.directRewardDetails.push(DirectRewardDetail({
+                    fromUser: _user,
+                    totalAmount: rewardHaf,
+                    releasedAmount: 0,
+                    claimedAmount: 0,
+                    startTime: block.timestamp
+                }));
             }
             
             currentUser = referrer;
@@ -281,6 +288,7 @@ abstract contract HashFiLogic is HashFiStorage {
 
     /**
      * @dev 内部函数：更新用户动态奖励的释放进度
+     * 遍历所有直推奖详细记录，分别计算每笔的释放进度
      */
     function _updateDirectRewardRelease(address _user) internal {
         User storage user = users[_user];
@@ -297,27 +305,48 @@ abstract contract HashFiLogic is HashFiStorage {
             return;
         }
         
-        // 计算距离上次更新过了多少时间单位（天数）
-        uint256 daysPassed = (block.timestamp - user.lastDirectUpdateTime) / TIME_UNIT;
-        if (daysPassed == 0) return;
-        
-        // ✅ 计算释放总份数：DYNAMIC_RELEASE_PERIOD / TIME_UNIT
+        // ✅ 遍历所有直推奖详细记录，更新每笔的释放进度
         uint256 totalReleasePeriods = DYNAMIC_RELEASE_PERIOD / TIME_UNIT;
         
-        // ✅ 使用固定的每日释放额度：总金额 / 释放份数
-        uint256 dailyRelease = user.directRewardTotal / totalReleasePeriods;
-        uint256 newRelease = dailyRelease * daysPassed;
-        
-        // 计算未释放的奖励总额
-        uint256 unreleased = user.directRewardTotal - user.directRewardReleased;
-        
-        // 如果超过释放周期或新增释放超过未释放总额，全部释放
-        if (daysPassed >= totalReleasePeriods || newRelease >= unreleased) {
-            newRelease = unreleased;
+        for (uint i = 0; i < user.directRewardDetails.length; i++) {
+            DirectRewardDetail storage detail = user.directRewardDetails[i];
+            
+            // 如果这笔奖励已经全部释放，跳过
+            if (detail.releasedAmount >= detail.totalAmount) {
+                continue;
+            }
+            
+            // 计算这笔奖励从开始到现在经过的时间单位
+            uint256 daysSinceStart = (block.timestamp - detail.startTime) / TIME_UNIT;
+            
+            // 计算应该释放的总金额
+            uint256 shouldReleased;
+            if (daysSinceStart >= totalReleasePeriods) {
+                // 超过释放周期，全部释放
+                shouldReleased = detail.totalAmount;
+            } else {
+                // 线性释放：每日释放 = 总额 / 总天数
+                uint256 dailyRelease = detail.totalAmount / totalReleasePeriods;
+                shouldReleased = dailyRelease * daysSinceStart;
+                
+                // 确保不超过总额
+                if (shouldReleased > detail.totalAmount) {
+                    shouldReleased = detail.totalAmount;
+                }
+            }
+            
+            // 更新这笔记录的已释放金额
+            detail.releasedAmount = shouldReleased;
         }
         
-        // 更新已释放金额和更新时间
-        user.directRewardReleased = user.directRewardReleased + newRelease;
+        // 重新计算总的已释放金额
+        uint256 newTotalReleased = 0;
+        for (uint i = 0; i < user.directRewardDetails.length; i++) {
+            newTotalReleased = newTotalReleased + user.directRewardDetails[i].releasedAmount;
+        }
+        user.directRewardReleased = newTotalReleased;
+        
+        // 更新时间
         user.lastDirectUpdateTime = block.timestamp;
     }
     
@@ -486,26 +515,30 @@ abstract contract HashFiLogic is HashFiStorage {
         
         // 1. 计算直推奖的已释放但未领取部分（线性释放）
         if (user.directRewardTotal > 0) {
-            uint256 currentReleased = user.directRewardReleased;
+            // ✅ 遍历所有直推奖详细记录，计算实时的可领取金额
+            uint256 totalReleasePeriods = DYNAMIC_RELEASE_PERIOD / TIME_UNIT;
             
-            if (user.directRewardTotal > currentReleased && user.lastDirectUpdateTime > 0) {
-                uint256 daysPassed = (block.timestamp - user.lastDirectUpdateTime) / TIME_UNIT;
+            for (uint i = 0; i < user.directRewardDetails.length; i++) {
+                DirectRewardDetail storage detail = user.directRewardDetails[i];
                 
-                if (daysPassed > 0) {
-                    uint256 totalReleasePeriods = DYNAMIC_RELEASE_PERIOD / TIME_UNIT;
-                    uint256 dailyRelease = user.directRewardTotal / totalReleasePeriods;
-                    uint256 newRelease = dailyRelease * daysPassed;
-                    uint256 unreleased = user.directRewardTotal - currentReleased;
-                    
-                    if (daysPassed >= totalReleasePeriods || newRelease >= unreleased) {
-                        newRelease = unreleased;
+                // 计算这笔奖励实时的已释放金额
+                uint256 daysSinceStart = (block.timestamp - detail.startTime) / TIME_UNIT;
+                uint256 currentReleased;
+                
+                if (daysSinceStart >= totalReleasePeriods) {
+                    currentReleased = detail.totalAmount;
+                } else {
+                    uint256 dailyRelease = detail.totalAmount / totalReleasePeriods;
+                    currentReleased = dailyRelease * daysSinceStart;
+                    if (currentReleased > detail.totalAmount) {
+                        currentReleased = detail.totalAmount;
                     }
-                    currentReleased = currentReleased + newRelease;
                 }
-            }
-            
-            if (currentReleased > user.directRewardClaimed) {
-                pendingDirect = currentReleased - user.directRewardClaimed;
+                
+                // 计算未领取的部分
+                if (currentReleased > detail.claimedAmount) {
+                    pendingDirect = pendingDirect + (currentReleased - detail.claimedAmount);
+                }
             }
         }
         
