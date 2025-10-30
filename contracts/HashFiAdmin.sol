@@ -39,10 +39,7 @@ abstract contract HashFiAdmin is HashFiLogic {
         
         genesisNodeApplications[_applicant] = false;
         _removeFromPendingApplications(_applicant);
-        
-        // 退还申请费用
-        usdtToken.transfer(_applicant, genesisNodeCost);
-        
+                
         emit GenesisNodeRejected(_applicant);
     }
 
