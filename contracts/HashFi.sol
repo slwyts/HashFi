@@ -18,6 +18,7 @@ import "./HashFiView.sol";
  * - ReentrancyGuard: 防重入攻击
  * - Pausable: 合约暂停功能
  */
+
 contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
 
     constructor(address _usdtAddress, address _initialOwner) 

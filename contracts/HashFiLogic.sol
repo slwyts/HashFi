@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 import "./HashFiStorage.sol";
-// import "@openzeppelin/contracts/utils/math/SafeMath.sol"; // 移除 SafeMath
 
 /**
  * @title HashFiLogic
@@ -10,7 +9,6 @@ import "./HashFiStorage.sol";
  * 继承自 HashFiStorage 以访问状态变量。
  */
 abstract contract HashFiLogic is HashFiStorage {
-    // using SafeMath for uint256; // 移除 SafeMath
 
     /**
      * @dev 在交易前自动检查并更新HAF价格(懒加载触发)
