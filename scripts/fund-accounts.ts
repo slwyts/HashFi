@@ -28,23 +28,38 @@ const hardhatLocal = defineChain({
   },
 });
 
-// 你的测试地址列表
+// 你的测试地址列表 (从助记词派生路径 m/44'/60'/0'/0/0-29)
 const TEST_ADDRESSES = [
-  '0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966',
-  '0x98C2e0ECDFA961F8B36144C743FEa3951dAd0309',
-  '0x676A05c975F447eA13Bf09219A1C3acf81031feC',
-  '0x1265986b221d09c163479F64DbcD87daDd197EAc',
-  '0xEa4816aE14244465d16D1d074b2bf0F2B75b5e8C',
-  '0xc5d058151fd2ae01630d499d6bf653ac5fedf0ba',
-  '0x8c6a1f5c86c17377685f677252eff8dd9c8f9d1a',
-  '0x4e5a6ec0178df42633789faeb7ad4ce6bb6c9350',
-  '0x75bcd7f24d8694b7afa57685dc73264aa845ca89',
-  '0x1ff124f4b7337a7442730eb068bdeda221a5a164',
-  '0x36d16694f33ee27ccfe4532ef952f4ecc91ef314',
-  '0x051222c589fcc6f6f522a3ce93cc08f89b6ae9e6',
-  '0x66f16953e8ae2d9d9d51651133b4814f4874b272',
-  '0x9c31faf916dcd26a9883be1166cf84a72a3666fa',
-  '0xfed9d7f6be7c01bf341716c1c8d54130f3c7cb6a',
+  '0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966', // 1
+  '0x98C2e0ECDFA961F8B36144C743FEa3951dAd0309', // 2
+  '0x676A05c975F447eA13Bf09219A1C3acf81031feC', // 3
+  '0x1265986b221d09c163479F64DbcD87daDd197EAc', // 4
+  '0xEa4816aE14244465d16D1d074b2bf0F2B75b5e8C', // 5
+  '0xC5D058151Fd2AE01630D499d6BF653Ac5fEdF0ba', // 6
+  '0x8C6A1F5C86C17377685F677252eFf8DD9c8f9d1A', // 7
+  '0x4e5A6Ec0178Df42633789fAeB7ad4CE6BB6c9350', // 8
+  '0x75bcd7F24d8694b7aFa57685dC73264aa845ca89', // 9
+  '0x1Ff124F4B7337A7442730EB068BDedA221a5A164', // 10
+  '0x36d16694f33eE27CcFe4532EF952f4ECC91EF314', // 11
+  '0x051222c589fcC6f6F522A3cE93cc08f89b6Ae9E6', // 12
+  '0x66F16953E8ae2d9d9d51651133B4814f4874b272', // 13
+  '0x9c31Faf916dcD26a9883be1166CF84A72a3666fA', // 14
+  '0xfED9d7f6Be7c01bF341716C1c8d54130f3C7Cb6a', // 15
+  '0x565AE5FBDD3a35e0815D44E22cEa4a000dF07dc6', // 16
+  '0x34A3d9C8Dd22175c46160B30aFa52d4A2Ad40E8F', // 17
+  '0x7450073d6CC76c45BDaA407E22902ea55c39090f', // 18
+  '0x89327BF9c238f8142574351D7Ae80D5Dc4AdDbe8', // 19
+  '0x95389Efa0cA6A8b0F25450f4531Eb66409E9ff46', // 20
+  '0x4A3B62FE698f189fF3ee0251ec50c5f648a8372E', // 21
+  '0xD0a7a8396fEb8a85b49e51Da4d3EA3E241b77e35', // 22
+  '0x1E87f1d64539F68E1a928999f871150E1394EC10', // 23
+  '0x29ef6026F84aFD61A5C1178D6dc7FF118828bF3d', // 24
+  '0x5307665CD2c00280a5156bB74a8aeEB1a5aA4370', // 25
+  '0x845B555e1E21aFf584F7f4F07A6D45173ee0b56C', // 26
+  '0xfD2D45Fb49E44952FeC8C0042C7F7540F5533CCe', // 27
+  '0x8c736085734f83d2c6bc470073F1395D3E4Cc615', // 28
+  '0x5F32560703d28de0B9f2019D1A5704efcD4D5136', // 29
+  '0xa5c801709f24513784a469a3B430fC16B808Ed56', // 30
 ];
 
 // Hardhat 默认账户 #0 的私钥（部署者）
@@ -97,8 +112,11 @@ async function main() {
     transport: http('http://127.0.0.1:8545'),
   });
 
-  const ethAmount = parseEther('1000'); // 每个地址 1000 ETH
+  const ethAmount = parseEther('10'); // 每个地址 10 ETH (避免余额不足)
   const usdtAmount = parseEther('100000'); // 每个地址 100,000 USDT
+
+  let successCount = 0;
+  let failCount = 0;
 
   for (const address of TEST_ADDRESSES) {
     try {
@@ -120,14 +138,20 @@ async function main() {
       });
       await publicClient.waitForTransactionReceipt({ hash: usdtTx });
       
-      console.log(`✅ ${address}`);
-      console.log(`   ETH: 1,000 | USDT: 100,000`);
+      successCount++;
+      console.log(`✅ [${successCount}/${TEST_ADDRESSES.length}] ${address}`);
+      console.log(`   ETH: 100 | USDT: 100,000`);
     } catch (error: any) {
-      console.error(`❌ ${address} 转账失败:`, error?.message || error);
+      failCount++;
+      console.error(`❌ [${failCount}] ${address} 转账失败:`, error?.shortMessage || error?.message || error);
     }
   }
 
-  console.log('\n💰 资金发送完成！\n');
+  console.log('\n' + '='.repeat(60));
+  console.log(`💰 资金发送完成！`);
+  console.log(`   ✅ 成功: ${successCount} 个地址`);
+  console.log(`   ❌ 失败: ${failCount} 个地址`);
+  console.log('='.repeat(60) + '\n');
 }
 
 main()
