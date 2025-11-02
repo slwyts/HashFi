@@ -245,5 +245,95 @@ abstract contract HashFiView is HashFiLogic {
     function getAllGenesisNodes() external view returns (address[] memory) {
         return genesisNodes;
     }
+
+    // ========================================
+    // 算力中心查询功能
+    // ========================================
+
+    /**
+     * @dev 获取用户算力信息
+     * @return hashPower 当前算力（整数T）
+     * @return totalMined 累计挖矿BTC（8位精度）
+     * @return available 可提现BTC（8位精度）
+     * @return btcAddress BTC地址
+     */
+    function getUserHashPowerInfo(address _user) external view returns (
+        uint256 hashPower,
+        uint256 totalMined,
+        uint256 available,
+        string memory btcAddress
+    ) {
+        UserHashPower storage userHP = userHashPowers[_user];
+        hashPower = _getCurrentHashPower(_user);
+        totalMined = userHP.totalMinedBtc;
+        btcAddress = userHP.btcWithdrawalAddress;
+        available = _calcAvailableBtc(_user);
+    }
+
+    /**
+     * @dev 计算可提现BTC
+     */
+    function _calcAvailableBtc(address _user) internal view returns (uint256) {
+        UserHashPower storage userHP = userHashPowers[_user];
+        uint256 todayDate = _alignToUtc8Date(block.timestamp);
+        uint256 pending = 0;
+        
+        if (userHP.lastSettleDate > 0 && userHP.lastSettleDate < todayDate) {
+            for (uint256 date = userHP.lastSettleDate; date < todayDate; date += 1 days) {
+                DailyBtcOutput storage day = dailyBtcOutputs[date];
+                if (day.btcAmount > 0 && day.totalHashPower > 0) {
+                    uint256 userPower = _getUserHashPowerAtDate(_user, date);
+                    if (userPower > 0) {
+                        pending += (day.btcAmount * userPower) / day.totalHashPower;
+                    }
+                }
+            }
+        }
+        return userHP.totalMinedBtc + pending - userHP.withdrawnBtc;
+    }
+
+    /**
+     * @dev 获取BTC提现订单
+     * @param _user 地址过滤：
+     *              - address(0)：返回所有订单（管理员用）
+     *              - address(1)：返回待审核订单（管理员用）
+     *              - 其他地址：返回该用户的订单
+     */
+    function getBtcWithdrawalOrders(address _user) external view returns (BtcWithdrawalOrder[] memory) {
+        if (_user == address(0)) {
+            // 返回所有订单
+            return btcWithdrawalOrders;
+        } else if (_user == address(1)) {
+            // 返回待审核订单
+            uint256 count = 0;
+            for (uint i = 0; i < btcWithdrawalOrders.length; i++) {
+                if (btcWithdrawalOrders[i].status == BtcWithdrawalStatus.Pending) count++;
+            }
+            
+            BtcWithdrawalOrder[] memory pending = new BtcWithdrawalOrder[](count);
+            uint256 index = 0;
+            for (uint i = 0; i < btcWithdrawalOrders.length; i++) {
+                if (btcWithdrawalOrders[i].status == BtcWithdrawalStatus.Pending) {
+                    pending[index++] = btcWithdrawalOrders[i];
+                }
+            }
+            return pending;
+        } else {
+            // 返回指定用户的订单
+            uint256 count = 0;
+            for (uint i = 0; i < btcWithdrawalOrders.length; i++) {
+                if (btcWithdrawalOrders[i].user == _user) count++;
+            }
+            
+            BtcWithdrawalOrder[] memory userOrders = new BtcWithdrawalOrder[](count);
+            uint256 index = 0;
+            for (uint i = 0; i < btcWithdrawalOrders.length; i++) {
+                if (btcWithdrawalOrders[i].user == _user) {
+                    userOrders[index++] = btcWithdrawalOrders[i];
+                }
+            }
+            return userOrders;
+        }
+    }
 }
 

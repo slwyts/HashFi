@@ -61,28 +61,26 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
      */
     function bindReferrer(address _referrer) external whenNotPaused {
         User storage user = users[msg.sender];
-        require(user.referrer == address(0), "Referrer already bound");
+        if (user.referrer != address(0)) revert ReferrerAlreadyBound();
         
         if (msg.sender == owner()) {
             user.referrer = address(0x0000000000000000000000000000000000000001);
-            emit ReferrerBound(msg.sender, address(0x0000000000000000000000000000000000000001));
             return;
         }
 
-        require(_referrer == owner() || users[_referrer].totalStakedAmount > 0, "Referrer does not exist");
-        require(_referrer != msg.sender, "Cannot refer yourself");
+        if (users[_referrer].totalStakedAmount == 0) revert ReferrerNotExist();
+        if (_referrer == msg.sender) revert CannotReferSelf();
         user.referrer = _referrer;
         users[_referrer].directReferrals.push(msg.sender);
-        emit ReferrerBound(msg.sender, _referrer);
     }
 
     /**
      * @dev 质押 USDT
      */
     function stake(uint256 _amount) external nonReentrant whenNotPaused autoUpdatePrice {
-        require(users[msg.sender].referrer != address(0), "Must bind a referrer first");
+        if (users[msg.sender].referrer == address(0)) revert MustBindReferrer();
         uint8 level = _getStakingLevelByAmount(_amount);
-        require(level > 0, "Invalid staking amount");
+        if (level == 0) revert InvalidStakingAmount();
 
         usdtToken.transferFrom(msg.sender, address(this), _amount);
 
@@ -105,8 +103,6 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
 
         // ✅ 更新上级业绩和发放直推奖（仅累加，不记录）
         _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
-        
-        emit Staked(msg.sender, orderId, _amount, level);
     }
 
     /**
@@ -114,16 +110,14 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
      */
     function applyForGenesisNode() external nonReentrant whenNotPaused {
         User storage user = users[msg.sender];
-        require(user.totalStakedAmount > 0, "User must stake first");
-        require(!user.isGenesisNode, "Already a genesis node");
-        require(!genesisNodeApplications[msg.sender], "Application already pending");
+        if (user.totalStakedAmount == 0) revert InvalidAmount();
+        if (user.isGenesisNode) revert AlreadyGenesisNode();
+        if (genesisNodeApplications[msg.sender]) revert ApplicationPending();
 
         usdtToken.transferFrom(msg.sender, address(this), genesisNodeCost);
         
         genesisNodeApplications[msg.sender] = true;
-        pendingGenesisApplications.push(msg.sender); 
-
-        emit GenesisNodeApplied(msg.sender);
+        pendingGenesisApplications.push(msg.sender);
     }
 
     /**
@@ -135,7 +129,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         
         _settleUserRewards(msg.sender);
         uint256 totalClaimableHaf = pendingStaticHaf + pendingDynamicHaf + pendingGenesisHaf;
-        require(totalClaimableHaf > 0, "No rewards to withdraw");
+        if (totalClaimableHaf == 0) revert NoRewards();
 
         User storage user = users[msg.sender];
         
@@ -186,8 +180,6 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
             hafAmount: amountAfterFee,
             fee: fee
         }));
-
-        emit Withdrawn(msg.sender, amountAfterFee, fee);
     }
     
     /**
@@ -196,7 +188,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
      * @param _amountIn 支付的数量
      */
     function swap(address _tokenIn, uint256 _amountIn) external nonReentrant whenNotPaused autoUpdatePrice {
-        require(_amountIn > 0, "Amount must be positive");
+        if (_amountIn == 0) revert InvalidAmount();
         
         address _tokenOut;
         uint256 _amountOut;
@@ -223,14 +215,12 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
             uint256 fee = (usdtAmount * swapFeeRate) / 100;
             _amountOut = usdtAmount - fee;
             
-            require(usdtToken.balanceOf(address(this)) >= _amountOut, "Insufficient USDT in contract");
+            if (usdtToken.balanceOf(address(this)) < _amountOut) revert InsufficientBalance();
             usdtToken.transfer(msg.sender, _amountOut);
             
         } else {
             revert("Invalid swap token");
         }
-
-        emit Swapped(msg.sender, _tokenIn, _tokenOut, _amountIn, _amountOut);
     }
 
 
@@ -240,23 +230,59 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
      */
     function _distributeHaf(address _recipient, uint256 _amount) internal override {
         uint256 treasuryBalance = balanceOf(address(this));
-        require(treasuryBalance >= _amount, "HashFi: Insufficient HAF in treasury for distribution");
+        if (treasuryBalance < _amount) revert InsufficientBalance();
         _transfer(address(this), _recipient, _amount);
         globalStats.totalHafDistributed = globalStats.totalHafDistributed + _amount;
     }
 
     /**
-     * @dev 重写 Pausable 的 _pause 函数
+     * @dev 暂停合约
      */
-    function pause() external override onlyOwner {
+    function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @dev 重写 Pausable 的 _unpause 函数
+     * @dev 恢复合约
      */
-    function unpause() external override onlyOwner {
+    function unpause() external onlyOwner {
         _unpause();
+    }
+
+    // ========================================
+    // 算力中心用户功能
+    // ========================================
+
+    /**
+     * @dev 设置BTC提现地址
+     */
+    function setBtcAddress(string calldata _addr) external whenNotPaused {
+        if (bytes(_addr).length == 0) revert InvalidAddress();
+        userHashPowers[msg.sender].btcWithdrawalAddress = _addr;
+    }
+
+    /**
+     * @dev 提现BTC（8位精度）
+     */
+    function withdrawBtc(uint256 _amount) external nonReentrant whenNotPaused {
+        if (_amount < MIN_BTC_WITHDRAWAL) revert BelowMinimum();
+        if (bytes(userHashPowers[msg.sender].btcWithdrawalAddress).length == 0) revert AddressNotSet();
+        
+        _settleBtcRewards(msg.sender);
+        UserHashPower storage userHP = userHashPowers[msg.sender];
+        if (userHP.totalMinedBtc - userHP.withdrawnBtc < _amount) revert InsufficientBalance();
+        
+        userHP.totalMinedBtc -= _amount;
+        
+        uint256 orderId = btcWithdrawalOrders.length;
+        btcWithdrawalOrders.push(BtcWithdrawalOrder(
+            orderId,
+            msg.sender,
+            userHP.btcWithdrawalAddress,
+            _amount,
+            block.timestamp,
+            BtcWithdrawalStatus.Pending
+        ));
     }
 }
 

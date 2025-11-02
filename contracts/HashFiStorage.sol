@@ -19,19 +19,26 @@ abstract contract HashFiStorage is Ownable {
     uint256 internal constant PRICE_PRECISION = 1e18;
     uint256 internal constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
 
-    // --- 事件 ---
-    event Staked(address indexed user, uint256 orderId, uint256 amount, uint8 level);
-    event ReferrerBound(address indexed user, address indexed referrer);
-    event Withdrawn(address indexed user, uint256 hafAmount, uint256 fee);
-    event GenesisNodeApplied(address indexed user);
-    event GenesisNodeApproved(address indexed user);
-    event GenesisNodeRejected(address indexed user);
-    event RewardsClaimed(address indexed user, uint256 staticRewards, uint256 dynamicRewards, uint256 genesisRewards);
-    event PriceUpdated(uint256 newPrice);
-    event Swapped(address indexed user, address indexed fromToken, address indexed toToken, uint256 fromAmount, uint256 toAmount);
-    event TokensBurned(address indexed user, uint256 hafAmount, uint256 usdtAmount);
-    event TeamLevelUpdated(address indexed user, uint8 oldLevel, uint8 newLevel);
-    event RewardBurned(address indexed referrer, address indexed investor, uint256 fullRewardUsdt, uint256 actualRewardUsdt, uint256 burnedUsdt);
+    // --- Custom Errors ---
+    error InvalidAddress();
+    error InvalidAmount();
+    error ReferrerAlreadyBound();
+    error ReferrerNotExist();
+    error CannotReferSelf();
+    error MustBindReferrer();
+    error InvalidStakingAmount();
+    error AlreadyGenesisNode();
+    error ApplicationPending();
+    error NoRewards();
+    error BelowMinimum();
+    error AddressNotSet();
+    error InsufficientBalance();
+    error InvalidOrder();
+    error AlreadyProcessed();
+    error NoPendingApplication();
+    error InvalidLevel();
+    error InvalidFeeRate();
+    error NoHashPower();
 
     // --- 枚举 ---
     /**
@@ -44,6 +51,11 @@ abstract contract HashFiStorage is Ownable {
      */
     enum RewardType { Static, Direct, Share, Team, Genesis }
 
+    /**
+     * @dev BTC提现订单状态枚举
+     */
+    enum BtcWithdrawalStatus { Pending, Approved, Rejected }
+
     // --- 数据结构 ---
     struct RewardRecord {
         uint256 timestamp;
@@ -51,6 +63,46 @@ abstract contract HashFiStorage is Ownable {
         RewardType rewardType;
         uint256 usdtAmount;
         uint256 hafAmount;
+    }
+
+    /**
+     * @dev 算力变动记录（用于lazyload计算）
+     */
+    struct HashPowerRecord {
+        uint256 timestamp;      // 变动时间（UTC+8对齐的00:00）
+        uint256 hashPower;      // 此时的算力值（整数，单位：T）
+    }
+
+    /**
+     * @dev 每日BTC产出记录
+     */
+    struct DailyBtcOutput {
+        uint256 date;           // 日期（UTC+8的00:00时间戳）
+        uint256 btcAmount;      // 当日BTC产出（8位精度）
+        uint256 totalHashPower; // 当日全网总算力快照（整数T）
+    }
+
+    /**
+     * @dev BTC提现订单
+     */
+    struct BtcWithdrawalOrder {
+        uint256 orderId;
+        address user;
+        string btcAddress;      // BTC提现地址
+        uint256 amount;         // 提现金额（8位精度）
+        uint256 timestamp;
+        BtcWithdrawalStatus status; // Pending/Approved/Rejected
+    }
+
+    /**
+     * @dev 用户算力数据
+     */
+    struct UserHashPower {
+        HashPowerRecord[] records;  // 算力变动历史（按时间升序）
+        uint256 totalMinedBtc;      // 累计挖矿BTC（8位精度）
+        uint256 withdrawnBtc;       // 已提现BTC（8位精度）
+        uint256 lastSettleDate;     // 上次结算日期（UTC+8对齐）
+        string btcWithdrawalAddress; // BTC提现地址
     }
     
     struct WithdrawRecord {
@@ -149,6 +201,30 @@ abstract contract HashFiStorage is Ownable {
     // 用户和订单
     mapping(address => User) public users;
     Order[] public orders;
+
+    // --- 算力中心相关状态变量 ---
+    
+    // UTC+8时区偏移量（8小时）
+    uint256 internal constant UTC8_OFFSET = 8 hours;
+    
+    // BTC精度常量（8位小数）
+    uint256 internal constant BTC_PRECISION = 1e8;
+    
+    // 用户算力数据
+    mapping(address => UserHashPower) internal userHashPowers;
+    
+    // 每日BTC产出记录（日期 => DailyBtcOutput）
+    mapping(uint256 => DailyBtcOutput) public dailyBtcOutputs;
+    
+    // BTC提现订单
+    BtcWithdrawalOrder[] public btcWithdrawalOrders;
+    
+    // BTC提现参数（固定值）
+    uint256 public constant MIN_BTC_WITHDRAWAL = 0.001 * 1e8;  // 最小提现0.001 BTC
+    uint256 public constant BTC_WITHDRAWAL_FEE_RATE = 5;       // 提现手续费5%
+    
+    // 全网算力统计
+    uint256 public globalTotalHashPower;  // 当前全网总算力（整数T）
 
     // 价格与费用
     uint256 public hafPrice; // HAF的USDT价格, 使用18位小数精度

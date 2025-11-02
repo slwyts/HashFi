@@ -14,9 +14,9 @@ abstract contract HashFiAdmin is HashFiLogic {
     // --- 创世节点审核 ---
 
     function approveGenesisNode(address _applicant) external onlyOwner {
-        require(genesisNodeApplications[_applicant], "No pending application");
+        if (!genesisNodeApplications[_applicant]) revert NoPendingApplication();
         User storage user = users[_applicant];
-        require(!user.isGenesisNode, "Already approved");
+        if (user.isGenesisNode) revert AlreadyGenesisNode();
         
         genesisNodeApplications[_applicant] = false;
         _removeFromPendingApplications(_applicant);
@@ -30,30 +30,25 @@ abstract contract HashFiAdmin is HashFiLogic {
         
         // ✅ 初始化奖励债务为当前累积值（新节点从加入时开始计算奖励）
         user.genesisRewardDebt = accGenesisRewardPerNode;
-        
-        emit GenesisNodeApproved(_applicant);
     }
     
     function rejectGenesisNode(address _applicant) external onlyOwner {
-        require(genesisNodeApplications[_applicant], "No pending application");
+        if (!genesisNodeApplications[_applicant]) revert NoPendingApplication();
         
         genesisNodeApplications[_applicant] = false;
         _removeFromPendingApplications(_applicant);
-                
-        emit GenesisNodeRejected(_applicant);
     }
 
     // --- 参数设置 ---
 
     function setHafPrice(uint256 _newPrice) external onlyOwner {
-        require(_newPrice > 0, "Price must be positive");
+        if (_newPrice == 0) revert InvalidAmount();
         hafPrice = _newPrice;
         lastPriceUpdateTime = block.timestamp;
-        emit PriceUpdated(_newPrice);
     }
     
     function setDailyPriceIncreaseRate(uint256 _rate) external onlyOwner {
-        require(_rate <= 100, "Rate too high"); // 最高10%每天
+        if (_rate > 100) revert InvalidFeeRate();
         dailyPriceIncreaseRate = _rate;
     }
 
@@ -62,44 +57,17 @@ abstract contract HashFiAdmin is HashFiLogic {
     }
 
     function setWithdrawalFee(uint256 _newFeeRate) external onlyOwner {
-        require(_newFeeRate <= 100, "Fee rate cannot exceed 100%");
+        if (_newFeeRate > 100) revert InvalidFeeRate();
         withdrawalFeeRate = _newFeeRate;
-    }
-    
-    function updateStakingLevel(
-        uint8 _level, 
-        uint256 _minAmount, 
-        uint256 _maxAmount, 
-        uint256 _multiplier, 
-        uint256 _dailyRate
-    ) external onlyOwner {
-        require(_level >= 1 && _level <= 4, "Invalid level");
-        require(_minAmount < _maxAmount, "Invalid amount range");
-        require(_multiplier > 0 && _dailyRate > 0, "Invalid parameters");
-        
-        stakingLevels[_level] = StakingLevelInfo(_minAmount, _maxAmount, _multiplier, _dailyRate);
-    }
-    
-    function updateTeamLevel(
-        uint8 _level,
-        uint256 _requiredPerformance,
-        uint256 _accelerationBonus
-    ) external onlyOwner {
-        require(_level >= 0 && _level <= 5, "Invalid team level");
-        require(_accelerationBonus <= 100, "Bonus cannot exceed 100%");
-        
-        if (_level < teamLevels.length) {
-            teamLevels[_level] = TeamLevelInfo(_requiredPerformance, _accelerationBonus);
-        }
     }
 
     function setGenesisNodeCost(uint256 _newCost) external onlyOwner {
-        require(_newCost > 0, "Cost must be positive");
+        if (_newCost == 0) revert InvalidAmount();
         genesisNodeCost = _newCost;
     }
 
     function setSwapFee(uint256 _newFeeRate) external onlyOwner {
-        require(_newFeeRate <= 100, "Fee rate cannot exceed 100%");
+        if (_newFeeRate > 100) revert InvalidFeeRate();
         swapFeeRate = _newFeeRate;
     }
 
@@ -110,10 +78,8 @@ abstract contract HashFiAdmin is HashFiLogic {
     }
 
     function setUserTeamLevel(address _user, uint8 _level) external onlyOwner {
-        require(_level >= 0 && _level <= 5, "Invalid team level");
-        uint8 oldLevel = users[_user].teamLevel;
+        if (_level > 5) revert InvalidLevel();
         users[_user].teamLevel = _level;
-        emit TeamLevelUpdated(_user, oldLevel, _level);
     }
     
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
@@ -149,16 +115,54 @@ abstract contract HashFiAdmin is HashFiLogic {
         return pendingGenesisApplications;
     }
 
-    // --- 暂停功能 ---
-    // Pausable 的 pause/unpause 函数已经是 onlyOwner，
-    // 但为了模块清晰，我们在这里显式"继承"它们
-    // 在主合约 HashFi.sol 中继承 Pausable 将提供 _pause 和 _unpause 的实现
-    
-    function pause() external virtual onlyOwner {
-        // 实现将在主合约
+    // ========================================
+    // 算力中心管理员功能
+    // ========================================
+
+    /**
+     * @dev 更新用户算力
+     * @param _user 用户地址
+     * @param _delta 算力变动量（正数增加，负数减少，整数T）
+     */
+    function updateHashPower(address _user, int256 _delta) external onlyOwner {
+        if (_user == address(0)) revert InvalidAddress();
+        _settleBtcRewards(_user);
+        _updateHashPower(_user, _delta);
     }
 
-    function unpause() external virtual onlyOwner {
-        // 实现将在主合约
+    /**
+     * @dev 设置指定日期的BTC产出
+     * @param _date 日期时间戳
+     * @param _btcAmount BTC产出数量（8位精度）
+     */
+    function setDailyBtcOutput(uint256 _date, uint256 _btcAmount) external onlyOwner {
+        if (_btcAmount == 0) revert InvalidAmount();
+        uint256 alignedDate = _alignToUtc8Date(_date);
+        uint256 totalHashPower = _calculateTotalHashPowerAtDate(alignedDate);
+        if (totalHashPower == 0) revert NoHashPower();
+        
+        dailyBtcOutputs[alignedDate] = DailyBtcOutput(alignedDate, _btcAmount, totalHashPower);
     }
+
+    /**
+     * @dev 审核BTC提现订单
+     * @param _orderId 订单ID
+     * @param _approved true通过，false拒绝
+     */
+    function processBtcWithdrawal(uint256 _orderId, bool _approved) external onlyOwner {
+        if (_orderId >= btcWithdrawalOrders.length) revert InvalidOrder();
+        BtcWithdrawalOrder storage order = btcWithdrawalOrders[_orderId];
+        if (order.status != BtcWithdrawalStatus.Pending) revert AlreadyProcessed();
+        
+        if (_approved) {
+            order.status = BtcWithdrawalStatus.Approved;
+            uint256 fee = (order.amount * BTC_WITHDRAWAL_FEE_RATE) / 100;
+            uint256 netAmount = order.amount - fee;
+            userHashPowers[order.user].withdrawnBtc += netAmount;
+        } else {
+            order.status = BtcWithdrawalStatus.Rejected;
+            userHashPowers[order.user].totalMinedBtc += order.amount;
+        }
+    }
+
 }

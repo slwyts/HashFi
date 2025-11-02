@@ -23,7 +23,6 @@ abstract contract HashFiLogic is HashFiStorage {
                     hafPrice = hafPrice + increase;
                 }
                 lastPriceUpdateTime = lastPriceUpdateTime + (daysPassed * TIME_UNIT);
-                emit PriceUpdated(hafPrice);
             }
         }
         _;
@@ -236,19 +235,8 @@ abstract contract HashFiLogic is HashFiStorage {
         for (uint i = 0; i < 6 && referrer != address(0); i++) {
             uint8 referrerLevel = getUserHighestLevel(referrer);
             uint256 receivableAmount = _calculateBurnableAmount(_amount, _level, referrerLevel);
-            
-            // 计算应得奖励
-            uint256 fullRewardUsdt = (_amount * directRewardRates[i]) / 100;
             uint256 actualRewardUsdt = (receivableAmount * directRewardRates[i]) / 100;
             
-            // 如果发生烧伤（receivableAmount < _amount），记录烧伤的USDT奖励额度
-            if (fullRewardUsdt > actualRewardUsdt) {
-                uint256 burnedRewardUsdt = fullRewardUsdt - actualRewardUsdt;
-                // 烧伤的奖励不发放，直接丢弃（不需要燃烧HAF代币）
-                emit RewardBurned(referrer, _user, fullRewardUsdt, actualRewardUsdt, burnedRewardUsdt);
-            }
-            
-            // 发放实际奖励（记录详细来源）
             if(actualRewardUsdt > 0) {
                 uint256 rewardHaf = (actualRewardUsdt * PRICE_PRECISION) / hafPrice;
                 User storage referrerUser = users[referrer];
@@ -412,7 +400,6 @@ abstract contract HashFiLogic is HashFiStorage {
         for(uint8 i = 5; i > oldLevel; i--){
             if(smallAreaPerformance >= teamLevels[i].requiredPerformance){
                 user.teamLevel = i;
-                emit TeamLevelUpdated(_user, oldLevel, i);
                 break;
             }
         }
@@ -630,6 +617,146 @@ abstract contract HashFiLogic is HashFiStorage {
         uint256[] memory rates = new uint256[](6);
         rates[0] = 5; rates[1] = 3; rates[2] = 1; rates[3] = 1; rates[4] = 1; rates[5] = 1;
         return rates;
+    }
+
+    // ========================================
+    // 算力中心核心逻辑
+    // ========================================
+
+    /**
+     * @dev 将时间戳对齐到UTC+8的当天00:00
+     * @param timestamp 原始时间戳
+     * @return 对齐后的时间戳
+     */
+    function _alignToUtc8Date(uint256 timestamp) internal pure returns (uint256) {
+        uint256 utc8Time = timestamp + UTC8_OFFSET;
+        return (utc8Time / 1 days) * 1 days - UTC8_OFFSET;
+    }
+
+    /**
+     * @dev 获取用户当前的算力值（最新记录）
+     * @param _user 用户地址
+     * @return 当前算力值（整数T）
+     */
+    function _getCurrentHashPower(address _user) internal view returns (uint256) {
+        HashPowerRecord[] storage records = userHashPowers[_user].records;
+        if (records.length == 0) {
+            return 0;
+        }
+        return records[records.length - 1].hashPower;
+    }
+
+    /**
+     * @dev 获取用户在指定日期的算力值（二分查找）
+     * @param _user 用户地址
+     * @param _date UTC+8对齐的日期
+     * @return 该日期的算力值
+     */
+    function _getUserHashPowerAtDate(address _user, uint256 _date) internal view returns (uint256) {
+        HashPowerRecord[] storage records = userHashPowers[_user].records;
+        if (records.length == 0) {
+            return 0;
+        }
+
+        // 如果查询日期早于第一条记录，返回0
+        if (_date < records[0].timestamp) {
+            return 0;
+        }
+
+        // 二分查找：找到 <= _date 的最后一条记录
+        uint256 left = 0;
+        uint256 right = records.length - 1;
+        uint256 result = 0;
+
+        while (left <= right) {
+            uint256 mid = (left + right) / 2;
+            if (records[mid].timestamp <= _date) {
+                result = records[mid].hashPower;
+                left = mid + 1;
+            } else {
+                if (mid == 0) break;
+                right = mid - 1;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * @dev 计算指定日期的全网总算力
+     * @return 全网总算力
+     */
+    function _calculateTotalHashPowerAtDate(uint256 /* _date */) internal view returns (uint256) {
+        // 注意：这个函数在设置每日产出时调用
+        // 为了优化gas，我们使用 globalTotalHashPower 作为快照
+        // 每次算力变动时更新 globalTotalHashPower
+        return globalTotalHashPower;
+    }
+
+    /**
+     * @dev 更新全网总算力
+     * @param _delta 变动量（正数增加，负数减少）
+     */
+    function _updateGlobalHashPower(int256 _delta) internal {
+        if (_delta >= 0) {
+            globalTotalHashPower += uint256(uint256(_delta));
+        } else {
+            globalTotalHashPower -= uint256(uint256(-_delta));
+        }
+    }
+
+    /**
+     * @dev 结算用户的BTC挖矿收益（LazyLoad机制）
+     * @param _user 用户地址
+     */
+    function _settleBtcRewards(address _user) internal {
+        UserHashPower storage userHP = userHashPowers[_user];
+        uint256 todayDate = _alignToUtc8Date(block.timestamp);
+        
+        if (userHP.lastSettleDate == 0) {
+            userHP.lastSettleDate = todayDate;
+            return;
+        }
+        if (userHP.lastSettleDate >= todayDate) return;
+
+        uint256 totalReward = 0;
+        for (uint256 date = userHP.lastSettleDate; date < todayDate; date += 1 days) {
+            DailyBtcOutput storage dayOutput = dailyBtcOutputs[date];
+            if (dayOutput.btcAmount == 0 || dayOutput.totalHashPower == 0) continue;
+
+            uint256 userHashPower = _getUserHashPowerAtDate(_user, date);
+            if (userHashPower == 0) continue;
+
+            totalReward = totalReward + (dayOutput.btcAmount * userHashPower) / dayOutput.totalHashPower;
+        }
+
+        if (totalReward > 0) {
+            userHP.totalMinedBtc = userHP.totalMinedBtc + totalReward;
+        }
+        userHP.lastSettleDate = todayDate;
+    }
+
+    /**
+     * @dev 更新用户算力（管理员）
+     * @param _user 用户地址
+     * @param _delta 算力变动量（正数增加，负数减少，整数T）
+     */
+    function _updateHashPower(address _user, int256 _delta) internal {
+        UserHashPower storage userHP = userHashPowers[_user];
+        uint256 today = _alignToUtc8Date(block.timestamp);
+        uint256 currentPower = _getCurrentHashPower(_user);
+        
+        uint256 newPower = _delta >= 0 
+            ? currentPower + uint256(uint256(_delta))
+            : currentPower - uint256(uint256(-_delta));
+
+        _updateGlobalHashPower(_delta);
+
+        if (userHP.records.length > 0 && userHP.records[userHP.records.length - 1].timestamp == today) {
+            userHP.records[userHP.records.length - 1].hashPower = newPower;
+        } else {
+            userHP.records.push(HashPowerRecord(today, newPower));
+        }
     }
 }
 
