@@ -218,9 +218,9 @@ abstract contract HashFiStorage is Ownable {
     // BTC提现订单
     BtcWithdrawalOrder[] public btcWithdrawalOrders;
     
-    // BTC提现参数（固定值）
-    uint256 public constant MIN_BTC_WITHDRAWAL = 0.001 * 1e8;  // 最小提现0.001 BTC
-    uint256 public constant BTC_WITHDRAWAL_FEE_RATE = 5;       // 提现手续费5%
+    // BTC提现参数
+    uint256 public minBtcWithdrawal = 0.001 * 1e8;  // 最小提现0.001 BTC（可配置）
+    uint256 private constant BTC_WITHDRAWAL_FEE_RATE = 5;       // 提现手续费5%
     
     // 全网算力统计
     uint256 public globalTotalHashPower;  // 当前全网总算力（整数T）

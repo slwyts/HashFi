@@ -263,7 +263,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
      * @dev 提现BTC（8位精度）
      */
     function withdrawBtc(uint256 _amount) external nonReentrant whenNotPaused {
-        if (_amount < MIN_BTC_WITHDRAWAL) revert BelowMinimum();
+        if (_amount < minBtcWithdrawal) revert BelowMinimum();
         if (bytes(userHashPowers[msg.sender].btcWithdrawalAddress).length == 0) revert AddressNotSet();
         
         _settleBtcRewards(msg.sender);

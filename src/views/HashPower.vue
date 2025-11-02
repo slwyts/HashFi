@@ -83,7 +83,7 @@
         <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
           <p class="text-xs text-yellow-800">
             <span class="font-semibold">提示：</span>
-            <br/>• 最低提现金额：0.001 BTC
+            <br/>• 最低提现金额：{{ minBtcWithdrawal.toFixed(8) }} BTC
             <br/>• 提现手续费：5%
             <br/>• 提现需要管理员审核通过后到账
           </p>
@@ -96,7 +96,7 @@
               v-model="withdrawAmount"
               type="number"
               step="0.00000001"
-              min="0.001"
+              :min="minBtcWithdrawal"
               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg font-mono"
               placeholder="0.00000000"
             />
@@ -126,7 +126,7 @@
 
           <button
             @click="handleWithdrawBtc"
-            :disabled="isProcessing() || !withdrawAmount || parseFloat(withdrawAmount) < 0.001 || !btcAddress || btcAddress === '0x0000000000000000000000000000000000000000'"
+            :disabled="isProcessing() || !withdrawAmount || parseFloat(withdrawAmount) < minBtcWithdrawal || !btcAddress || btcAddress === '0x0000000000000000000000000000000000000000'"
             class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
             {{ isProcessing() ? '处理中...' : '申请提现' }}
@@ -198,6 +198,18 @@ const { data: hashPowerInfo, refetch: refetchHashPowerInfo } = useReadContract({
   query: {
     enabled: () => !!address.value,
   },
+});
+
+// 获取最小提币数量
+const { data: minBtcWithdrawalData } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'minBtcWithdrawal',
+});
+
+const minBtcWithdrawal = computed(() => {
+  if (!minBtcWithdrawalData.value) return 0.001; // 默认值
+  return Number(minBtcWithdrawalData.value) / 1e8;
 });
 
 // 获取用户的提现订单

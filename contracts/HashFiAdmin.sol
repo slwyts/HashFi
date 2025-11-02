@@ -155,4 +155,13 @@ abstract contract HashFiAdmin is HashFiLogic {
         }
     }
 
+    /**
+     * @dev 设置最小BTC提现数量
+     * @param _minAmount 最小提现数量（8位精度）
+     */
+    function setMinBtcWithdrawal(uint256 _minAmount) external onlyOwner {
+        if (_minAmount == 0) revert InvalidAmount();
+        minBtcWithdrawal = _minAmount;
+    }
+
 }

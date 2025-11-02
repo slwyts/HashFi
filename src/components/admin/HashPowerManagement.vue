@@ -134,6 +134,9 @@
               type="date"
               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            <p v-if="existingBtcOutput !== null" class="text-xs text-blue-600 mt-2">
+              该日期已设置产出：{{ formatBtc(existingBtcOutput) }} BTC
+            </p>
           </div>
           
           <div class="flex flex-col sm:flex-row gap-3">
@@ -166,6 +169,48 @@
       </div>
     </div>
 
+    <!-- 最小提币设置 -->
+    <div class="bg-white rounded-xl p-6 shadow-lg border border-purple-100">
+      <h2 class="text-xl font-bold mb-6 text-gray-800">提币参数设置</h2>
+      
+      <div class="p-5 bg-purple-50 rounded-lg">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">最小提币数量</h3>
+        <p class="text-sm text-gray-600 mb-4">设置用户单次提币的最小数量限制</p>
+        
+        <div class="mb-4 p-3 bg-white rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">当前最小提币：</p>
+          <p class="text-2xl font-bold text-purple-600 font-mono">{{ minBtcWithdrawalData ? formatBtc(minBtcWithdrawalData as bigint) : '0.00100000' }} BTC</p>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input
+            v-model="newMinBtcWithdrawal"
+            type="number"
+            step="0.00000001"
+            min="0.00000001"
+            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg font-mono"
+            placeholder="新的最小提币数量（BTC）"
+          />
+          <button
+            @click="handleSetMinBtcWithdrawal"
+            :disabled="isProcessing() || !newMinBtcWithdrawal"
+            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl whitespace-nowrap"
+          >
+            更新设置
+          </button>
+        </div>
+
+        <div class="mt-4 p-3 bg-white rounded-lg">
+          <p class="text-xs text-gray-500 mb-2 font-semibold">设置说明：</p>
+          <div class="text-xs text-gray-600 space-y-1">
+            <p>• 最小值必须大于0</p>
+            <p>• BTC数量保留8位小数</p>
+            <p>• 建议设置：0.001 BTC（避免小额频繁提币）</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- BTC提现审核 -->
     <div class="bg-white rounded-xl p-6 shadow-lg border border-green-100">
       <h2 class="text-xl font-bold mb-6 text-gray-800">BTC提现审核</h2>
@@ -189,8 +234,8 @@
 
       <div v-else class="space-y-3">
         <div
-          v-for="(order, index) in pendingOrders"
-          :key="index"
+          v-for="order in pendingOrders"
+          :key="order.orderId"
           class="border border-gray-200 rounded-xl p-4 hover:border-green-300 transition-colors"
         >
           <div class="flex justify-between items-start mb-3">
@@ -242,11 +287,119 @@
         </div>
       </div>
     </div>
+
+    <!-- 历史订单 -->
+    <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold text-gray-800">历史订单</h2>
+        <button
+          @click="() => refetchAllOrders()"
+          class="text-sm text-blue-600 hover:text-blue-700 font-semibold"
+        >
+          刷新
+        </button>
+      </div>
+
+      <!-- 筛选标签 -->
+      <div class="flex gap-2 mb-4">
+        <button
+          @click="historyFilter = 'all'"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+            historyFilter === 'all' 
+              ? 'bg-blue-600 text-white shadow-md' 
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          ]"
+        >
+          全部 ({{ filteredHistoryOrders.length }})
+        </button>
+        <button
+          @click="historyFilter = 'approved'"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+            historyFilter === 'approved' 
+              ? 'bg-green-600 text-white shadow-md' 
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          ]"
+        >
+          已通过 ({{ approvedOrders.length }})
+        </button>
+        <button
+          @click="historyFilter = 'rejected'"
+          :class="[
+            'px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+            historyFilter === 'rejected' 
+              ? 'bg-red-600 text-white shadow-md' 
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          ]"
+        >
+          已拒绝 ({{ rejectedOrders.length }})
+        </button>
+      </div>
+
+      <div v-if="!filteredHistoryOrders || filteredHistoryOrders.length === 0" class="text-center py-8 text-gray-400">
+        <svg class="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-sm">暂无历史订单</p>
+      </div>
+
+      <div v-else class="space-y-3 max-h-[600px] overflow-y-auto">
+        <div
+          v-for="order in filteredHistoryOrders"
+          :key="order.orderId"
+          :class="[
+            'border rounded-xl p-4 transition-colors',
+            order.status === 1 ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+          ]"
+        >
+          <div class="flex justify-between items-start mb-3">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <p class="text-sm font-semibold text-gray-800">订单 #{{ order.orderId }}</p>
+                <span :class="[
+                  'px-2 py-0.5 rounded-full text-xs font-semibold',
+                  order.status === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                ]">
+                  {{ order.status === 1 ? '已通过' : '已拒绝' }}
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 font-mono break-all mb-2">用户: {{ order.user }}</p>
+              <p class="text-lg font-mono font-bold" :class="order.status === 1 ? 'text-green-600' : 'text-red-600'">
+                {{ formatBtc(order.amount) }} BTC
+              </p>
+              <p class="text-xs text-gray-500 mt-1">{{ formatTimestamp(order.timestamp) }}</p>
+            </div>
+          </div>
+          
+          <div class="bg-white p-3 rounded-lg mb-3">
+            <p class="text-xs text-gray-500 mb-1">BTC地址</p>
+            <p class="text-xs text-gray-800 font-mono break-all">{{ order.btcAddress }}</p>
+          </div>
+
+          <div v-if="order.status === 1" class="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">提现金额</span>
+              <span class="font-mono">{{ formatBtc(order.amount) }} BTC</span>
+            </div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">手续费 (5%)</span>
+              <span class="font-mono text-red-600">-{{ (Number(formatBtc(order.amount)) * 0.05).toFixed(8) }} BTC</span>
+            </div>
+            <div class="border-t border-green-300 my-2"></div>
+            <div class="flex justify-between text-sm font-bold">
+              <span class="text-gray-800">实际到账</span>
+              <span class="font-mono text-green-600">{{ (Number(formatBtc(order.amount)) * 0.95).toFixed(8) }} BTC</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useReadContract } from '@wagmi/vue';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import { abi } from '@/core/contract';
@@ -260,8 +413,17 @@ const hashPowerAddress = ref('');
 const hashPowerDelta = ref('');
 
 // BTC产出表单
-const btcOutputDate = ref('');
+// 默认日期为今天（格式：YYYY-MM-DD）
+const today = new Date().toISOString().split('T')[0];
+const btcOutputDate = ref(today);
 const btcOutputAmount = ref('');
+const existingBtcOutput = ref<bigint | null>(null);
+
+// 最小提币设置
+const newMinBtcWithdrawal = ref('');
+
+// 历史订单筛选
+const historyFilter = ref<'all' | 'approved' | 'rejected'>('all');
 
 // 用户查询表单
 const queryAddress = ref('');
@@ -279,9 +441,16 @@ const globalHashPower = computed(() => {
   return globalHashPowerData.value.toString();
 });
 
+// 获取最小提币数量
+const { data: minBtcWithdrawalData, refetch: refetchMinBtc } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'minBtcWithdrawal',
+});
+
 // 获取所有提现订单（使用特殊地址 address(0)）
 const ALL_ORDERS_ADDRESS = '0x0000000000000000000000000000000000000000' as `0x${string}`;
-const { data: allOrdersData } = useReadContract({
+const { data: allOrdersData, refetch: refetchAllOrders } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'getBtcWithdrawalOrders',
@@ -290,7 +459,43 @@ const { data: allOrdersData } = useReadContract({
 
 const allOrders = computed(() => {
   if (!allOrdersData.value) return [];
-  return allOrdersData.value as any[];
+  const data = allOrdersData.value as any[];
+  
+  // 解析为订单对象数组
+  return data.map((order: any) => ({
+    orderId: Number(order.orderId || 0),
+    user: order.user,
+    btcAddress: order.btcAddress,
+    amount: order.amount,
+    timestamp: order.timestamp,
+    status: Number(order.status),
+  }));
+});
+
+// 已通过的订单
+const approvedOrders = computed(() => {
+  return allOrders.value.filter(order => order.status === 1);
+});
+
+// 已拒绝的订单
+const rejectedOrders = computed(() => {
+  return allOrders.value.filter(order => order.status === 2);
+});
+
+// 历史订单（已通过+已拒绝，不包括待审核）
+const historyOrders = computed(() => {
+  return allOrders.value.filter(order => order.status !== 0);
+});
+
+// 根据筛选条件过滤历史订单
+const filteredHistoryOrders = computed(() => {
+  if (historyFilter.value === 'all') {
+    return historyOrders.value;
+  } else if (historyFilter.value === 'approved') {
+    return approvedOrders.value;
+  } else {
+    return rejectedOrders.value;
+  }
 });
 
 // 获取待审核的提现订单（使用特殊地址 address(1)）
@@ -337,6 +542,49 @@ const formatTimestamp = (timestamp: bigint) => {
     minute: '2-digit',
   });
 };
+
+// 监听日期变化，查询已有的BTC产出
+watch(btcOutputDate, async (newDate) => {
+  if (!newDate) {
+    existingBtcOutput.value = null;
+    btcOutputAmount.value = '';
+    return;
+  }
+
+  try {
+    const { readContract } = await import('@wagmi/core');
+    const { wagmiConfig } = await import('@/core/web3');
+
+    // 将日期转换为时间戳（对齐到UTC+8的00:00）
+    const dateTimestamp = BigInt(new Date(newDate).getTime() / 1000);
+    
+    // 查询该日期的产出记录
+    const data = await readContract(wagmiConfig, {
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'dailyBtcOutputs',
+      args: [dateTimestamp],
+    });
+
+    if (data) {
+      const output = data as any;
+      // DailyBtcOutput 结构: (date, btcAmount, totalHashPower)
+      const btcAmount = output[1] || 0n;
+      
+      if (btcAmount > 0n) {
+        existingBtcOutput.value = btcAmount;
+        // 自动填充到输入框
+        btcOutputAmount.value = formatBtc(btcAmount);
+      } else {
+        existingBtcOutput.value = null;
+        btcOutputAmount.value = '';
+      }
+    }
+  } catch (error) {
+    console.error('Query daily output error:', error);
+    existingBtcOutput.value = null;
+  }
+});
 
 // 更新用户算力
 const handleUpdateHashPower = async () => {
@@ -439,6 +687,39 @@ const handleSetDailyBtcOutput = async () => {
   );
 };
 
+// 设置最小提币数量
+const handleSetMinBtcWithdrawal = async () => {
+  if (!newMinBtcWithdrawal.value) {
+    toast.error('请输入最小提币数量');
+    return;
+  }
+
+  const minAmount = parseFloat(newMinBtcWithdrawal.value);
+  if (minAmount <= 0) {
+    toast.error('最小提币数量必须大于0');
+    return;
+  }
+
+  const amountInSatoshi = BigInt(Math.floor(minAmount * 1e8));
+
+  await callContractWithRefresh(
+    {
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'setMinBtcWithdrawal',
+      args: [amountInSatoshi],
+      operation: '正在设置最小提币数量',
+      successMessage: '最小提币数量设置成功',
+      errorMessage: '设置失败',
+      onConfirmed: async () => {
+        newMinBtcWithdrawal.value = '';
+        await refetchMinBtc();
+      },
+    },
+    {}
+  );
+};
+
 // 审核BTC提现
 const handleProcessWithdrawal = async (orderId: number, approved: boolean) => {
   await callContractWithRefresh(
@@ -452,6 +733,7 @@ const handleProcessWithdrawal = async (orderId: number, approved: boolean) => {
       errorMessage: '操作失败',
       onConfirmed: async () => {
         await refetchPendingOrders();
+        await refetchAllOrders();
       },
     },
     {}
