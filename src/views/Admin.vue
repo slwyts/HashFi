@@ -95,6 +95,9 @@
       <!-- 用户管理 -->
       <UserManagement v-show="activeTab === 'users'" />
 
+      <!-- 算力管理 -->
+      <HashPowerManagement v-show="activeTab === 'hashpower'" />
+
       <!-- 轮播图管理 -->
       <BannerManagement v-show="activeTab === 'banners'" />
 
@@ -122,6 +125,7 @@ import Dashboard from '../components/admin/Dashboard.vue';
 import GenesisManagement from '../components/admin/GenesisManagement.vue';
 import DataManagement from '../components/admin/DataManagement.vue';
 import UserManagement from '../components/admin/UserManagement.vue';
+import HashPowerManagement from '../components/admin/HashPowerManagement.vue';
 import BannerManagement from '../components/admin/BannerManagement.vue';
 import AnnouncementManagement from '../components/admin/AnnouncementManagement.vue';
 import SystemSettings from '../components/admin/SystemSettings.vue';
@@ -140,13 +144,14 @@ const { address } = useAccount();
 const { signMessageAsync } = useSignMessage();
 const isAuthenticated = ref(false);
 
-const activeTab = ref<'dashboard' | 'genesis' | 'data' | 'users' | 'settings' | 'advanced' | 'banners' | 'announcements' | 'content'>('dashboard');
+const activeTab = ref<'dashboard' | 'genesis' | 'data' | 'users' | 'hashpower' | 'settings' | 'advanced' | 'banners' | 'announcements' | 'content'>('dashboard');
 
 const tabs = [
   { key: 'dashboard' as const, name: '仪表盘' },
   { key: 'genesis' as const, name: '创世节点' },
   { key: 'data' as const, name: '数据中心' },
   { key: 'users' as const, name: '用户管理' },
+  { key: 'hashpower' as const, name: '算力管理' },
   { key: 'banners' as const, name: '轮播图' },
   { key: 'announcements' as const, name: '公告' },
   { key: 'content' as const, name: '平台内容' },

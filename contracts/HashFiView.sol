@@ -255,17 +255,20 @@ abstract contract HashFiView is HashFiLogic {
      * @return hashPower 当前算力（整数T）
      * @return totalMined 累计挖矿BTC（8位精度）
      * @return available 可提现BTC（8位精度）
+     * @return withdrawn 已提现BTC（8位精度）
      * @return btcAddress BTC地址
      */
     function getUserHashPowerInfo(address _user) external view returns (
         uint256 hashPower,
         uint256 totalMined,
         uint256 available,
+        uint256 withdrawn,
         string memory btcAddress
     ) {
         UserHashPower storage userHP = userHashPowers[_user];
         hashPower = _getCurrentHashPower(_user);
         totalMined = userHP.totalMinedBtc;
+        withdrawn = userHP.withdrawnBtc;
         btcAddress = userHP.btcWithdrawalAddress;
         available = _calcAvailableBtc(_user);
     }

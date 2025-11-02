@@ -49,6 +49,17 @@
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
           </li>
+          <li @click="router.push('/hashpower')" class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
+            <div class="flex items-center">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mr-3 shadow-md group-hover:shadow-lg transition-shadow">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span class="font-semibold text-gray-800">算力中心</span>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+          </li>
           <li @click="showBindReferrerModal = true" class="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group">
             <div class="flex items-center">
               <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mr-3 shadow-md group-hover:shadow-lg transition-shadow">

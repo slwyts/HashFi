@@ -8,6 +8,7 @@ const Income = () => import('./views/Income.vue');
 const Team = () => import('./views/Team.vue');
 const Profile = () => import('./views/Profile.vue');
 const GenesisNode = () => import('./views/GenesisNode.vue');
+const HashPower = () => import('./views/HashPower.vue');
 const Admin = () => import('./views/Admin.vue');
 const ContentView = () => import('./views/ContentView.vue'); // 新增通用内容页面
 const ContentTest = () => import('./views/ContentTest.vue'); // 测试页面（可选）
@@ -21,6 +22,7 @@ const routes = [
   { path: '/team', component: Team },
   { path: '/profile', component: Profile },
   { path: '/genesis-node', component: GenesisNode },
+  { path: '/hashpower', component: HashPower },
   { path: '/admin', component: Admin },
   { path: '/content/:data?', name: 'content', component: ContentView }, // 通用内容页面
   { path: '/content-test', component: ContentTest }, // 测试页面（可选，用于开发测试）

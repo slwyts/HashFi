@@ -54,8 +54,6 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
     }
 
-    // --- 公共外部函数 (用户入口) ---
-
     /**
      * @dev 绑定推荐人
      */

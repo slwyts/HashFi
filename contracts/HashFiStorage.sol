@@ -38,7 +38,6 @@ abstract contract HashFiStorage is Ownable {
     error NoPendingApplication();
     error InvalidLevel();
     error InvalidFeeRate();
-    error NoHashPower();
 
     // --- 枚举 ---
     /**

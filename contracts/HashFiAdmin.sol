@@ -11,8 +11,6 @@ import "./HashFiLogic.sol";
  */
 abstract contract HashFiAdmin is HashFiLogic {
 
-    // --- 创世节点审核 ---
-
     function approveGenesisNode(address _applicant) external onlyOwner {
         if (!genesisNodeApplications[_applicant]) revert NoPendingApplication();
         User storage user = users[_applicant];
@@ -24,11 +22,9 @@ abstract contract HashFiAdmin is HashFiLogic {
         user.isGenesisNode = true;
         genesisNodes.push(_applicant);
         
-        // ✅ 添加到活跃节点列表
         activeGenesisNodes.push(_applicant);
         isActiveGenesisNode[_applicant] = true;
         
-        // ✅ 初始化奖励债务为当前累积值（新节点从加入时开始计算奖励）
         user.genesisRewardDebt = accGenesisRewardPerNode;
     }
     
@@ -71,8 +67,6 @@ abstract contract HashFiAdmin is HashFiLogic {
         swapFeeRate = _newFeeRate;
     }
 
-    // --- 强制操作 ---
-
     function forceSettleUser(address _user) external onlyOwner {
         _settleUserRewards(_user);
     }
@@ -84,7 +78,6 @@ abstract contract HashFiAdmin is HashFiLogic {
     
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
-        // uint256 balance = token.balanceOf(address(this)); // 变量 balance 未被使用
         token.transfer(owner(), _amount);
     }
 
@@ -133,14 +126,13 @@ abstract contract HashFiAdmin is HashFiLogic {
     /**
      * @dev 设置指定日期的BTC产出
      * @param _date 日期时间戳
-     * @param _btcAmount BTC产出数量（8位精度）
+     * @param _btcAmount BTC产出数量（8位精度，可以设置为0表示当天无产出）
+     * @notice 设置时会自动记录当前的全网总算力快照
+     * @notice 允许设置为0，用于节假日或其他不产出的日期
      */
     function setDailyBtcOutput(uint256 _date, uint256 _btcAmount) external onlyOwner {
-        if (_btcAmount == 0) revert InvalidAmount();
         uint256 alignedDate = _alignToUtc8Date(_date);
         uint256 totalHashPower = _calculateTotalHashPowerAtDate(alignedDate);
-        if (totalHashPower == 0) revert NoHashPower();
-        
         dailyBtcOutputs[alignedDate] = DailyBtcOutput(alignedDate, _btcAmount, totalHashPower);
     }
 
@@ -156,9 +148,7 @@ abstract contract HashFiAdmin is HashFiLogic {
         
         if (_approved) {
             order.status = BtcWithdrawalStatus.Approved;
-            uint256 fee = (order.amount * BTC_WITHDRAWAL_FEE_RATE) / 100;
-            uint256 netAmount = order.amount - fee;
-            userHashPowers[order.user].withdrawnBtc += netAmount;
+            userHashPowers[order.user].withdrawnBtc += order.amount;
         } else {
             order.status = BtcWithdrawalStatus.Rejected;
             userHashPowers[order.user].totalMinedBtc += order.amount;
