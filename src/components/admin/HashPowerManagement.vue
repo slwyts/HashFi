@@ -413,9 +413,16 @@ const hashPowerAddress = ref('');
 const hashPowerDelta = ref('');
 
 // BTC产出表单
-// 默认日期为今天（格式：YYYY-MM-DD）
-const today = new Date().toISOString().split('T')[0];
-const btcOutputDate = ref(today);
+// 默认日期为今天（格式：YYYY-MM-DD），使用本地时区
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const btcOutputDate = ref(getLocalDateString());
 const btcOutputAmount = ref('');
 const existingBtcOutput = ref<bigint | null>(null);
 
@@ -555,8 +562,18 @@ watch(btcOutputDate, async (newDate) => {
     const { readContract } = await import('@wagmi/core');
     const { wagmiConfig } = await import('@/core/web3');
 
-    // 将日期转换为时间戳（对齐到UTC+8的00:00）
-    const dateTimestamp = BigInt(new Date(newDate).getTime() / 1000);
+    // 将日期字符串转换为 UTC+8 的 00:00:00 对应的 UTC 时间戳
+    // 例如：2025-11-03 应该转换为 2025-11-03 00:00:00 UTC+8 = 2025-11-02 16:00:00 UTC
+    const parts = newDate.split('-').map(Number);
+    const year = parts[0]!;
+    const month = parts[1]!;
+    const day = parts[2]!;
+    const utc8Midnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const utc8Offset = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+    const utcTimestamp = Math.floor((utc8Midnight.getTime() - utc8Offset) / 1000);
+    const dateTimestamp = BigInt(utcTimestamp);
+    
+    console.log('Query date:', newDate, 'timestamp:', dateTimestamp.toString());
     
     // 查询该日期的产出记录
     const data = await readContract(wagmiConfig, {
@@ -584,7 +601,7 @@ watch(btcOutputDate, async (newDate) => {
     console.error('Query daily output error:', error);
     existingBtcOutput.value = null;
   }
-});
+}, { immediate: true }); // 立即执行一次，初始化时自动查询今天的产出
 
 // 更新用户算力
 const handleUpdateHashPower = async () => {
