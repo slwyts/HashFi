@@ -151,7 +151,6 @@ abstract contract HashFiAdmin is HashFiLogic {
             userHashPowers[order.user].withdrawnBtc += order.amount;
         } else {
             order.status = BtcWithdrawalStatus.Rejected;
-            userHashPowers[order.user].totalMinedBtc += order.amount;
         }
     }
 

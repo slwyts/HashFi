@@ -268,9 +268,10 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         
         _settleBtcRewards(msg.sender);
         UserHashPower storage userHP = userHashPowers[msg.sender];
-        if (userHP.totalMinedBtc - userHP.withdrawnBtc < _amount) revert InsufficientBalance();
         
-        userHP.totalMinedBtc -= _amount;
+        uint256 available = _calcAvailableBtc(msg.sender);
+        if (available < _amount) revert InsufficientBalance();
+        
         
         uint256 orderId = btcWithdrawalOrders.length;
         btcWithdrawalOrders.push(BtcWithdrawalOrder(
