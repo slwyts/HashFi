@@ -388,8 +388,156 @@ async function savePlatformContent(request: Request, env: Env, type: string): Pr
   }
 }
 
+// ========== 比特币数据获取辅助函数 ==========
+
+/**
+ * 从多个API源获取比特币数据
+ * 返回获取到的数据（可能部分字段为0）
+ */
+async function fetchBitcoinDataFromAPIs(): Promise<Partial<BitcoinData>> {
+  console.log('Fetching Bitcoin data from APIs...');
+  
+  // 并行请求多个 API
+  const [priceData, blockchainData] = await Promise.allSettled([
+    // API 1: CoinGecko - 获取价格
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
+      headers: { 'Accept': 'application/json' }
+    }).then(r => {
+      if (!r.ok) throw new Error(`CoinGecko API error: ${r.status}`);
+      return r.json();
+    }).catch(err => {
+      console.error('CoinGecko API failed:', err);
+      return null;
+    }),
+    
+    // API 2: Blockchain.info - 获取全网算力
+    fetch('https://blockchain.info/q/hashrate').then(r => r.text()).then(text => ({
+      hashrate: parseFloat(text)
+    })).catch(err => {
+      console.error('Blockchain.info hashrate failed:', err);
+      return null;
+    }),
+  ]);
+  
+  // API 3: 获取难度
+  const difficultyData = await fetch('https://blockchain.info/q/getdifficulty')
+    .then(r => r.text())
+    .then(text => parseFloat(text))
+    .catch(err => {
+      console.error('Blockchain.info difficulty failed:', err);
+      return null;
+    });
+  
+  // 解析数据
+  let price = 0;
+  let hashrate = 0;
+  let difficulty = 0;
+  
+  // 处理价格 - 首先尝试 CoinGecko
+  if (priceData.status === 'fulfilled' && priceData.value) {
+    const priceResult = priceData.value as any;
+    if (priceResult?.bitcoin?.usd) {
+      price = priceResult.bitcoin.usd;
+      console.log('Got BTC price from CoinGecko:', price);
+    }
+  }
+  
+  // 如果 CoinGecko 失败，尝试备用 API: Binance
+  if (price === 0) {
+    try {
+      const binanceData = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT')
+        .then(r => r.json())
+        .catch(() => null) as any;
+      
+      if (binanceData?.price) {
+        price = parseFloat(binanceData.price);
+        console.log('Got BTC price from Binance:', price);
+      }
+    } catch (err) {
+      console.error('Binance API failed:', err);
+    }
+  }
+  
+  // 如果还是失败，尝试 CoinCap
+  if (price === 0) {
+    try {
+      const coincapData = await fetch('https://api.coincap.io/v2/assets/bitcoin')
+        .then(r => r.json())
+        .catch(() => null) as any;
+      
+      if (coincapData?.data?.priceUsd) {
+        price = parseFloat(coincapData.data.priceUsd);
+        console.log('Got BTC price from CoinCap:', price);
+      }
+    } catch (err) {
+      console.error('CoinCap API failed:', err);
+    }
+  }
+  
+  // 处理算力（从 blockchain.info 返回值转换为 EH/s）
+  if (blockchainData.status === 'fulfilled' && blockchainData.value?.hashrate) {
+    hashrate = blockchainData.value.hashrate / 1_000_000_000;
+    console.log('Got hashrate from Blockchain.info:', hashrate);
+  }
+  
+  // 处理难度
+  if (difficultyData) {
+    difficulty = difficultyData;
+    console.log('Got difficulty from Blockchain.info:', difficulty);
+  }
+  
+  return { price, hashrate, difficulty };
+}
+
+/**
+ * 后台异步刷新比特币数据缓存
+ * 这个函数会在后台执行，不阻塞用户请求
+ */
+async function refreshBitcoinDataInBackground(env: Env, cacheKey: string): Promise<void> {
+  try {
+    console.log('Background refresh started');
+    
+    // 获取旧缓存数据（作为fallback）
+    const cachedDataJson = await env.HASHFI_DATA.get(cacheKey);
+    let oldData: BitcoinData | null = null;
+    if (cachedDataJson) {
+      const oldCache: BitcoinCache = JSON.parse(cachedDataJson);
+      oldData = oldCache.data;
+    }
+    
+    // 获取新数据
+    const newData = await fetchBitcoinDataFromAPIs();
+    
+    // 合并数据：优先使用新数据，新数据为0时使用旧缓存
+    const bitcoinData: BitcoinData = {
+      price: newData.price && newData.price > 0 ? newData.price : (oldData?.price || 0),
+      hashrate: newData.hashrate && newData.hashrate > 0 ? newData.hashrate : (oldData?.hashrate || 0),
+      difficulty: newData.difficulty && newData.difficulty > 0 ? newData.difficulty : (oldData?.difficulty || 0),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // 只有价格有效时才更新缓存
+    if (bitcoinData.price > 0) {
+      const cacheData: BitcoinCache = {
+        data: bitcoinData,
+        cachedAt: Date.now(),
+      };
+      
+      await env.HASHFI_DATA.put(cacheKey, JSON.stringify(cacheData), {
+        expirationTtl: 600, // 10分钟
+      });
+      
+      console.log('Background refresh completed successfully:', bitcoinData);
+    } else {
+      console.log('Background refresh failed: price is 0, keeping old cache');
+    }
+  } catch (error) {
+    console.error('Background refresh failed:', error);
+  }
+}
+
 // 获取比特币实时数据
-async function getBitcoinData(env: Env): Promise<Response> {
+async function getBitcoinData(env: Env, context?: ExecutionContext): Promise<Response> {
   try {
     const CACHE_KEY = 'btc_data_cache';
     const CACHE_DURATION = 10 * 60 * 1000; // 10分钟（毫秒）
@@ -400,175 +548,56 @@ async function getBitcoinData(env: Env): Promise<Response> {
     if (cachedDataJson) {
       const cachedData: BitcoinCache = JSON.parse(cachedDataJson);
       const now = Date.now();
+      const cacheAge = now - cachedData.cachedAt;
+      const isStale = cacheAge >= CACHE_DURATION;
       
-      // 检查缓存是否在有效期内，并且数据有效（价格不为 0）
-      if (now - cachedData.cachedAt < CACHE_DURATION && cachedData.data.price > 0) {
-        console.log('Using cached Bitcoin data');
-        return new Response(JSON.stringify({ 
-          success: true, 
-          data: cachedData.data,
-          cached: true 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } else if (cachedData.data.price === 0) {
-        console.log('Cached price is 0, forcing refresh');
+      // ✅ 策略改进：有缓存就立即返回，无论是否过期
+      // 如果缓存过期，触发后台更新（不阻塞响应）
+      if (isStale && context) {
+        console.log('Cache is stale, triggering background refresh');
+        // 使用 waitUntil 在后台异步更新缓存，不阻塞响应
+        context.waitUntil(refreshBitcoinDataInBackground(env, CACHE_KEY));
       }
-    }
-    
-    // 2. 缓存过期或不存在，获取新数据
-    console.log('Fetching fresh Bitcoin data...');
-    
-    // 并行请求多个 API
-    const [priceData, blockchainData] = await Promise.allSettled([
-      // API 1: CoinGecko - 获取价格
-      fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
-        headers: { 'Accept': 'application/json' }
-      }).then(r => {
-        if (!r.ok) throw new Error(`CoinGecko API error: ${r.status}`);
-        return r.json();
-      }).catch(err => {
-        console.error('CoinGecko API failed:', err);
-        return null;
-      }),
       
-      // API 2: Blockchain.info - 获取全网算力
-      fetch('https://blockchain.info/q/hashrate').then(r => r.text()).then(text => ({
-        hashrate: parseFloat(text)
-      })).catch(err => {
-        console.error('Blockchain.info hashrate failed:', err);
-        return null;
-      }),
-    ]);
-    
-    // API 3: 获取难度
-    const difficultyData = await fetch('https://blockchain.info/q/getdifficulty')
-      .then(r => r.text())
-      .then(text => parseFloat(text))
-      .catch(err => {
-        console.error('Blockchain.info difficulty failed:', err);
-        return null;
+      console.log(`Returning cached data (age: ${Math.floor(cacheAge / 1000)}s, stale: ${isStale})`);
+      return new Response(JSON.stringify({ 
+        success: true, 
+        data: cachedData.data,
+        cached: true,
+        stale: isStale,
+        cacheAge: Math.floor(cacheAge / 1000) // 秒
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    
-    // 解析数据
-    let price = 0;
-    let hashrate = 0;
-    let difficulty = 0;
-    
-    // 处理价格 - 首先尝试 CoinGecko
-    if (priceData.status === 'fulfilled' && priceData.value) {
-      const priceResult = priceData.value as any;
-      if (priceResult?.bitcoin?.usd) {
-        price = priceResult.bitcoin.usd;
-        console.log('Got BTC price from CoinGecko:', price);
-      }
     }
     
-    // 如果 CoinGecko 失败，尝试备用 API: Binance
-    if (price === 0) {
-      try {
-        const binanceData = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT')
-          .then(r => r.json())
-          .catch(() => null) as any;
-        
-        if (binanceData?.price) {
-          price = parseFloat(binanceData.price);
-          console.log('Got BTC price from Binance:', price);
-        }
-      } catch (err) {
-        console.error('Binance API failed:', err);
-      }
-    }
+    // 2. 没有缓存，需要首次获取数据
+    console.log('No cache found, fetching fresh data...');
     
-    // 如果还是失败，尝试 CoinCap
-    if (price === 0) {
-      try {
-        const coincapData = await fetch('https://api.coincap.io/v2/assets/bitcoin')
-          .then(r => r.json())
-          .catch(() => null) as any;
-        
-        if (coincapData?.data?.priceUsd) {
-          price = parseFloat(coincapData.data.priceUsd);
-          console.log('Got BTC price from CoinCap:', price);
-        }
-      } catch (err) {
-        console.error('CoinCap API failed:', err);
-      }
-    }
+    const newData = await fetchBitcoinDataFromAPIs();
     
-    // 处理算力（从 blockchain.info 返回值转换为 EH/s）
-    if (blockchainData.status === 'fulfilled' && blockchainData.value?.hashrate) {
-      // blockchain.info 返回的单位是 GH/s（千兆哈希/秒）
-      // 1 EH/s = 1,000,000,000 GH/s (10^9)
-      hashrate = blockchainData.value.hashrate / 1_000_000_000;
-      console.log('Got hashrate from Blockchain.info:', hashrate);
-    }
-    
-    // 处理难度
-    if (difficultyData) {
-      difficulty = difficultyData;
-      console.log('Got difficulty from Blockchain.info:', difficulty);
-    }
-    
-    // 如果有旧缓存，使用缓存数据填充失败的字段
-    let oldCacheData: BitcoinData | null = null;
-    if (cachedDataJson) {
-      const oldCache: BitcoinCache = JSON.parse(cachedDataJson);
-      oldCacheData = oldCache.data;
-    }
-    
-    // 如果某个数据获取失败，使用缓存中的对应数据
-    if (price === 0 && oldCacheData?.price) {
-      price = oldCacheData.price;
-      console.log('Using cached BTC price:', price);
-    }
-    if (hashrate === 0 && oldCacheData?.hashrate) {
-      hashrate = oldCacheData.hashrate;
-      console.log('Using cached hashrate:', hashrate);
-    }
-    if (difficulty === 0 && oldCacheData?.difficulty) {
-      difficulty = oldCacheData.difficulty;
-      console.log('Using cached difficulty:', difficulty);
-    }
-    
-    // 如果价格获取失败且没有缓存，返回错误（价格是最重要的数据）
-    if (price === 0) {
+    // 如果获取失败，返回默认值或错误
+    if (!newData.price || newData.price === 0) {
       console.error('Failed to get BTC price from all sources');
-      
-      // 如果有旧缓存，返回旧缓存（即使过期了也比没有好）
-      if (oldCacheData) {
-        console.log('Returning stale cache due to price fetch failure');
-        return new Response(JSON.stringify({ 
-          success: true,
-          data: oldCacheData,
-          cached: true,
-          stale: true,
-          warning: 'Price data unavailable, using cached data'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      // 没有缓存且价格获取失败，返回错误
       return new Response(JSON.stringify({ 
         success: false,
         error: 'Price data unavailable',
-        message: 'Unable to fetch BTC price from any source'
+        message: 'Unable to fetch BTC price from any source. Please try again later.'
       }), {
         status: 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    // 3. 构建新数据（确保价格有效）
+    // 构建新数据
     const bitcoinData: BitcoinData = {
-      price: price,
-      hashrate: hashrate,
-      difficulty: difficulty,
+      price: newData.price || 0,
+      hashrate: newData.hashrate || 0,
+      difficulty: newData.difficulty || 0,
       updatedAt: new Date().toISOString(),
     };
     
-    // 4. 保存到 KV 缓存（10分钟 TTL）- 只有价格有效时才保存
+    // 保存到 KV 缓存
     const cacheData: BitcoinCache = {
       data: bitcoinData,
       cachedAt: Date.now(),
@@ -578,7 +607,7 @@ async function getBitcoinData(env: Env): Promise<Response> {
       expirationTtl: 600, // 10分钟
     });
     
-    console.log('Bitcoin data updated successfully:', bitcoinData);
+    console.log('Bitcoin data cached successfully:', bitcoinData);
     
     return new Response(JSON.stringify({ 
       success: true, 
@@ -701,7 +730,7 @@ async function updateMiningPoolData(request: Request, env: Env): Promise<Respons
 
 // 主处理函数
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -747,7 +776,7 @@ export default {
 
       // 比特币数据API
       if (path === '/btc-data' && method === 'GET') {
-        return getBitcoinData(env);
+        return getBitcoinData(env, context);
       }
 
       // ✅ 矿池平台数据API
