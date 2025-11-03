@@ -64,11 +64,30 @@
             v-model="newBtcAddress"
             type="text"
             class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
+            :class="{ 'border-red-300 focus:ring-red-500': newBtcAddress && !isBtcAddressValid }"
             placeholder="输入BTC地址（如：bc1q...）"
           />
+          
+          <!-- BTC地址安全提示 -->
+          <div class="bg-red-50 border border-red-200 rounded-xl p-3">
+            <p class="text-xs text-red-800">
+              <span class="font-semibold">⚠️ 重要提示：</span>
+              <br/>HashFi仅支持通过Bitcoin主网地址进行提现，如果输入错误，本平台概不负责。
+              <br/>支持的地址格式：1、3、bc1p、bc1q 开头的地址
+            </p>
+          </div>
+          
+          <!-- 地址格式错误提示 -->
+          <div v-if="newBtcAddress && !isBtcAddressValid" class="text-xs text-red-600 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <span>请输入有效的Bitcoin主网地址（1、3、bc1p或bc1q开头）</span>
+          </div>
+          
           <button
             @click="handleSetBtcAddress"
-            :disabled="isProcessing() || !newBtcAddress"
+            :disabled="isProcessing() || !newBtcAddress || !isBtcAddressValid"
             class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
             {{ isProcessing() ? '处理中...' : '设置BTC地址' }}
@@ -277,6 +296,41 @@ const withdrawalOrders = computed(() => {
 const newBtcAddress = ref('');
 const withdrawAmount = ref('');
 
+// BTC主网地址验证
+const isBtcAddressValid = computed(() => {
+  if (!newBtcAddress.value) return true; // 空值不显示错误
+  
+  const address = newBtcAddress.value.trim();
+  
+  // 检查是否以有效的主网前缀开头
+  const validPrefixes = ['1', '3', 'bc1q', 'bc1p'];
+  const hasValidPrefix = validPrefixes.some(prefix => address.startsWith(prefix));
+  
+  if (!hasValidPrefix) return false;
+  
+  // P2PKH地址 (以1开头)
+  if (address.startsWith('1')) {
+    return /^1[a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+  }
+  
+  // P2SH地址 (以3开头)
+  if (address.startsWith('3')) {
+    return /^3[a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+  }
+  
+  // Bech32地址 (以bc1q开头 - P2WPKH或P2WSH)
+  if (address.startsWith('bc1q')) {
+    return /^bc1q[a-z0-9]{38,58}$/.test(address);
+  }
+  
+  // Taproot地址 (以bc1p开头 - P2TR)
+  if (address.startsWith('bc1p')) {
+    return /^bc1p[a-z0-9]{58}$/.test(address);
+  }
+  
+  return false;
+});
+
 // 格式化BTC数量（8位小数）
 const formatBtc = (amount: bigint) => {
   if (!amount) return '0.00000000';
@@ -303,10 +357,9 @@ const handleSetBtcAddress = async () => {
     return;
   }
 
-  // 简单的BTC地址格式验证
-  const btcAddressPattern = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-  if (!btcAddressPattern.test(newBtcAddress.value)) {
-    toast.error('BTC地址格式不正确');
+  // 使用更严格的BTC主网地址验证
+  if (!isBtcAddressValid.value) {
+    toast.error('请输入有效的Bitcoin主网地址（1、3、bc1p或bc1q开头）');
     return;
   }
 
