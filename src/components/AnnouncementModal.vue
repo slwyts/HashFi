@@ -38,7 +38,7 @@
 
           <!-- 内容 -->
           <div class="p-6 overflow-y-auto max-h-96 text-gray-700 text-sm leading-relaxed">
-            <div class="prose prose-sm max-w-none whitespace-pre-wrap" v-html="formattedContent"></div>
+            <div class="prose prose-sm max-w-none" v-html="formattedContent"></div>
           </div>
 
           <!-- 底部按钮 -->
@@ -66,6 +66,7 @@
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { marked } from 'marked';
 
 interface Announcement {
   id: string;
@@ -90,11 +91,11 @@ const { t } = useI18n();
 const router = useRouter();
 const isVisible = ref(props.visible);
 
-// 格式化内容，将换行符转换为<br>标签
+// 格式化内容，支持 Markdown 解析
 const formattedContent = computed(() => {
   if (!props.announcement?.content) return '';
-  // 将\n转换为<br>标签以保留换行
-  return props.announcement.content.replace(/\n/g, '<br>');
+  // 将 Markdown 转换为 HTML
+  return marked(props.announcement.content, { async: false }) as string;
 });
 
 watch(() => props.visible, (newVal) => {

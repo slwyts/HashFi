@@ -36,6 +36,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { marked } from 'marked';
 
 interface Announcement {
   id: string;
@@ -58,8 +59,9 @@ let timer: number | null = null;
 
 const getContentSummary = (content?: string) => {
   if (!content) return '';
-  // 移除HTML标签，将换行符替换为空格，然后截取
-  return content
+  // 先将 Markdown 转换为 HTML，然后移除所有 HTML 标签，提取纯文本
+  const htmlContent = marked(content, { async: false }) as string;
+  return htmlContent
     .replace(/<[^>]*>/g, '')    // 移除HTML标签
     .replace(/\n+/g, ' ')        // 将连续换行符替换为单个空格
     .replace(/\s+/g, ' ')        // 将多个空格合并为一个

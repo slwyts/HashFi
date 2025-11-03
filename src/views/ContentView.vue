@@ -209,8 +209,8 @@ const loadAnnouncementDetail = async (id: string) => {
     
     if (announcement) {
       title.value = announcement.title;
-      // 将换行符转换为<br>标签以保留换行
-      content.value = announcement.content.replace(/\n/g, '<br>');
+      // 使用 Markdown 解析内容
+      content.value = marked(announcement.content, { async: false }) as string;
       contentType.value = 'html';
       isAnnouncementDetail.value = true; // 标记为公告详情
     } else {
@@ -265,8 +265,9 @@ const loadAnnouncementList = async () => {
         const badge = `<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">${typeIcon} ${typeLabel}</span>`;
         
         // 从 content 提取摘要（取前100个字符）
-        // 移除HTML标签，将换行符替换为空格，然后截取
-        const summary = announcement.content
+        // 先将 Markdown 转换为 HTML，然后移除 HTML 标签，提取纯文本
+        const htmlContent = marked(announcement.content, { async: false }) as string;
+        const summary = htmlContent
           .replace(/<[^>]*>/g, '')  // 移除HTML标签
           .replace(/\n+/g, ' ')      // 将连续换行符替换为单个空格
           .replace(/\s+/g, ' ')      // 将多个空格合并为一个
@@ -431,10 +432,105 @@ const loadRulesContent = (ruleId: string) => {
   word-wrap: break-word;
 }
 
-/* 公告详情页面需要保留换行 */
+/* 公告详情页面支持 Markdown 样式 */
 .content-html.announcement-detail {
-  white-space: pre-wrap;
   line-height: 1.75;
+}
+
+/* 为公告详情添加 prose 样式 */
+.content-html.announcement-detail :deep(h1) {
+  font-size: 1.875rem;
+  font-weight: bold;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #111827;
+}
+
+.content-html.announcement-detail :deep(h2) {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #111827;
+}
+
+.content-html.announcement-detail :deep(h3) {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #111827;
+}
+
+.content-html.announcement-detail :deep(p) {
+  margin-bottom: 1rem;
+  line-height: 1.75;
+}
+
+.content-html.announcement-detail :deep(ul),
+.content-html.announcement-detail :deep(ol) {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.content-html.announcement-detail :deep(li) {
+  margin-bottom: 0.5rem;
+}
+
+.content-html.announcement-detail :deep(a) {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.content-html.announcement-detail :deep(a:hover) {
+  color: #1d4ed8;
+}
+
+.content-html.announcement-detail :deep(code) {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-family: monospace;
+  color: #2563eb;
+}
+
+.content-html.announcement-detail :deep(pre) {
+  background-color: #111827;
+  color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.content-html.announcement-detail :deep(pre code) {
+  background-color: transparent;
+  color: #f3f4f6;
+  padding: 0;
+}
+
+.content-html.announcement-detail :deep(blockquote) {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #4b5563;
+  margin: 1rem 0;
+}
+
+.content-html.announcement-detail :deep(strong) {
+  font-weight: 600;
+  color: #111827;
+}
+
+.content-html.announcement-detail :deep(em) {
+  font-style: italic;
+}
+
+.content-html.announcement-detail :deep(hr) {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1.5rem 0;
 }
 
 /* 公告列表样式优化 */
