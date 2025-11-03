@@ -66,7 +66,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
             return;
         }
 
-        if (users[_referrer].totalStakedAmount == 0) revert ReferrerNotExist();
+        if (users[_referrer].totalStakedAmount == 0 || _referrer == address(0)) revert ReferrerNotExist();
         if (_referrer == msg.sender) revert CannotReferSelf();
         user.referrer = _referrer;
         users[_referrer].directReferrals.push(msg.sender);
