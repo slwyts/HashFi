@@ -35,7 +35,7 @@
         <!-- HTML 渲染 -->
         <div 
           v-else-if="contentType === 'html'" 
-          class="content-html"
+          :class="['content-html', isAnnouncementDetail ? 'announcement-detail' : '']"
           v-html="content"
         ></div>
 
@@ -72,6 +72,7 @@ const title = ref('');
 const content = ref('');
 const contentType = ref<'markdown' | 'html' | 'pdf' | 'text'>('text');
 const isLoading = ref(false);
+const isAnnouncementDetail = ref(false); // 标记是否是公告详情页面
 
 // Markdown 渲染
 const renderedMarkdown = computed(() => {
@@ -208,8 +209,10 @@ const loadAnnouncementDetail = async (id: string) => {
     
     if (announcement) {
       title.value = announcement.title;
-      content.value = announcement.content;
+      // 将换行符转换为<br>标签以保留换行
+      content.value = announcement.content.replace(/\n/g, '<br>');
       contentType.value = 'html';
+      isAnnouncementDetail.value = true; // 标记为公告详情
     } else {
       title.value = t('announcement.notFound');
       content.value = `<p class="text-gray-500 text-center py-8">${t('announcement.notFoundDesc')}</p>`;
@@ -226,6 +229,7 @@ const loadAnnouncementDetail = async (id: string) => {
 // 加载公告列表
 const loadAnnouncementList = async () => {
   title.value = t('announcement.all');
+  isAnnouncementDetail.value = false; // 标记为公告列表，不是详情
   
   // 显示加载中
   content.value = `<div class="text-center py-12"><p class="text-gray-500">${t('common.loadingEllipsis')}</p></div>`;
@@ -248,8 +252,8 @@ const loadAnnouncementList = async () => {
       .filter((a: any) => a.active)
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    // 生成公告列表 HTML
-    let html = '<div class="space-y-4">';
+    // 生成公告列表 HTML（使用紧凑的flex布局）
+    let html = '<div class="flex flex-col gap-4">';
     
     if (announcements.length === 0) {
       html += `<div class="text-center py-12"><p class="text-gray-500">${t('announcement.noAnnouncements')}</p></div>`;
@@ -261,26 +265,18 @@ const loadAnnouncementList = async () => {
         const badge = `<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600">${typeIcon} ${typeLabel}</span>`;
         
         // 从 content 提取摘要（取前100个字符）
-        const summary = announcement.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...';
+        // 移除HTML标签，将换行符替换为空格，然后截取
+        const summary = announcement.content
+          .replace(/<[^>]*>/g, '')  // 移除HTML标签
+          .replace(/\n+/g, ' ')      // 将连续换行符替换为单个空格
+          .replace(/\s+/g, ' ')      // 将多个空格合并为一个
+          .trim()                     // 去除首尾空格
+          .substring(0, 100) + '...';
         
         // 生成路由参数
         const routeData = btoa(JSON.stringify({ type: 'announcement', id: announcement.id }));
         
-        html += `
-          <div class="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100" data-announcement-route="${routeData}">
-            <div class="flex items-start justify-between mb-2">
-              <h3 class="font-bold text-lg text-gray-800 flex-1">${announcement.title}</h3>
-              ${badge}
-            </div>
-            <p class="text-gray-600 text-sm mb-3">${summary}</p>
-            <div class="flex items-center text-xs text-gray-400">
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              ${date}
-            </div>
-          </div>
-        `;
+        html += `<div class="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100" data-announcement-route="${routeData}"><div class="flex items-start justify-between mb-2"><h3 class="font-bold text-lg text-gray-800 flex-1">${announcement.title}</h3>${badge}</div><p class="text-gray-600 text-sm mb-3">${summary}</p><div class="flex items-center text-xs text-gray-400"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>${date}</div></div>`;
       }
     }
     
@@ -430,6 +426,27 @@ const loadRulesContent = (ruleId: string) => {
 }
 
 /* HTML 内容样式 */
+.content-html {
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+/* 公告详情页面需要保留换行 */
+.content-html.announcement-detail {
+  white-space: pre-wrap;
+  line-height: 1.75;
+}
+
+/* 公告列表样式优化 */
+.content-html :deep(.space-y-4 > *) {
+  margin-top: 0 !important;
+  margin-bottom: 1rem !important;
+}
+
+.content-html :deep(.space-y-4 > *:last-child) {
+  margin-bottom: 0 !important;
+}
+
 .content-html :deep(img) {
   max-width: 100%;
   height: auto;

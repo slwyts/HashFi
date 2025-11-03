@@ -16,7 +16,7 @@
           >
             <span class="font-semibold text-gray-900">{{ announcements[currentIndex]?.title }}</span>
             <span class="mx-2 text-gray-400">|</span>
-            <span class="text-gray-600">{{ announcements[currentIndex]?.content?.substring(0, 50) }}...</span>
+            <span class="text-gray-600">{{ getContentSummary(announcements[currentIndex]?.content) }}</span>
           </div>
         </transition>
       </div>
@@ -55,6 +55,17 @@ const { t } = useI18n();
 const router = useRouter();
 const currentIndex = ref(0);
 let timer: number | null = null;
+
+const getContentSummary = (content?: string) => {
+  if (!content) return '';
+  // 移除HTML标签，将换行符替换为空格，然后截取
+  return content
+    .replace(/<[^>]*>/g, '')    // 移除HTML标签
+    .replace(/\n+/g, ' ')        // 将连续换行符替换为单个空格
+    .replace(/\s+/g, ' ')        // 将多个空格合并为一个
+    .trim()                       // 去除首尾空格
+    .substring(0, 50) + '...';
+};
 
 const handleAnnouncementClick = (announcement: Announcement) => {
   router.push({

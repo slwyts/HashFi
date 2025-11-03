@@ -38,7 +38,7 @@
 
           <!-- 内容 -->
           <div class="p-6 overflow-y-auto max-h-96 text-gray-700 text-sm leading-relaxed">
-            <div class="prose prose-sm max-w-none" v-html="announcement.content"></div>
+            <div class="prose prose-sm max-w-none whitespace-pre-wrap" v-html="formattedContent"></div>
           </div>
 
           <!-- 底部按钮 -->
@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
@@ -89,6 +89,13 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const router = useRouter();
 const isVisible = ref(props.visible);
+
+// 格式化内容，将换行符转换为<br>标签
+const formattedContent = computed(() => {
+  if (!props.announcement?.content) return '';
+  // 将\n转换为<br>标签以保留换行
+  return props.announcement.content.replace(/\n/g, '<br>');
+});
 
 watch(() => props.visible, (newVal) => {
   isVisible.value = newVal;
