@@ -3,7 +3,7 @@
     <!-- 算力统计概览 -->
     <div class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 shadow-lg text-white">
       <h2 class="text-xl font-bold mb-4">算力中心概览</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
           <p class="text-sm opacity-90 mb-1">全网总算力</p>
           <p class="text-3xl font-bold">{{ globalHashPower }}</p>
@@ -18,6 +18,49 @@
           <p class="text-sm opacity-90 mb-1">总提现订单</p>
           <p class="text-3xl font-bold">{{ allOrders.length }}</p>
           <p class="text-xs opacity-75 mt-1">个</p>
+        </div>
+        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <p class="text-sm opacity-90 mb-1">已提现BTC</p>
+          <p class="text-2xl font-bold font-mono">{{ totalWithdrawnBtc }}</p>
+          <p class="text-xs opacity-75 mt-1">BTC</p>
+        </div>
+        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <p class="text-sm opacity-90 mb-1">未提现BTC</p>
+          <p class="text-2xl font-bold font-mono">{{ totalUnwithdrawnBtc }}</p>
+          <p class="text-xs opacity-75 mt-1">BTC</p>
+        </div>
+        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <p class="text-sm opacity-90 mb-1">平台累计产出</p>
+          <p class="text-2xl font-bold font-mono">
+            <span v-if="isCalculatingOutput">
+              <svg class="inline-block w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </span>
+            <span v-else>{{ totalPlatformOutput }}</span>
+          </p>
+          <p class="text-xs opacity-75 mt-1">BTC</p>
+        </div>
+      </div>
+      <div class="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <p class="text-xs opacity-75">
+            提示：用户挖矿收益采用懒加载机制，仅在用户操作时结算。统计数据基于已通过审核的提现订单。
+          </p>
+          <div class="flex items-center gap-2 whitespace-nowrap">
+            <label class="text-xs opacity-75">统计范围：</label>
+            <select
+              v-model="outputCalculationDays"
+              @change="calculateTotalPlatformOutput"
+              class="px-2 py-1 bg-white/20 border border-white/30 rounded text-xs text-white focus:ring-2 focus:ring-white/50"
+            >
+              <option :value="30">近30天</option>
+              <option :value="90">近90天</option>
+              <option :value="180">近180天</option>
+              <option :value="365">近365天</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -399,7 +442,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useReadContract } from '@wagmi/vue';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import { abi } from '@/core/contract';
@@ -505,6 +548,146 @@ const filteredHistoryOrders = computed(() => {
   }
 });
 
+// ========================================
+// 全局BTC统计（前端计算）
+// ========================================
+
+/**
+ * 已提现BTC总量
+ * 统计所有已通过审核的提现订单金额总和
+ */
+const totalWithdrawnBtc = computed(() => {
+  if (!approvedOrders.value || approvedOrders.value.length === 0) {
+    return '0.00000000';
+  }
+  
+  let total = 0n;
+  for (const order of approvedOrders.value) {
+    total += BigInt(order.amount);
+  }
+  
+  return formatBtc(total);
+});
+
+/**
+ * 平台累计BTC产出
+ * 这个需要查询所有已设置的每日产出记录
+ * 由于合约中没有提供查询所有产出记录的接口，我们需要采用一种策略：
+ * 1. 从合约部署日期到今天，遍历每一天
+ * 2. 查询每天的 dailyBtcOutputs[date]
+ * 3. 累加所有非零的产出
+ * 
+ * 为了性能考虑，我们可以限制查询范围（比如最近90天）
+ * 或者让管理员手动触发查询
+ */
+const totalPlatformOutput = ref('0.00000000');
+const isCalculatingOutput = ref(false);
+
+// 计算平台累计产出的天数范围（可配置）
+const outputCalculationDays = ref(90);
+
+// 缓存每日产出数据，避免重复查询
+const dailyOutputCache = ref<Map<string, bigint>>(new Map());
+
+// 计算平台累计产出
+const calculateTotalPlatformOutput = async () => {
+  isCalculatingOutput.value = true;
+  
+  try {
+    const { readContract } = await import('@wagmi/core');
+    const { wagmiConfig } = await import('@/core/web3');
+    
+    // 设定查询范围：从N天前到今天
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - outputCalculationDays.value);
+    
+    let totalOutput = 0n;
+    let checkedDays = 0;
+    let foundDays = 0;
+    let cachedDays = 0;
+    
+    // 遍历每一天
+    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+      // 转换为UTC+8的00:00对应的UTC时间戳
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const day = d.getDate();
+      const utc8Midnight = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const utc8Offset = 8 * 60 * 60 * 1000;
+      const utcTimestamp = Math.floor((utc8Midnight.getTime() - utc8Offset) / 1000);
+      const dateKey = `${year}-${month + 1}-${day}`;
+      
+      // 检查缓存
+      if (dailyOutputCache.value.has(dateKey)) {
+        const cachedAmount = dailyOutputCache.value.get(dateKey)!;
+        if (cachedAmount > 0n) {
+          totalOutput += cachedAmount;
+          foundDays++;
+        }
+        cachedDays++;
+        checkedDays++;
+        continue;
+      }
+      
+      const dateTimestamp = BigInt(utcTimestamp);
+      
+      try {
+        const data = await readContract(wagmiConfig, {
+          address: CONTRACT_ADDRESS,
+          abi,
+          functionName: 'dailyBtcOutputs',
+          args: [dateTimestamp],
+        });
+        
+        if (data) {
+          const output = data as any;
+          const btcAmount = output[1] || 0n;
+          
+          // 缓存查询结果
+          dailyOutputCache.value.set(dateKey, btcAmount);
+          
+          if (btcAmount > 0n) {
+            totalOutput += btcAmount;
+            foundDays++;
+          }
+        }
+        
+        checkedDays++;
+      } catch (error) {
+        console.error('Query daily output error for date:', dateKey, error);
+      }
+    }
+    
+    totalPlatformOutput.value = formatBtc(totalOutput);
+    console.log(`Checked ${checkedDays} days (${cachedDays} from cache), found ${foundDays} days with output`);
+    
+  } catch (error) {
+    console.error('Calculate total platform output error:', error);
+    toast.error('计算平台产出失败');
+  } finally {
+    isCalculatingOutput.value = false;
+  }
+};
+
+/**
+ * 未提现BTC总量
+ * = 平台累计产出 - 已提现BTC
+ */
+const totalUnwithdrawnBtc = computed(() => {
+  const platformOutput = parseFloat(totalPlatformOutput.value);
+  const withdrawn = parseFloat(totalWithdrawnBtc.value);
+  const unwithdrawn = platformOutput - withdrawn;
+  return unwithdrawn >= 0 ? unwithdrawn.toFixed(8) : '0.00000000';
+});
+
+// 页面加载时自动计算平台产出
+onMounted(() => {
+  calculateTotalPlatformOutput();
+});
+
+// ========================================
+
 // 获取待审核的提现订单（使用特殊地址 address(1)）
 const PENDING_ORDERS_ADDRESS = '0x0000000000000000000000000000000000000001' as `0x${string}`;
 
@@ -549,6 +732,14 @@ const formatTimestamp = (timestamp: bigint) => {
     minute: '2-digit',
   });
 };
+
+// 监听提现订单变化，自动重新计算统计数据
+watch(allOrders, () => {
+  // 当订单数据变化时，自动重新计算平台产出
+  if (!isCalculatingOutput.value) {
+    calculateTotalPlatformOutput();
+  }
+}, { deep: true });
 
 // 监听日期变化，查询已有的BTC产出
 watch(btcOutputDate, async (newDate) => {
