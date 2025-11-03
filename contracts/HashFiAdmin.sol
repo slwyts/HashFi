@@ -3,12 +3,6 @@ pragma solidity ^0.8.30;
 
 import "./HashFiLogic.sol";
 
-/**
- * @title HashFiAdmin
- * @dev 包含所有仅限管理员(Owner)访问的功能。
- * 继承自 HashFiLogic 以访问内部函数和状态。
- * 不再需要单独继承 Ownable，因为 HashFiStorage 已经继承了。
- */
 abstract contract HashFiAdmin is HashFiLogic {
 
     function approveGenesisNode(address _applicant) external onlyOwner {
@@ -34,8 +28,6 @@ abstract contract HashFiAdmin is HashFiLogic {
         genesisNodeApplications[_applicant] = false;
         _removeFromPendingApplications(_applicant);
     }
-
-    // --- 参数设置 ---
 
     function setHafPrice(uint256 _newPrice) external onlyOwner {
         if (_newPrice == 0) revert InvalidAmount();
@@ -81,8 +73,6 @@ abstract contract HashFiAdmin is HashFiLogic {
         token.transfer(owner(), _amount);
     }
 
-    // --- 管理员视图 ---
-
     function getAllGenesisNodesInfo() external view onlyOwner returns (
         address[] memory nodes,
         uint256[] memory totalDividends,
@@ -108,39 +98,18 @@ abstract contract HashFiAdmin is HashFiLogic {
         return pendingGenesisApplications;
     }
 
-    // ========================================
-    // 算力中心管理员功能
-    // ========================================
-
-    /**
-     * @dev 更新用户算力
-     * @param _user 用户地址
-     * @param _delta 算力变动量（正数增加，负数减少，整数T）
-     */
     function updateHashPower(address _user, int256 _delta) external onlyOwner {
         if (_user == address(0)) revert InvalidAddress();
         _settleBtcRewards(_user);
         _updateHashPower(_user, _delta);
     }
 
-    /**
-     * @dev 设置指定日期的BTC产出
-     * @param _date 日期时间戳
-     * @param _btcAmount BTC产出数量（8位精度，可以设置为0表示当天无产出）
-     * @notice 设置时会自动记录当前的全网总算力快照
-     * @notice 允许设置为0，用于节假日或其他不产出的日期
-     */
     function setDailyBtcOutput(uint256 _date, uint256 _btcAmount) external onlyOwner {
         uint256 alignedDate = _alignToUtc8Date(_date);
         uint256 totalHashPower = _calculateTotalHashPowerAtDate(alignedDate);
         dailyBtcOutputs[alignedDate] = DailyBtcOutput(alignedDate, _btcAmount, totalHashPower);
     }
 
-    /**
-     * @dev 审核BTC提现订单
-     * @param _orderId 订单ID
-     * @param _approved true通过，false拒绝
-     */
     function processBtcWithdrawal(uint256 _orderId, bool _approved) external onlyOwner {
         if (_orderId >= btcWithdrawalOrders.length) revert InvalidOrder();
         BtcWithdrawalOrder storage order = btcWithdrawalOrders[_orderId];
@@ -154,10 +123,6 @@ abstract contract HashFiAdmin is HashFiLogic {
         }
     }
 
-    /**
-     * @dev 设置最小BTC提现数量
-     * @param _minAmount 最小提现数量（8位精度）
-     */
     function setMinBtcWithdrawal(uint256 _minAmount) external onlyOwner {
         if (_minAmount == 0) revert InvalidAmount();
         minBtcWithdrawal = _minAmount;

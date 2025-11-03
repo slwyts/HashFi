@@ -3,16 +3,8 @@ pragma solidity ^0.8.30;
 
 import "./HashFiLogic.sol";
 
-/**
- * @title HashFiView
- * @dev 包含所有面向公众的只读(view/pure)函数。
- * 继承自 HashFiLogic 以访问内部计算函数和状态。
- */
 abstract contract HashFiView is HashFiLogic {
 
-    /**
-     * @dev 获取用户信息
-     */
     function getUserInfo(address _user) external view returns (User memory, uint8, uint256, uint256) {
         User storage u = users[_user];
         uint8 highestLevel = getUserHighestLevel(_user);
@@ -29,26 +21,17 @@ abstract contract HashFiView is HashFiLogic {
 
         return (u, highestLevel, totalP, smallAreaP);
     }
-    
-    /**
-     * @dev 获取订单信息
-     */
+
     function getOrderInfo(uint256 _orderId) external view returns (Order memory) {
         return orders[_orderId];
     }
-    
-    /**
-     * @dev 获取用户可领取的总奖励
-     */
+
     function getClaimableRewards(address _user) public view returns (uint256 pendingStatic, uint256 pendingDynamic, uint256 pendingGenesis) {
         pendingStatic = _calculatePendingStatic(_user);
         pendingDynamic = _calculatePendingDynamic(_user);
         pendingGenesis = _calculatePendingGenesis(_user);
     }
-    
-    /**
-     * @dev 获取用户的所有订单
-     */
+
     function getUserOrders(address _user) external view returns (Order[] memory) {
         uint256[] memory orderIds = users[_user].orderIds;
         Order[] memory userOrders = new Order[](orderIds.length);
@@ -57,17 +40,11 @@ abstract contract HashFiView is HashFiLogic {
         }
         return userOrders;
     }
-    
-    /**
-     * @dev 获取用户收益记录（全部返回）
-     */
+
     function getUserRewardRecords(address _user) external view returns (RewardRecord[] memory) {
         return users[_user].rewardRecords;
     }
-    
-    /**
-     * @dev 获取用户的直接推荐列表
-     */
+
     function getDirectReferrals(address _user) external view returns (TeamMemberInfo[] memory) {
         address[] memory directReferrals = users[_user].directReferrals;
         TeamMemberInfo[] memory members = new TeamMemberInfo[](directReferrals.length);
@@ -83,10 +60,7 @@ abstract contract HashFiView is HashFiLogic {
         }
         return members;
     }
-    
-    /**
-     * @dev 获取某个订单的待释放静态收益(不结算,纯计算)
-     */
+
     function getOrderPendingReward(uint256 _orderId) external view returns (uint256 pendingUsdt, uint256 pendingHaf) {
         Order storage order = orders[_orderId];
         if (order.isCompleted) {
@@ -94,11 +68,9 @@ abstract contract HashFiView is HashFiLogic {
         }
 
         User storage user = users[order.user];
-        // ✅ 按天数计算
         uint256 daysPassed = (block.timestamp - order.lastSettleTime) / TIME_UNIT;
         if (daysPassed == 0) return (0, 0);
 
-        // ✅ 基础释放：按投资额计算USDT额度，再转换为HAF
         uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
         uint256 dailyReleaseUsdt = (order.amount * baseDailyRate) / 10000;
         uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / hafPrice;
@@ -106,7 +78,6 @@ abstract contract HashFiView is HashFiLogic {
         uint256 baseTotalReleaseHaf = dailyReleaseHaf * daysPassed;
         uint256 baseTotalReleaseUsdt = dailyReleaseUsdt * daysPassed;
         
-        // 检查HAF数量是否超过总额度
         uint256 actualReleaseHaf = baseTotalReleaseHaf;
         uint256 actualReleaseUsdt = baseTotalReleaseUsdt;
         
@@ -117,7 +88,6 @@ abstract contract HashFiView is HashFiLogic {
             }
         }
         
-        // 团队加速是额外奖励
         uint256 accelerationBonus = teamLevels[user.teamLevel].accelerationBonus;
         uint256 accelerationHaf = 0;
         uint256 accelerationUsdt = 0;
@@ -127,7 +97,6 @@ abstract contract HashFiView is HashFiLogic {
             accelerationUsdt = (actualReleaseUsdt * accelerationBonus) / 100;
         }
 
-        // 计算总USDT和HAF（基础90% + 加速90%）
         uint256 userPartUsdt = (actualReleaseUsdt * 90) / 100;
         uint256 accelerationPartUsdt = 0;
         if (accelerationUsdt > 0) {
@@ -145,10 +114,7 @@ abstract contract HashFiView is HashFiLogic {
         
         return (pendingUsdt, pendingHaf);
     }
-    
-    /**
-     * @dev 获取用户的推荐人统计(按等级分类)
-     */
+
     function getUserReferralStats(address _user) external view returns (
         uint256 totalReferrals,
         uint256 bronzeCount,
@@ -169,10 +135,7 @@ abstract contract HashFiView is HashFiLogic {
         
         return (totalReferrals, bronzeCount, silverCount, goldCount, diamondCount);
     }
-    
-    /**
-     * @dev 获取用户团队业绩详情
-     */
+
     function getTeamPerformanceDetails(address _user) external view returns (
         uint256 totalPerformance,
         uint256 largestArea,
@@ -193,10 +156,7 @@ abstract contract HashFiView is HashFiLogic {
         
         return (user.teamTotalPerformance, maxP, totalP - maxP, directReferralsCount);
     }
-    
-    /**
-     * @dev 获取全局统计数据
-     */
+
     function getGlobalStats() external view returns (
         uint256 totalStakedUsdt,
         uint256 totalOrders,
@@ -210,9 +170,8 @@ abstract contract HashFiView is HashFiLogic {
         totalGenesisNodesCount = genesisNodes.length;
         currentHafPrice = hafPrice;
         contractUsdtBalance = usdtToken.balanceOf(address(this));
-        contractHafBalance = IERC20(address(this)).balanceOf(address(this)); // 使用 IERC20 接口
+        contractHafBalance = IERC20(address(this)).balanceOf(address(this));
         
-        // 计算当前活跃质押金额(未完成订单)
         uint256 activeStakedUsdt = 0;
         for (uint i = 0; i < orders.length; i++) {
             if (!orders[i].isCompleted) {
@@ -225,39 +184,18 @@ abstract contract HashFiView is HashFiLogic {
         return (activeStakedUsdt, totalOrders, totalGenesisNodesCount, currentHafPrice, contractUsdtBalance, contractHafBalance, statistics);
     }
 
-    /**
-     * @dev 检查地址是否有待审核的申请
-     */
     function isApplicationPending(address _user) external view returns (bool) {
         return genesisNodeApplications[_user];
     }
-    
-    /**
-     * @dev 获取活跃创世节点列表
-     */
+
     function getActiveGenesisNodes() external view returns (address[] memory) {
         return activeGenesisNodes;
     }
-    
-    /**
-     * @dev 获取所有创世节点（包括已出局的）
-     */
+
     function getAllGenesisNodes() external view returns (address[] memory) {
         return genesisNodes;
     }
 
-    // ========================================
-    // 算力中心查询功能
-    // ========================================
-
-    /**
-     * @dev 获取用户算力信息
-     * @return hashPower 当前算力（整数T）
-     * @return totalMined 累计挖矿BTC（8位精度）
-     * @return available 可提现BTC（8位精度）
-     * @return withdrawn 已提现BTC（8位精度）
-     * @return btcAddress BTC地址
-     */
     function getUserHashPowerInfo(address _user) external view returns (
         uint256 hashPower,
         uint256 totalMined,
@@ -273,9 +211,6 @@ abstract contract HashFiView is HashFiLogic {
         available = _calcAvailableBtc(_user);
     }
 
-    /**
-     * @dev 计算可提现BTC
-     */
     function _calcAvailableBtc(address _user) internal view returns (uint256) {
         UserHashPower storage userHP = userHashPowers[_user];
         uint256 todayDate = _alignToUtc8Date(block.timestamp);
@@ -295,19 +230,10 @@ abstract contract HashFiView is HashFiLogic {
         return userHP.totalMinedBtc + pending - userHP.withdrawnBtc;
     }
 
-    /**
-     * @dev 获取BTC提现订单
-     * @param _user 地址过滤：
-     *              - address(0)：返回所有订单（管理员用）
-     *              - address(1)：返回待审核订单（管理员用）
-     *              - 其他地址：返回该用户的订单
-     */
     function getBtcWithdrawalOrders(address _user) external view returns (BtcWithdrawalOrder[] memory) {
         if (_user == address(0)) {
-            // 返回所有订单
             return btcWithdrawalOrders;
         } else if (_user == address(1)) {
-            // 返回待审核订单
             uint256 count = 0;
             for (uint i = 0; i < btcWithdrawalOrders.length; i++) {
                 if (btcWithdrawalOrders[i].status == BtcWithdrawalStatus.Pending) count++;
@@ -322,7 +248,6 @@ abstract contract HashFiView is HashFiLogic {
             }
             return pending;
         } else {
-            // 返回指定用户的订单
             uint256 count = 0;
             for (uint i = 0; i < btcWithdrawalOrders.length; i++) {
                 if (btcWithdrawalOrders[i].user == _user) count++;
@@ -339,4 +264,3 @@ abstract contract HashFiView is HashFiLogic {
         }
     }
 }
-
