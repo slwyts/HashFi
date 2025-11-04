@@ -7,7 +7,7 @@
     "dev": "vite --mode development",
     "dev:local": "vite --mode localnet",
     "build": "vue-tsc -b && vite build --mode development",
-    "build:prod": "vue-tsc -b && vite build --mode production",
+    "build:prod": "npx hardhat compile && vue-tsc -b && vite build --mode production",
     "preview": "vite preview",
     "testnet": "./scripts/start-auto-testnet.sh",
     "testnet:dev": "./scripts/start-auto-testnet.sh --no-logs && sleep 3 && npm run dev:local",
