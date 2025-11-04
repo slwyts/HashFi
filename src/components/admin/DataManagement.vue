@@ -122,22 +122,13 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
-        <button
-          @click="handleUpdatePrice"
-          :disabled="isProcessing()"
-          class="py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
-        >
-          更新价格
-        </button>
-        <button
-          @click="handleTriggerPriceUpdate"
-          :disabled="isProcessing()"
-          class="py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl font-semibold hover:from-gray-700 hover:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
-        >
-          触发价格更新
-        </button>
-      </div>
+      <button
+        @click="handleUpdatePrice"
+        :disabled="isProcessing()"
+        class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+      >
+        更新价格/涨幅设置
+      </button>
     </div>
   </div>
 </template>
@@ -252,6 +243,13 @@ const handleUpdatePoolData = async () => {
 };
 
 const handleUpdatePrice = async () => {
+  // 检查是否至少填写了一个字段
+  if (!priceForm.value.newPrice && !priceForm.value.dailyRate) {
+    toast.warning('请至少填写一个字段');
+    return;
+  }
+
+  // 更新价格
   if (priceForm.value.newPrice) {
     await callContractWithRefresh(
       {
@@ -271,6 +269,7 @@ const handleUpdatePrice = async () => {
     );
   }
 
+  // 更新每日涨幅
   if (priceForm.value.dailyRate) {
     await callContractWithRefresh(
       {
@@ -289,22 +288,5 @@ const handleUpdatePrice = async () => {
       {}
     );
   }
-};
-
-const handleTriggerPriceUpdate = async () => {
-  await callContractWithRefresh(
-    {
-      address: CONTRACT_ADDRESS,
-      abi,
-      functionName: 'updatePrice',
-      operation: '正在触发价格更新',
-      successMessage: '价格已更新',
-      errorMessage: '更新失败',
-      onConfirmed: async () => {
-        await refreshSystemData();
-      },
-    },
-    {}
-  );
 };
 </script>
