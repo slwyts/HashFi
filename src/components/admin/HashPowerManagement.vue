@@ -144,12 +144,30 @@
         <div class="space-y-3">
           <div>
             <label class="text-sm text-gray-600 mb-2 block">选择日期</label>
-            <input
-              v-model="btcOutputDate"
-              type="date"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p v-if="existingBtcOutput !== null" class="text-xs text-blue-600 mt-2">
+            <div class="grid grid-cols-3 gap-2 mb-2">
+              <CustomSelect
+                v-model="selectedYear"
+                :options="yearOptions"
+                placeholder="年份"
+                @update:model-value="updateBtcOutputDate"
+              />
+              <CustomSelect
+                v-model="selectedMonth"
+                :options="monthOptions"
+                placeholder="月份"
+                @update:model-value="updateBtcOutputDate"
+              />
+              <CustomSelect
+                v-model="selectedDay"
+                :options="dayOptions"
+                placeholder="日期"
+                @update:model-value="updateBtcOutputDate"
+              />
+            </div>
+            <p v-if="btcOutputDate" class="text-xs text-gray-500 mb-2">
+              已选择：{{ btcOutputDate }}
+            </p>
+            <p v-if="existingBtcOutput !== null" class="text-xs text-blue-600">
               该日期已设置产出：{{ formatBtc(existingBtcOutput) }} BTC
             </p>
           </div>
@@ -419,6 +437,8 @@ import { useReadContract } from '@wagmi/vue';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import { abi } from '@/core/contract';
 import { toast } from '@/composables/useToast';
+import CustomSelect from './CustomSelect.vue';
+import type { SelectOption } from './CustomSelect.vue';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
@@ -440,6 +460,77 @@ const getLocalDateString = () => {
 const btcOutputDate = ref(getLocalDateString());
 const btcOutputAmount = ref('');
 const existingBtcOutput = ref<bigint | null>(null);
+
+// 日期选择器（使用下拉框代替 input type="date"）
+const now = new Date();
+const selectedYear = ref(now.getFullYear());
+const selectedMonth = ref(now.getMonth() + 1);
+const selectedDay = ref(now.getDate());
+
+// 年份选项（从2025年开始到当前年份+2年）
+const yearOptions = computed<SelectOption[]>(() => {
+  const currentYear = new Date().getFullYear();
+  const startYear = 2025;
+  const endYear = Math.max(currentYear + 2, 2030); // 至少显示到2030年
+  
+  const years = [];
+  for (let i = startYear; i <= endYear; i++) {
+    years.push({
+      value: i,
+      label: `${i}年`
+    });
+  }
+  return years;
+});
+
+// 月份选项
+const monthOptions = computed<SelectOption[]>(() => {
+  const months = [];
+  for (let i = 1; i <= 12; i++) {
+    months.push({
+      value: i,
+      label: `${i}月`
+    });
+  }
+  return months;
+});
+
+// 日期选项（根据选择的年月动态计算）
+const dayOptions = computed<SelectOption[]>(() => {
+  const year = selectedYear.value;
+  const month = selectedMonth.value;
+  const maxDay = new Date(year, month, 0).getDate();
+  
+  const days = [];
+  for (let i = 1; i <= maxDay; i++) {
+    days.push({
+      value: i,
+      label: `${i}日`
+    });
+  }
+  return days;
+});
+
+// 计算当前选择月份的天数
+const daysInMonth = computed(() => {
+  const year = selectedYear.value;
+  const month = selectedMonth.value;
+  return new Date(year, month, 0).getDate();
+});
+
+// 更新日期字符串
+const updateBtcOutputDate = () => {
+  // 确保选择的日期不超过当月最大天数
+  const maxDay = daysInMonth.value;
+  if (selectedDay.value > maxDay) {
+    selectedDay.value = maxDay;
+  }
+  
+  const year = selectedYear.value;
+  const month = String(selectedMonth.value).padStart(2, '0');
+  const day = String(selectedDay.value).padStart(2, '0');
+  btcOutputDate.value = `${year}-${month}-${day}`;
+};
 
 // 最小提币设置
 const newMinBtcWithdrawal = ref('');
