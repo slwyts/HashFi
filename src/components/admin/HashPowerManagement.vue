@@ -31,36 +31,8 @@
         </div>
         <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
           <p class="text-sm opacity-90 mb-1">平台累计产出</p>
-          <p class="text-2xl font-bold font-mono">
-            <span v-if="isCalculatingOutput">
-              <svg class="inline-block w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </span>
-            <span v-else>{{ totalPlatformOutput }}</span>
-          </p>
+          <p class="text-2xl font-bold font-mono">{{ totalPlatformOutput }}</p>
           <p class="text-xs opacity-75 mt-1">BTC</p>
-        </div>
-      </div>
-      <div class="mt-4 bg-white/10 backdrop-blur-sm rounded-lg p-3">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <p class="text-xs opacity-75">
-            提示：用户挖矿收益采用懒加载机制，仅在用户操作时结算。统计数据基于已通过审核的提现订单。
-          </p>
-          <div class="flex items-center gap-2 whitespace-nowrap">
-            <label class="text-xs opacity-75">统计范围：</label>
-            <select
-              v-model="outputCalculationDays"
-              @change="calculateTotalPlatformOutput"
-              class="px-2 py-1 bg-white/20 border border-white/30 rounded text-xs text-white focus:ring-2 focus:ring-white/50"
-            >
-              <option :value="30">近30天</option>
-              <option :value="90">近90天</option>
-              <option :value="180">近180天</option>
-              <option :value="365">近365天</option>
-            </select>
-          </div>
         </div>
       </div>
     </div>
@@ -589,7 +561,7 @@ const outputCalculationDays = ref(90);
 // 缓存每日产出数据，避免重复查询
 const dailyOutputCache = ref<Map<string, bigint>>(new Map());
 
-// 计算平台累计产出
+// 计算平台累计产出（并行查询优化）
 const calculateTotalPlatformOutput = async () => {
   isCalculatingOutput.value = true;
   
@@ -602,42 +574,41 @@ const calculateTotalPlatformOutput = async () => {
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - outputCalculationDays.value);
     
-    let totalOutput = 0n;
-    let checkedDays = 0;
-    let foundDays = 0;
+    // 收集所有需要查询的日期
+    const datesToQuery: Array<{ dateKey: string; timestamp: bigint }> = [];
+    let cachedTotal = 0n;
     let cachedDays = 0;
     
-    // 遍历每一天
     for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-      // 转换为UTC+8的00:00对应的UTC时间戳
       const year = d.getFullYear();
       const month = d.getMonth();
       const day = d.getDate();
-      const utc8Midnight = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-      const utc8Offset = 8 * 60 * 60 * 1000;
-      const utcTimestamp = Math.floor((utc8Midnight.getTime() - utc8Offset) / 1000);
       const dateKey = `${year}-${month + 1}-${day}`;
       
       // 检查缓存
       if (dailyOutputCache.value.has(dateKey)) {
         const cachedAmount = dailyOutputCache.value.get(dateKey)!;
         if (cachedAmount > 0n) {
-          totalOutput += cachedAmount;
-          foundDays++;
+          cachedTotal += cachedAmount;
         }
         cachedDays++;
-        checkedDays++;
-        continue;
+      } else {
+        // 转换为UTC+8的00:00对应的UTC时间戳
+        const utc8Midnight = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+        const utc8Offset = 8 * 60 * 60 * 1000;
+        const utcTimestamp = Math.floor((utc8Midnight.getTime() - utc8Offset) / 1000);
+        datesToQuery.push({ dateKey, timestamp: BigInt(utcTimestamp) });
       }
-      
-      const dateTimestamp = BigInt(utcTimestamp);
-      
+    }
+    
+    // 并行查询所有未缓存的日期
+    const queryPromises = datesToQuery.map(async ({ dateKey, timestamp }) => {
       try {
         const data = await readContract(wagmiConfig, {
           address: CONTRACT_ADDRESS,
           abi,
           functionName: 'dailyBtcOutputs',
-          args: [dateTimestamp],
+          args: [timestamp],
         });
         
         if (data) {
@@ -647,20 +618,31 @@ const calculateTotalPlatformOutput = async () => {
           // 缓存查询结果
           dailyOutputCache.value.set(dateKey, btcAmount);
           
-          if (btcAmount > 0n) {
-            totalOutput += btcAmount;
-            foundDays++;
-          }
+          return btcAmount;
         }
-        
-        checkedDays++;
+        return 0n;
       } catch (error) {
         console.error('Query daily output error for date:', dateKey, error);
+        return 0n;
+      }
+    });
+    
+    // 等待所有查询完成
+    const results = await Promise.all(queryPromises);
+    
+    // 计算总和
+    let totalOutput = cachedTotal;
+    let foundDays = cachedTotal > 0n ? 1 : 0;
+    
+    for (const btcAmount of results) {
+      if (btcAmount > 0n) {
+        totalOutput += btcAmount;
+        foundDays++;
       }
     }
     
     totalPlatformOutput.value = formatBtc(totalOutput);
-    console.log(`Checked ${checkedDays} days (${cachedDays} from cache), found ${foundDays} days with output`);
+    console.log(`Checked ${datesToQuery.length + cachedDays} days (${cachedDays} from cache), found ${foundDays} days with output`);
     
   } catch (error) {
     console.error('Calculate total platform output error:', error);
@@ -681,9 +663,11 @@ const totalUnwithdrawnBtc = computed(() => {
   return unwithdrawn >= 0 ? unwithdrawn.toFixed(8) : '0.00000000';
 });
 
-// 页面加载时自动计算平台产出
+// 页面加载后延迟计算平台产出，避免阻塞页面渲染
 onMounted(() => {
-  calculateTotalPlatformOutput();
+  setTimeout(() => {
+    calculateTotalPlatformOutput();
+  }, 500);
 });
 
 // ========================================
