@@ -24,7 +24,9 @@
     "connectWallet": "Connect Wallet",
     "language": "Language",
     "addressCopied": "Address copied!",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "pleaseWait": "Please wait...",
+    "connectFailed": "Failed to open wallet connection"
   },
   "languageModal": {
     "title": "Select Language"
@@ -206,6 +208,7 @@
     "aboutUs": "About Us",
     "contactUs": "Contact Us",
     "disconnect": "Disconnect",
+    "disconnected": "Disconnected",
     "adminPanel": "Admin Panel",
     "bindReferrerTitle": "Bind Referrer",
     "referrerAddress": "Referrer Address",

@@ -24,7 +24,9 @@
     "connectWallet": "连接钱包",
     "language": "语言",
     "addressCopied": "地址已复制！",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "pleaseWait": "请稍候...",
+    "connectFailed": "打开钱包连接失败"
   },
   "languageModal": {
     "title": "选择语言"
@@ -207,6 +209,7 @@
     "aboutUs": "关于我们",
     "contactUs": "联系我们",
     "disconnect": "断开连接",
+    "disconnected": "已断开连接",
     "adminPanel": "管理员面板",
     "bindReferrerTitle": "绑定推荐人",
     "referrerAddress": "推荐人地址",

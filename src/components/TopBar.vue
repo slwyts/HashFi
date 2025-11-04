@@ -4,7 +4,7 @@
       <!-- 自定义连接钱包按钮 -->
       <button 
         v-if="!isConnected" 
-        @click="modal.open()"
+        @click="openConnectModal"
         class="relative px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 overflow-hidden group"
       >
         <!-- 背景动画效果 -->
@@ -64,6 +64,9 @@ const toast = useToast();
 const { address, isConnected } = useAccount();
 const modal = useWeb3Modal();
 
+// 防止重复打开模态框
+let isModalOpening = false;
+
 const formattedAddress = computed(() => {
   if (!address.value) return '';
   const addr = address.value;
@@ -83,8 +86,42 @@ const copyAddress = async () => {
   }
 };
 
+const openConnectModal = () => {
+  if (isModalOpening) {
+    console.warn('Modal is already opening, please wait...');
+    toast.warning(t('topBar.pleaseWait') || 'Please wait...');
+    return;
+  }
+  
+  try {
+    isModalOpening = true;
+    modal.open();
+  } catch (error) {
+    console.error('Failed to open connect modal:', error);
+    toast.error(t('topBar.connectFailed') || 'Failed to open wallet connection');
+  } finally {
+    // 重置标志，允许下次打开
+    setTimeout(() => {
+      isModalOpening = false;
+    }, 1000);
+  }
+};
+
 const openAccountModal = () => {
-  modal.open({ view: 'Account' });
+  if (isModalOpening) {
+    console.warn('Modal is already opening, please wait...');
+    return;
+  }
+  
+  try {
+    isModalOpening = true;
+    modal.open({ view: 'Account' });
+  } finally {
+    // 重置标志，允许下次打开
+    setTimeout(() => {
+      isModalOpening = false;
+    }, 1000);
+  }
 };
 
 // --- Language Modal Logic ---

@@ -53,9 +53,25 @@ export const wagmiConfig = defaultWagmiConfig({
   enableWalletConnect: true, // 启用 WalletConnect
   enableInjected: true, // 启用注入式钱包（MetaMask 等）
   enableCoinbase: true, // 启用 Coinbase Wallet
+  // 添加重连配置
+  ssr: false,
 })
 
-reconnect(wagmiConfig);
+// 异步重连，避免竞态条件
+const initReconnect = async () => {
+  try {
+    await reconnect(wagmiConfig);
+  } catch (error) {
+    console.warn('Reconnect failed:', error);
+  }
+};
+
+// 延迟执行重连，确保钱包已初始化
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    initReconnect();
+  }, 100);
+}
 
 // 根据环境选择默认链
 let defaultChain: typeof bsc | typeof hardhatLocal

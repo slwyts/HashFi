@@ -124,7 +124,7 @@
 
     <!-- 断开连接按钮 -->
     <div class="p-4 mt-4 mb-20">
-        <button class="w-full bg-white text-red-500 font-bold py-3 rounded-2xl shadow-md hover:bg-red-50 transition-colors border border-red-200 hover:border-red-300">
+        <button @click="handleDisconnect" class="w-full bg-white text-red-500 font-bold py-3 rounded-2xl shadow-md hover:bg-red-50 transition-colors border border-red-200 hover:border-red-300">
           {{ t('profilePage.disconnect') }}
         </button>
     </div>
@@ -145,7 +145,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
-import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance, useDisconnect } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
 import { abi } from '@/core/contract';
 import BindReferrerModal from '@/components/BindReferrerModal.vue';
@@ -156,6 +156,7 @@ const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { address, isConnected } = useAccount();
+const { disconnect } = useDisconnect();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const HAF_TOKEN_ADDRESS = CONTRACT_ADDRESS; // HAF 代币就是合约本身
@@ -429,6 +430,13 @@ const showInfo = (type: 'aboutUs' | 'contactUs') => {
       contentKey: type
     }
   });
+};
+
+// 处理断开连接
+const handleDisconnect = () => {
+  disconnect();
+  toast.success(t('profilePage.disconnected'));
+  router.push('/');
 };
 
 </script>
