@@ -25,13 +25,13 @@
         
         <div class="space-y-3">
           <div class="flex flex-col md:flex-row gap-3">
-            <select
-              v-model="withdrawForm.token"
-              class="w-full md:w-auto px-4 py-3 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white min-w-0"
-            >
-              <option value="USDT">USDT</option>
-              <option value="HAF">HAF</option>
-            </select>
+            <div class="w-full md:w-auto md:min-w-[140px]">
+              <CustomSelect
+                v-model="withdrawForm.token"
+                :options="tokenOptions"
+                placeholder="选择代币"
+              />
+            </div>
             <input
               v-model="withdrawForm.amount"
               type="number"
@@ -149,6 +149,8 @@ import { useReadContract } from '@wagmi/vue';
 import { useAdminData } from '../../composables/useAdminData';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
 import { abi } from '@/core/contract';
+import CustomSelect from './CustomSelect.vue';
+import type { SelectOption } from './CustomSelect.vue';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const USDT_ADDRESS = import.meta.env.VITE_USDT_ADDRESS as `0x${string}`;
@@ -172,6 +174,12 @@ const withdrawForm = ref({
   token: 'USDT',
   amount: '',
 });
+
+// 代币选项
+const tokenOptions: SelectOption[] = [
+  { value: 'USDT', label: 'USDT' },
+  { value: 'HAF', label: 'HAF' },
+];
 
 const handleEmergencyWithdraw = async () => {
   if (!withdrawForm.value.amount) return;
