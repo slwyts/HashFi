@@ -151,12 +151,14 @@ import { abi } from '@/core/contract';
 import BindReferrerModal from '@/components/BindReferrerModal.vue';
 import { parseInviteCode, formatAddress } from '@/utils/invite';
 import { toast } from '@/composables/useToast';
+import { useWeb3Modal } from '@web3modal/wagmi/vue';
 
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { address, isConnected } = useAccount();
 const { disconnect } = useDisconnect();
+const modal = useWeb3Modal();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const HAF_TOKEN_ADDRESS = CONTRACT_ADDRESS; // HAF 代币就是合约本身
@@ -365,9 +367,13 @@ const checkInviteFromUrl = () => {
 
 // 处理邀请绑定逻辑
 const handleInviteBinding = () => {
-  // 如果没有连接钱包，提示连接
+  // 如果没有连接钱包，自动打开钱包连接模态框
   if (!isConnected.value) {
-    toast.info('请先连接钱包以接受邀请');
+    toast.info('检测到邀请链接，请连接钱包以接受邀请');
+    // 自动打开钱包连接模态框
+    setTimeout(() => {
+      modal.open();
+    }, 500);
     return;
   }
   
@@ -436,7 +442,7 @@ const showInfo = (type: 'aboutUs' | 'contactUs') => {
 const handleDisconnect = () => {
   disconnect();
   toast.success(t('profilePage.disconnected'));
-  router.push('/');
+  // 不跳转，保持在当前页面
 };
 
 </script>
