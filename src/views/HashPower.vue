@@ -22,28 +22,28 @@
           <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl">
             <p class="text-xs text-gray-600 mb-1">当前算力</p>
             <p class="text-2xl font-bold text-orange-600">{{ currentHashPower }}</p>
-            <p class="text-xs text-gray-500 mt-1">T</p>
+            <p class="text-xs text-gray-500 mt-1 font-bold">T</p>
           </div>
 
           <!-- 累计挖矿 -->
           <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
             <p class="text-xs text-gray-600 mb-1">累计挖矿</p>
             <p class="text-2xl font-bold text-blue-600">{{ formatBtc(totalMinedBtc) }}</p>
-            <p class="text-xs text-gray-500 mt-1">BTC</p>
+            <p class="text-xs text-gray-500 mt-1 font-bold">BTC</p>
           </div>
 
           <!-- 可提现 -->
           <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl">
             <p class="text-xs text-gray-600 mb-1">可提现</p>
             <p class="text-2xl font-bold text-green-600">{{ formatBtc(availableBtc) }}</p>
-            <p class="text-xs text-gray-500 mt-1">BTC</p>
+            <p class="text-xs text-gray-500 mt-1 font-bold">BTC</p>
           </div>
 
           <!-- 已提现 -->
           <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
             <p class="text-xs text-gray-600 mb-1">已提现</p>
             <p class="text-2xl font-bold text-purple-600">{{ formatBtc(withdrawnBtc) }}</p>
-            <p class="text-xs text-gray-500 mt-1">BTC</p>
+            <p class="text-xs text-gray-500 mt-1 font-bold">BTC</p>
           </div>
         </div>
       </div>

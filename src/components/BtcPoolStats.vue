@@ -10,7 +10,7 @@
       <div class="group">
         <p class="text-xs md:text-sm text-gray-500 mb-1 md:mb-2">{{ t('miningPool.platformHashrate') }}</p>
         <p class="text-base md:text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          {{ totalHashrate }} T
+          {{ totalHashrate }} <span class="font-extrabold">T</span>
         </p>
       </div>
       <div class="group">
