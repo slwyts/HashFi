@@ -258,8 +258,7 @@ const handleFromAmountChange = () => {
   }
 
   const price = parseFloat(hafPriceDisplay.value);
-  // 考虑手续费: 2%
-  const feeRate = 0.02;
+  const feeRate = 0.00;
   
   if (fromToken.name === 'USDT') {
     // USDT -> HAF
