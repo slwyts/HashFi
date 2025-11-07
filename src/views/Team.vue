@@ -16,7 +16,7 @@
           <h3 class="font-bold text-lg">{{ t('teamPage.inviteTitle') }}</h3>
         </div>
         <div class="bg-white/15 backdrop-blur-sm p-4 rounded-xl flex justify-between items-center">
-          <span class="text-sm font-mono truncate mr-4 opacity-90">{{ inviteLink || '请连接钱包' }}</span>
+          <span class="text-sm font-mono truncate mr-4 opacity-90">{{ inviteLink || t('teamPage.pleaseConnectWallet') }}</span>
           <button 
             @click="copyInviteLink"
             :disabled="!address"
@@ -63,9 +63,9 @@
         <p class="text-sm text-gray-500 mb-1">{{ t('teamPage.totalPerformance') }} (USDT)</p>
         <p class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ teamTotalPerformance }}</p>
         <div class="text-xs text-gray-400 mt-2 space-y-1">
-          <p>大区业绩: {{ largestAreaPerformance }} USDT</p>
-          <p>小区业绩: {{ smallAreaPerformance }} USDT</p>
-          <p>个人投资: {{ personalStakedAmount }} USDT</p>
+          <p>{{ t('teamPage.largeAreaPerformance') }}: {{ largestAreaPerformance }} USDT</p>
+          <p>{{ t('teamPage.smallAreaPerformance') }}: {{ smallAreaPerformance }} USDT</p>
+          <p>{{ t('teamPage.personalInvestment') }}: {{ personalStakedAmount }} USDT</p>
         </div>
       </div>
     </div>
@@ -77,17 +77,17 @@
         <span class="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-2 px-4 rounded-full text-sm shadow-md">{{ teamLevel.current }}</span>
       </div>
       <div class="flex justify-between text-sm mb-3 text-gray-600">
-        <p>小区业绩: <span class="font-semibold text-gray-800">{{ teamLevel.currentPerformance }} USDT</span></p>
+        <p>{{ t('teamPage.smallAreaPerformance') }}: <span class="font-semibold text-gray-800">{{ teamLevel.currentPerformance }} USDT</span></p>
       </div>
       <div class="w-full bg-gray-200 rounded-full h-3 mb-3 overflow-hidden">
         <div class="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-inner" :style="{ width: teamLevel.progress + '%' }"></div>
       </div>
       <div class="text-xs text-gray-500 bg-blue-50 p-2 rounded-lg">
         <span v-if="teamLevel.remainingToNext > 0">
-          距离 {{ teamLevel.next }} 级别还差: {{ teamLevel.remainingToNext.toFixed(2) }} USDT
+          {{ t('teamPage.remainingToNext', { level: teamLevel.next, amount: teamLevel.remainingToNext.toFixed(2) }) }}
         </span>
         <span v-else class="text-green-600">
-          🎉 已达到当前等级要求！
+          🎉 {{ t('teamPage.levelAchieved') }}
         </span>
       </div>
     </div>
@@ -119,16 +119,16 @@
                 <p class="font-semibold text-gray-800">{{ member.shortAddress }}</p>
                 <!-- 层级标签 -->
                 <span v-if="member.memberLevel && member.memberLevel > 1" class="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
-                  {{ member.memberLevel }}级
+                  {{ t('teamPage.memberLevel', { level: member.memberLevel }) }}
                 </span>
               </div>
               <p class="text-xs text-gray-500 mt-1">
-                个人投资: {{ member.personalStaked }} USDT | 团队业绩: {{ member.teamPerformance }} USDT
+                {{ t('teamPage.personalInvestment') }}: {{ member.personalStaked }} USDT | {{ t('teamPage.teamPerformance') }}: {{ member.teamPerformance }} USDT
               </p>
             </div>
             <div class="text-right">
               <span class="inline-block bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full mb-1">{{ member.level }}</span>
-              <p class="text-sm font-semibold text-gray-600">总计: {{ member.totalPerformance }} USDT</p>
+              <p class="text-sm font-semibold text-gray-600">{{ t('teamPage.total') }}: {{ member.totalPerformance }} USDT</p>
             </div>
           </div>
         </div>

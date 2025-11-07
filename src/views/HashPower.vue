@@ -8,40 +8,40 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 class="text-2xl font-bold text-white">算力中心</h1>
+        <h1 class="text-2xl font-bold text-white">{{ t('hashPowerPage.title') }}</h1>
       </div>
     </div>
 
     <div class="p-4 space-y-4">
       <!-- 算力信息卡片 -->
       <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">我的算力</h2>
+        <h2 class="text-lg font-bold text-gray-800 mb-4">{{ t('hashPowerPage.myHashPower') }}</h2>
         
         <div class="grid grid-cols-2 gap-4">
           <!-- 当前算力 -->
           <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl">
-            <p class="text-xs text-gray-600 mb-1">当前算力</p>
+            <p class="text-xs text-gray-600 mb-1">{{ t('hashPowerPage.currentHashPower') }}</p>
             <p class="text-2xl font-bold text-orange-600">{{ currentHashPower }}</p>
             <p class="text-xs text-gray-500 mt-1 font-bold">T</p>
           </div>
 
           <!-- 累计挖矿 -->
           <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
-            <p class="text-xs text-gray-600 mb-1">累计挖矿</p>
+            <p class="text-xs text-gray-600 mb-1">{{ t('hashPowerPage.totalMined') }}</p>
             <p class="text-2xl font-bold text-blue-600">{{ formatBtc(totalMinedBtc) }}</p>
             <p class="text-xs text-gray-500 mt-1 font-bold">BTC</p>
           </div>
 
           <!-- 可提现 -->
           <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl">
-            <p class="text-xs text-gray-600 mb-1">可提现</p>
+            <p class="text-xs text-gray-600 mb-1">{{ t('hashPowerPage.availableWithdraw') }}</p>
             <p class="text-2xl font-bold text-green-600">{{ formatBtc(availableBtc) }}</p>
             <p class="text-xs text-gray-500 mt-1 font-bold">BTC</p>
           </div>
 
           <!-- 已提现 -->
           <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
-            <p class="text-xs text-gray-600 mb-1">已提现</p>
+            <p class="text-xs text-gray-600 mb-1">{{ t('hashPowerPage.withdrawn') }}</p>
             <p class="text-2xl font-bold text-purple-600">{{ formatBtc(withdrawnBtc) }}</p>
             <p class="text-xs text-gray-500 mt-1 font-bold">BTC</p>
           </div>
@@ -50,11 +50,11 @@
 
       <!-- BTC地址设置 -->
       <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">BTC提现地址</h2>
+        <h2 class="text-lg font-bold text-gray-800 mb-4">{{ t('hashPowerPage.btcAddressTitle') }}</h2>
         
         <div v-if="btcAddress && btcAddress !== '0x0000000000000000000000000000000000000000'" class="mb-4">
           <div class="bg-gray-50 p-4 rounded-xl">
-            <p class="text-xs text-gray-500 mb-1">当前地址</p>
+            <p class="text-xs text-gray-500 mb-1">{{ t('hashPowerPage.currentAddress') }}</p>
             <p class="text-sm font-mono text-gray-800 break-all">{{ btcAddress }}</p>
           </div>
         </div>
@@ -65,15 +65,15 @@
             type="text"
             class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent font-mono text-sm"
             :class="{ 'border-red-300 focus:ring-red-500': newBtcAddress && !isBtcAddressValid }"
-            placeholder="输入BTC地址（如：bc1q...）"
+            :placeholder="t('hashPowerPage.enterBtcAddress')"
           />
           
           <!-- BTC地址安全提示 -->
           <div class="bg-red-50 border border-red-200 rounded-xl p-3">
             <p class="text-xs text-red-800">
-              <span class="font-semibold">⚠️ 重要提示：</span>
-              <br/>HashFi仅支持通过Bitcoin主网地址进行提现，如果输入错误，本平台概不负责。
-              <br/>支持的地址格式：1、3、bc1p、bc1q 开头的地址
+              <span class="font-semibold">{{ t('hashPowerPage.btcAddressWarning') }}</span>
+              <br/>{{ t('hashPowerPage.btcAddressWarningDesc') }}
+              <br/>{{ t('hashPowerPage.supportedFormats') }}
             </p>
           </div>
           
@@ -82,7 +82,7 @@
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
             </svg>
-            <span>请输入有效的Bitcoin主网地址（1、3、bc1p或bc1q开头）</span>
+            <span>{{ t('hashPowerPage.invalidBtcAddress') }}</span>
           </div>
           
           <button
@@ -90,55 +90,55 @@
             :disabled="isProcessing() || !newBtcAddress || !isBtcAddressValid"
             class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-3 rounded-xl hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
-            {{ isProcessing() ? '处理中...' : '设置BTC地址' }}
+            {{ isProcessing() ? t('hashPowerPage.processing') : t('hashPowerPage.setBtcAddress') }}
           </button>
         </div>
       </div>
 
       <!-- BTC提现 -->
       <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">申请提现</h2>
+        <h2 class="text-lg font-bold text-gray-800 mb-4">{{ t('hashPowerPage.withdrawTitle') }}</h2>
         
         <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
           <p class="text-xs text-yellow-800">
-            <span class="font-semibold">提示：</span>
-            <br/>• 最低提现金额：{{ minBtcWithdrawal.toFixed(8) }} BTC
-            <br/>• 提现手续费：5%
-            <br/>• 提现需要管理员审核通过后到账
+            <span class="font-semibold">{{ t('hashPowerPage.withdrawTips') }}</span>
+            <br/>{{ t('hashPowerPage.minWithdrawal', { amount: minBtcWithdrawal.toFixed(8) }) }}
+            <br/>{{ t('hashPowerPage.withdrawalFee') }}
+            <br/>{{ t('hashPowerPage.withdrawalReview') }}
           </p>
         </div>
 
         <div class="space-y-3">
           <div>
-            <label class="text-sm text-gray-600 mb-2 block">提现数量（BTC）</label>
+            <label class="text-sm text-gray-600 mb-2 block">{{ t('hashPowerPage.withdrawAmount') }}</label>
             <input
               v-model="withdrawAmount"
               type="number"
               step="0.00000001"
               :min="minBtcWithdrawal"
               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg font-mono"
-              placeholder="0.00000000"
+              :placeholder="t('hashPowerPage.withdrawAmountPlaceholder')"
             />
             <div class="flex justify-between mt-2 text-xs text-gray-500">
-              <span>可提现：{{ formatBtc(availableBtc) }} BTC</span>
+              <span>{{ t('hashPowerPage.availableBalance', { amount: formatBtc(availableBtc) }) }}</span>
               <button @click="withdrawAmount = formatBtc(availableBtc)" class="text-orange-600 hover:text-orange-700 font-semibold">
-                全部
+                {{ t('hashPowerPage.all') }}
               </button>
             </div>
           </div>
 
           <div v-if="withdrawAmount" class="bg-gray-50 p-4 rounded-xl">
             <div class="flex justify-between text-sm mb-2">
-              <span class="text-gray-600">提现金额</span>
+              <span class="text-gray-600">{{ t('hashPowerPage.withdrawAmountLabel') }}</span>
               <span class="font-mono">{{ withdrawAmount }} BTC</span>
             </div>
             <div class="flex justify-between text-sm mb-2">
-              <span class="text-gray-600">手续费 (5%)</span>
+              <span class="text-gray-600">{{ t('hashPowerPage.fee') }}</span>
               <span class="font-mono text-red-600">-{{ (parseFloat(withdrawAmount || '0') * 0.05).toFixed(8) }} BTC</span>
             </div>
             <div class="border-t border-gray-200 my-2"></div>
             <div class="flex justify-between text-sm font-bold">
-              <span class="text-gray-800">实际到账</span>
+              <span class="text-gray-800">{{ t('hashPowerPage.actualReceive') }}</span>
               <span class="font-mono text-green-600">{{ (parseFloat(withdrawAmount || '0') * 0.95).toFixed(8) }} BTC</span>
             </div>
           </div>
@@ -148,20 +148,20 @@
             :disabled="isProcessing() || !withdrawAmount || parseFloat(withdrawAmount) < minBtcWithdrawal || !btcAddress || btcAddress === '0x0000000000000000000000000000000000000000'"
             class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
-            {{ isProcessing() ? '处理中...' : '申请提现' }}
+            {{ isProcessing() ? t('hashPowerPage.processing') : t('hashPowerPage.applyWithdraw') }}
           </button>
         </div>
       </div>
 
       <!-- 提现订单列表 -->
       <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">我的提现订单</h2>
+        <h2 class="text-lg font-bold text-gray-800 mb-4">{{ t('hashPowerPage.myWithdrawalOrders') }}</h2>
         
         <div v-if="!withdrawalOrders || withdrawalOrders.length === 0" class="text-center py-8 text-gray-400">
           <svg class="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <p class="text-sm">暂无提现记录</p>
+          <p class="text-sm">{{ t('hashPowerPage.noWithdrawalRecords') }}</p>
         </div>
 
         <div v-else class="space-y-3">
@@ -181,7 +181,7 @@
                 order.status === 1 ? 'bg-green-100 text-green-700' :
                 'bg-red-100 text-red-700'
               ]">
-                {{ order.status === 0 ? '待审核' : order.status === 1 ? '已通过' : '已拒绝' }}
+                {{ order.status === 0 ? t('hashPowerPage.orderStatus.pending') : order.status === 1 ? t('hashPowerPage.orderStatus.approved') : t('hashPowerPage.orderStatus.rejected') }}
               </span>
             </div>
             <div class="text-xs text-gray-600 bg-gray-50 p-3 rounded-lg font-mono break-all">
@@ -198,10 +198,12 @@
 import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract } from '@wagmi/vue';
+import { useI18n } from 'vue-i18n';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import { abi } from '@/core/contract';
 import { toast } from '@/composables/useToast';
 
+const { t } = useI18n();
 const router = useRouter();
 const { address } = useAccount();
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
