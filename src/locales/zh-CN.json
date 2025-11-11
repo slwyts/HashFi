@@ -87,7 +87,19 @@
     "insufficientBalance": "余额不足",
     "minSwapAmountError": "最小兑换 10 USDT",
     "selectToken": "选择代币",
-    "processing": "处理中..."
+    "processing": "处理中...",
+    "addTokenTitle": "一键添加 HAF 到钱包",
+    "addTokenDescription": "兑换后在钱包中快速查看 HAF 余额。",
+    "addTokenButton": "添加 HAF 到钱包",
+    "addTokenProcessing": "正在添加...",
+    "addTokenSuccess": "已将 HAF 代币添加到钱包",
+    "addTokenFailed": "添加代币失败：{message}",
+    "addTokenUserRejected": "已在钱包中取消添加代币",
+    "walletNotSupported": "当前钱包不支持自动添加代币",
+    "chainNotConfigured": "网络配置缺失，请检查环境变量。",
+    "switchNetworkFailed": "切换网络失败，请在钱包中手动切换后重试。",
+    "switchNetworkRejected": "已在钱包中取消网络切换",
+    "unknownError": "未知错误"
   },
   "incomePage": {
     "totalIncome": "累计总收益",

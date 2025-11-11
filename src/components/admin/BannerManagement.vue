@@ -123,7 +123,7 @@
                 placeholder="输入图片URL，如：/banner_01.png 或 https://..."
               />
               <p class="text-xs text-gray-400 mt-1">
-                💡 可以使用 public 目录的图片：/banner_01.png、/icons/hashfi_yellow.png
+                💡 可以使用 public 目录的图片：/banner_01.png、/logo.png
               </p>
             </div>
 

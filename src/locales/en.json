@@ -87,7 +87,19 @@
     "insufficientBalance": "Insufficient Balance",
     "minSwapAmountError": "Minimum 10 USDT",
     "selectToken": "Select Token",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "addTokenTitle": "Add HAF to your wallet",
+    "addTokenDescription": "Quickly track HAF directly in your wallet after swapping.",
+    "addTokenButton": "Add HAF to Wallet",
+    "addTokenProcessing": "Adding...",
+    "addTokenSuccess": "HAF token added to wallet",
+    "addTokenFailed": "Failed to add token: {message}",
+    "addTokenUserRejected": "Token addition cancelled in wallet",
+    "walletNotSupported": "Current wallet does not support automatic token addition",
+    "chainNotConfigured": "Network configuration missing. Please check environment variables.",
+    "switchNetworkFailed": "Failed to switch network. Please switch manually and try again.",
+    "switchNetworkRejected": "Network switch cancelled in wallet",
+    "unknownError": "Unknown error"
   },
   "incomePage": {
     "totalIncome": "Total Income",

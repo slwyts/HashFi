@@ -1,5 +1,5 @@
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi/vue'
-import { bsc } from 'viem/chains'
+import { bsc , bscTestnet} from 'viem/chains'
 import { reconnect } from 'wagmi/actions'
 import { http } from 'viem'
 import { defineChain } from 'viem'
@@ -29,13 +29,16 @@ const metadata = {
 
 // 根据环境选择链
 const appMode = import.meta.env.VITE_APP_MODE
-let chains: readonly [typeof bsc] | readonly [typeof hardhatLocal, typeof bsc]
+let chains: any
 
 if (appMode === 'localnet') {
   // 本地开发环境：包含本地链和 BSC 主网
-  chains = [hardhatLocal, bsc] as const
+  chains = [hardhatLocal] as const
+} else if (appMode === 'development') {
+  // 开发环境：仅 BSC testnet
+  chains = [bscTestnet] as const
 } else {
-  // 生产/开发环境：仅 BSC 主网
+  // 生产环境：仅 BSC 主网
   chains = [bsc] as const
 }
 
@@ -50,14 +53,12 @@ export const wagmiConfig = defaultWagmiConfig({
   projectId,
   metadata,
   transports,
-  enableWalletConnect: true, // 启用 WalletConnect
-  enableInjected: true, // 启用注入式钱包（MetaMask 等）
-  enableCoinbase: true, // 启用 Coinbase Wallet
-  // 添加重连配置
+  enableWalletConnect: true,
+  enableInjected: true,
+  enableCoinbase: true, 
   ssr: false,
 })
 
-// 异步重连，避免竞态条件
 const initReconnect = async () => {
   try {
     await reconnect(wagmiConfig);

@@ -12,8 +12,8 @@
         </div>
         <div class="flex justify-between items-center">
           <div @click="openTokenSelector('from')" class="flex items-center cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" :class="fromToken.name === 'HAF' ? 'bg-black' : ''">
-              <img :src="fromToken.icon" :alt="fromToken.name" :class="fromToken.name === 'HAF' ? 'w-6 h-6' : 'w-10 h-10 rounded-full object-cover'" />
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-white shadow">
+              <img :src="fromToken.icon" :alt="fromToken.name" class="w-10 h-10 rounded-full object-cover" />
             </div>
             <span class="font-bold text-xl mr-1">{{ fromToken.name }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -58,8 +58,8 @@
         </div>
         <div class="flex justify-between items-center">
           <div @click="openTokenSelector('to')" class="flex items-center cursor-pointer hover:bg-gray-50 p-2 -ml-2 rounded-lg transition-colors">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" :class="toToken.name === 'HAF' ? 'bg-black' : ''">
-              <img :src="toToken.icon" :alt="toToken.name" :class="toToken.name === 'HAF' ? 'w-6 h-6' : 'w-10 h-10 rounded-full object-cover'" />
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-white shadow">
+              <img :src="toToken.icon" :alt="toToken.name" class="w-10 h-10 rounded-full object-cover" />
             </div>
             <span class="font-bold text-xl mr-1">{{ toToken.name }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -76,6 +76,32 @@
       </div>
     </div>
     
+    <!-- Add Token CTA -->
+    <div class="mt-5">
+      <div class="bg-gradient-to-r from-blue-50 via-white to-blue-50 border border-blue-100 rounded-2xl p-4 shadow flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex flex-col">
+          <p class="text-sm font-semibold text-blue-600">{{ t('swapPage.addTokenTitle') }}</p>
+          <p class="text-xs text-gray-500 mt-1">{{ t('swapPage.addTokenDescription') }}</p>
+        </div>
+        <div class="flex flex-col sm:items-end gap-2">
+          <button
+            @click="addTokenToWallet"
+            class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            :disabled="isAddingToken || !isWalletAvailable"
+          >
+            <svg v-if="!isAddingToken" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12a8 8 0 018-8m0 0v4m0-4a8 8 0 018 8" />
+            </svg>
+            <span>{{ isAddingToken ? t('swapPage.addTokenProcessing') : t('swapPage.addTokenButton') }}</span>
+          </button>
+          <p v-if="!isWalletAvailable" class="text-xs text-gray-400">{{ t('swapPage.walletNotSupported') }}</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Warning Notice -->
     <div class="bg-gradient-to-r from-red-50 to-orange-50 text-red-600 text-sm p-3 rounded-xl mt-4 flex items-start border border-red-100">
       <div class="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center mr-2.5 flex-shrink-0">
@@ -123,8 +149,8 @@
             class="flex items-center p-3 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors"
             :class="{ 'opacity-50 pointer-events-none': !canSelectToken(token) }"
           >
-            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3" :class="token.name === 'HAF' ? 'bg-black' : ''">
-              <img :src="token.icon" :alt="token.name" :class="token.name === 'HAF' ? 'w-6 h-6' : 'w-10 h-10 rounded-full object-cover'" />
+            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-white shadow">
+              <img :src="token.icon" :alt="token.name" class="w-10 h-10 rounded-full object-cover" />
             </div>
             <div class="flex-1">
               <div class="font-semibold text-gray-800">{{ token.name }}</div>
@@ -158,8 +184,72 @@ const toast = useToast();
 const CONTRACT_ADDRESS = CONTRACT;
 const USDT_ADDRESS = USDT;
 
+type EthereumProvider = {
+  request: (args: { method: string; params?: unknown }) => Promise<unknown>;
+};
+
+const getEthereumProvider = (): EthereumProvider | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  return (window as any).ethereum as EthereumProvider | undefined;
+};
+
+const isWalletAvailable = computed(() => !!getEthereumProvider());
+const isAddingToken = ref(false);
+
+const addTokenToWallet = async () => {
+  if (isAddingToken.value) return;
+
+  if (!isWalletAvailable.value) {
+    toast.error(t('swapPage.walletNotSupported'));
+    return;
+  }
+
+  const provider = getEthereumProvider();
+
+  if (!provider) {
+    toast.error(t('swapPage.walletNotSupported'));
+    return;
+  }
+
+  isAddingToken.value = true;
+
+  try {
+    const imageUrl = typeof window !== 'undefined'
+      ? new URL('/logo.png', window.location.origin).href
+      : '/logo.png';
+
+    const result = await provider.request({
+      method: 'wallet_watchAsset',
+      params: {
+        type: 'ERC20',
+        options: {
+          address: CONTRACT_ADDRESS,
+          symbol: 'HAF',
+          decimals: 18,
+          image: imageUrl,
+        },
+      },
+    });
+
+    if (result) {
+      toast.success(t('swapPage.addTokenSuccess'));
+    } else {
+      toast.info(t('swapPage.addTokenUserRejected'));
+    }
+  } catch (error: any) {
+    if (error?.code === 4001) {
+      toast.info(t('swapPage.addTokenUserRejected'));
+      return;
+    }
+    const message = error?.message || t('swapPage.unknownError');
+    toast.error(t('swapPage.addTokenFailed', { message }));
+  } finally {
+    isAddingToken.value = false;
+  }
+};
+
 // ========== 1. 获取 HAF 价格 ==========
-const { data: hafPrice, refetch: refetchPrice } = useReadContract({
+const { data: hafPrice } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
   functionName: 'hafPrice',
@@ -206,7 +296,7 @@ const hafBalanceDisplay = computed(() => {
 const tokens = computed(() => ({
   HAF: { 
     name: 'HAF', 
-    icon: '/icons/hashfi_yellow.png', 
+  icon: '/logo.png', 
     balance: hafBalanceDisplay.value, 
     decimals: 18,
     address: CONTRACT_ADDRESS
