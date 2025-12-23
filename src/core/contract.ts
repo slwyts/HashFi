@@ -138,7 +138,16 @@ export function useGlobalGenesisPool() {
  * =================================================================================================
  */
 
-export function useStake(amount: Ref<number | null>) {
+export function useStake(amount: Ref<number | null>): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+    hash: ReturnType<typeof useWriteContract>['data'];
+} {
   const { data: config, error: simulateError, refetch } = useSimulateContract({
     address: HASHFI_CONTRACT_ADDRESS,
     abi,
@@ -151,7 +160,16 @@ export function useStake(amount: Ref<number | null>) {
   return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
 }
 
-export function useBindReferrer(referrerAddress: Ref<Address | undefined>) {
+export function useBindReferrer(referrerAddress: Ref<Address | undefined>): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+    hash: ReturnType<typeof useWriteContract>['data'];
+} {
     const { data: config, error: simulateError, refetch } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
@@ -163,7 +181,16 @@ export function useBindReferrer(referrerAddress: Ref<Address | undefined>) {
     return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
 }
 
-export function useApplyForGenesisNode() {
+export function useApplyForGenesisNode(): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+    hash: ReturnType<typeof useWriteContract>['data'];
+} {
     const { data: config, error: simulateError, refetch } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
@@ -174,7 +201,16 @@ export function useApplyForGenesisNode() {
     return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
 }
 
-export function useWithdraw() {
+export function useWithdraw(): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+    hash: ReturnType<typeof useWriteContract>['data'];
+} {
     const { data: config, error: simulateError, refetch } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
@@ -190,7 +226,16 @@ export function useWithdraw() {
  * @param tokenIn 支付的代币地址 (HAF 合约地址 或 USDT 地址)
  * @param amountIn 支付的数量
  */
-export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | null>) {
+export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | null>): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+    hash: ReturnType<typeof useWriteContract>['data'];
+} {
     const { data: config, error: simulateError, refetch } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
@@ -213,7 +258,14 @@ export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | nul
  * =================================================================================================
  */
 
-export function useSetHafPrice(newPrice: Ref<number | null>) {
+export function useSetHafPrice(newPrice: Ref<number | null>): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+} {
     const { data: config, error: simulateError } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
@@ -225,7 +277,14 @@ export function useSetHafPrice(newPrice: Ref<number | null>) {
     return { config, simulateError, writeContract, isPending, isSuccess, writeError };
 }
 
-export function useSetWithdrawalFee(newFeeRate: Ref<number | null>) {
+export function useSetWithdrawalFee(newFeeRate: Ref<number | null>): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+} {
     const { data: config, error: simulateError } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS,
         abi,
@@ -237,7 +296,14 @@ export function useSetWithdrawalFee(newFeeRate: Ref<number | null>) {
     return { config, simulateError, writeContract, isPending, isSuccess, writeError };
 }
 
-export function usePause() {
+export function usePause(): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+} {
     const { data: config, error: simulateError } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS, abi, functionName: 'pause', chainId: CHAIN_ID
     });
@@ -245,7 +311,14 @@ export function usePause() {
     return { config, simulateError, writeContract, isPending, isSuccess, writeError };
 }
 
-export function useUnpause() {
+export function useUnpause(): {
+    config: ReturnType<typeof useSimulateContract>['data'];
+    simulateError: ReturnType<typeof useSimulateContract>['error'];
+    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+    isPending: ReturnType<typeof useWriteContract>['isPending'];
+    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+    writeError: ReturnType<typeof useWriteContract>['error'];
+} {
     const { data: config, error: simulateError } = useSimulateContract({
         address: HASHFI_CONTRACT_ADDRESS, abi, functionName: 'unpause', chainId: CHAIN_ID
     });

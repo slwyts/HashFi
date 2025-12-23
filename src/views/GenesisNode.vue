@@ -328,7 +328,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance, type UseBalanceParameters } from '@wagmi/vue';
 import { formatUnits } from 'viem';
 import { useI18n } from 'vue-i18n';
 import { abi } from '@/core/contract';
@@ -462,7 +462,7 @@ const { data: usdtBalance } = useBalance({
   query: {
     enabled: !!address.value,
   }
-});
+} as UseBalanceParameters);
 
 const usdtBalanceDisplay = computed(() => {
   if (!usdtBalance.value) return '0.00';

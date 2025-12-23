@@ -145,7 +145,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
-import { useAccount, useReadContract, useBalance, useDisconnect } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance, useDisconnect, type UseBalanceParameters } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
 import { abi } from '@/core/contract';
 import BindReferrerModal from '@/components/BindReferrerModal.vue';
@@ -207,7 +207,7 @@ const { data: hafBalance } = useBalance({
   query: {
     enabled: !!address.value,
   },
-});
+} as UseBalanceParameters);
 
 // 读取 HAF 价格
 const { data: hafPriceData } = useReadContract({

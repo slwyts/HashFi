@@ -171,7 +171,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance, type UseBalanceParameters } from '@wagmi/vue';
 import { formatUnits, parseUnits, maxUint256, type Address } from 'viem';
 import { abi, erc20Abi, CONTRACT, USDT } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
@@ -271,7 +271,7 @@ const { data: usdtBalance, refetch: refetchUsdtBalance } = useBalance({
   query: {
     enabled: !!address,
   }
-});
+} as UseBalanceParameters);
 
 const usdtBalanceDisplay = computed(() => {
   if (!usdtBalance.value) return '0.00';
@@ -285,7 +285,7 @@ const { data: hafBalance, refetch: refetchHafBalance } = useBalance({
   query: {
     enabled: !!address,
   }
-});
+} as UseBalanceParameters);
 
 const hafBalanceDisplay = computed(() => {
   if (!hafBalance.value) return '0.00';

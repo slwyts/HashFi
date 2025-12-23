@@ -222,7 +222,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { useAccount, useReadContract, useBalance } from '@wagmi/vue';
+import { useAccount, useReadContract, useBalance, type UseBalanceParameters } from '@wagmi/vue';
 import { formatEther, formatUnits, parseEther, parseUnits, maxUint256 } from 'viem';
 import BtcPoolStats from '@/components/BtcPoolStats.vue';
 import { abi, erc20Abi } from '@/core/contract';
@@ -295,7 +295,7 @@ const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
   query: {
     enabled: !!address.value,
   },
-});
+} as UseBalanceParameters);
 
 // 读取用户信息
 const userArgs = computed(() => address.value ? [address.value] as const : undefined);
