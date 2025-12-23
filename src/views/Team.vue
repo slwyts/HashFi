@@ -522,7 +522,7 @@ const inviteLink = computed(() => {
   
   // 获取当前页面的协议、域名和端口
   const { protocol, host } = window.location;
-  return `${protocol}//${host}/#/invite/${address.value}`;
+  return `${protocol}//${host}/invite/${address.value}`;
 });
 
 // ========== 6. 复制邀请链接 ==========

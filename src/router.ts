@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 
 // Lazy load components for better performance
 const Staking = () => import('./views/Staking.vue');
@@ -40,7 +40,8 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  // 使用 HTML5 History 模式（去掉 URL 中的 #）
+  history: createWebHistory(),
   routes,
 });
 
