@@ -49,7 +49,7 @@
           <h4 class="text-xl font-bold text-center mb-6 bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">{{ t('genesisNode.nodeRights') }}</h4>
           
           <!-- 权益1：矿机赠送 -->
-          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+          <!-- <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
             <div class="flex items-start space-x-4">
               <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
                 <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -77,10 +77,10 @@
                 </div>
               </div>
             </div>
-          </div>
+          </div> -->
 
           <!-- 权益2：全球分红 -->
-          <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
+          <!-- <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
             <div class="flex items-start space-x-4">
               <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
                 <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -106,7 +106,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </div> -->
 
           <!-- 权益3：市场扶持 -->
           <div class="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
