@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.33;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -8,7 +8,7 @@ abstract contract HashFiStorage is Ownable {
 
     IERC20 internal usdtToken;
 
-    uint256 internal constant TOTAL_SUPPLY = 200_000_000 * 1e18;
+    uint256 internal constant TOTAL_SUPPLY = 21_000_000 * 1e18;
     uint256 internal constant PRICE_PRECISION = 1e18;
     uint256 internal constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
 

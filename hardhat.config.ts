@@ -11,7 +11,7 @@ const config: HardhatUserConfig = {
   solidity: {
     profiles: {
       default: {
-        version: "0.8.30",
+        version: "0.8.33",
         settings: {
           optimizer: {
             enabled: true,
@@ -21,7 +21,7 @@ const config: HardhatUserConfig = {
         },
       },
       production: {
-        version: "0.8.30",
+        version: "0.8.33",
         settings: {
           optimizer: {
             enabled: true,
