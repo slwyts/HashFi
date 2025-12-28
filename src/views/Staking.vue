@@ -293,11 +293,11 @@ const { data: usdtBalanceRaw, refetch: refetchUsdtBalance } = useReadContract({
   address: USDT_ADDRESS,
   abi: erc20Abi,
   functionName: 'balanceOf',
-  args: computed(() => address.value ? [address.value] : undefined),
+  args: computed(() => address.value ? [address.value] as const : undefined),
   query: {
     enabled: !!address.value,
   },
-});
+} as any);
 
 // 读取用户信息
 const userArgs = computed(() => address.value ? [address.value] as const : undefined);

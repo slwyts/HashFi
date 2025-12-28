@@ -269,11 +269,11 @@ const { data: usdtBalanceRaw, refetch: refetchUsdtBalance } = useReadContract({
   address: USDT_ADDRESS,
   abi: erc20Abi,
   functionName: 'balanceOf',
-  args: computed(() => address.value ? [address.value] : undefined),
+  args: computed(() => address.value ? [address.value] as const : undefined),
   query: {
     enabled: !!address.value,
   }
-});
+} as any);
 
 const usdtBalanceDisplay = computed(() => {
   if (!usdtBalanceRaw.value) return '0.00';
@@ -285,11 +285,11 @@ const { data: hafBalanceRaw, refetch: refetchHafBalance } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi: erc20Abi,
   functionName: 'balanceOf',
-  args: computed(() => address.value ? [address.value] : undefined),
+  args: computed(() => address.value ? [address.value] as const : undefined),
   query: {
     enabled: !!address.value,
   }
-});
+} as any);
 
 const hafBalanceDisplay = computed(() => {
   if (!hafBalanceRaw.value) return '0.00';

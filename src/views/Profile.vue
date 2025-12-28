@@ -205,11 +205,11 @@ const { data: hafBalanceRaw } = useReadContract({
   address: HAF_TOKEN_ADDRESS,
   abi: erc20Abi,
   functionName: 'balanceOf',
-  args: computed(() => address.value ? [address.value] : undefined),
+  args: computed(() => address.value ? [address.value] as const : undefined),
   query: {
     enabled: !!address.value,
   },
-});
+} as any);
 
 // 读取 HAF 价格
 const { data: hafPriceData } = useReadContract({
