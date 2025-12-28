@@ -81,7 +81,6 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
 
     function applyForGenesisNode() external nonReentrant whenNotPaused {
         User storage user = users[msg.sender];
-        if (user.totalStakedAmount == 0) revert InvalidAmount();
         if (user.isGenesisNode) revert AlreadyGenesisNode();
         if (genesisNodeApplications[msg.sender]) revert ApplicationPending();
 

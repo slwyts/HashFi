@@ -530,7 +530,6 @@ const hasStaked = computed(() => {
 // ========== 10. 按钮状态和处理 ==========
 const canApply = computed(() => {
   if (!address.value || !isConnected.value) return false;
-  if (!hasStaked.value) return false;
   if (userIsNode.value || isPendingApproval.value) return false;
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) return false;
   return true;
@@ -538,7 +537,6 @@ const canApply = computed(() => {
 
 const buttonText = computed(() => {
   if (!address.value || !isConnected.value) return t('common.connectWallet');
-  if (!hasStaked.value) return t('genesisNode.pleaseStakeFirst');
   if (userIsNode.value) return t('genesisNode.alreadyGenesisNode');
   if (isPendingApproval.value) return t('genesisNode.applicationPending');
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) {
@@ -579,9 +577,7 @@ const handleApply = async () => {
     
     // 处理常见错误
     let errorMessage = t('stakingPage.stakeFailed');
-    if (error.message?.includes('User must stake first')) {
-      errorMessage = t('genesisNode.pleaseStakeFirst');
-    } else if (error.message?.includes('Already a genesis node')) {
+    if (error.message?.includes('Already a genesis node')) {
       errorMessage = t('genesisNode.alreadyGenesisNode');
     } else if (error.message?.includes('Application already pending')) {
       errorMessage = t('genesisNode.applicationPending');
