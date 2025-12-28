@@ -171,7 +171,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAccount, useReadContract, useBalance, type UseBalanceParameters } from '@wagmi/vue';
+import { useAccount, useReadContract } from '@wagmi/vue';
 import { formatUnits, parseUnits, maxUint256, type Address } from 'viem';
 import { abi, erc20Abi, CONTRACT, USDT } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
@@ -265,31 +265,35 @@ const hafPriceDisplay = computed(() => {
 });
 
 // ========== 2. 获取 USDT 余额 ==========
-const { data: usdtBalance, refetch: refetchUsdtBalance } = useBalance({
-  address: address,
-  token: USDT_ADDRESS,
+const { data: usdtBalanceRaw, refetch: refetchUsdtBalance } = useReadContract({
+  address: USDT_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] : undefined),
   query: {
-    enabled: !!address,
+    enabled: !!address.value,
   }
-} as UseBalanceParameters);
+});
 
 const usdtBalanceDisplay = computed(() => {
-  if (!usdtBalance.value) return '0.00';
-  return parseFloat(formatUnits(usdtBalance.value.value, 18)).toFixed(2);  // 测试网USDT是18位
+  if (!usdtBalanceRaw.value) return '0.00';
+  return parseFloat(formatUnits(usdtBalanceRaw.value as bigint, 18)).toFixed(2);
 });
 
 // ========== 3. 获取 HAF 余额 ==========
-const { data: hafBalance, refetch: refetchHafBalance } = useBalance({
-  address: address,
-  token: CONTRACT_ADDRESS,
+const { data: hafBalanceRaw, refetch: refetchHafBalance } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] : undefined),
   query: {
-    enabled: !!address,
+    enabled: !!address.value,
   }
-} as UseBalanceParameters);
+});
 
 const hafBalanceDisplay = computed(() => {
-  if (!hafBalance.value) return '0.00';
-  return parseFloat(formatUnits(hafBalance.value.value, 18)).toFixed(4);
+  if (!hafBalanceRaw.value) return '0.00';
+  return parseFloat(formatUnits(hafBalanceRaw.value as bigint, 18)).toFixed(4);
 });
 
 // ========== 4. 代币配置 ==========

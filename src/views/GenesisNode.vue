@@ -328,10 +328,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAccount, useReadContract, useBalance, type UseBalanceParameters } from '@wagmi/vue';
+import { useAccount, useReadContract } from '@wagmi/vue';
 import { formatUnits } from 'viem';
 import { useI18n } from 'vue-i18n';
-import { abi } from '@/core/contract';
+import { abi, erc20Abi } from '@/core/contract';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 import { toast } from '@/composables/useToast';
 
@@ -456,17 +456,19 @@ const isStillActiveNode = computed(() => {
 });
 
 // ========== 7. 获取 USDT 余额 ==========
-const { data: usdtBalance } = useBalance({
-  address: address,
-  token: USDT_ADDRESS,
+const { data: usdtBalanceRaw } = useReadContract({
+  address: USDT_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] : undefined),
   query: {
     enabled: !!address.value,
   }
-} as UseBalanceParameters);
+});
 
 const usdtBalanceDisplay = computed(() => {
-  if (!usdtBalance.value) return '0.00';
-  return parseFloat(formatUnits(usdtBalance.value.value, 18)).toFixed(2);
+  if (!usdtBalanceRaw.value) return '0.00';
+  return parseFloat(formatUnits(usdtBalanceRaw.value as bigint, 18)).toFixed(2);
 });
 
 // ========== 8. 获取全网节点数据 ==========

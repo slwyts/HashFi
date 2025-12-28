@@ -145,9 +145,9 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
-import { useAccount, useReadContract, useBalance, useDisconnect, type UseBalanceParameters } from '@wagmi/vue';
+import { useAccount, useReadContract, useDisconnect } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
-import { abi } from '@/core/contract';
+import { abi, erc20Abi } from '@/core/contract';
 import BindReferrerModal from '@/components/BindReferrerModal.vue';
 import { parseInviteCode, formatAddress } from '@/utils/invite';
 import { toast } from '@/composables/useToast';
@@ -200,14 +200,16 @@ const { data: userInfo, refetch: refetchUserInfo } = useReadContract({
   },
 });
 
-// 读取 HAF 余额
-const { data: hafBalance } = useBalance({
-  address: address,
-  token: HAF_TOKEN_ADDRESS,
+// 读取 HAF 余额 (使用 useReadContract 替代 useBalance)
+const { data: hafBalanceRaw } = useReadContract({
+  address: HAF_TOKEN_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] : undefined),
   query: {
     enabled: !!address.value,
   },
-} as UseBalanceParameters);
+});
 
 // 读取 HAF 价格
 const { data: hafPriceData } = useReadContract({
@@ -230,10 +232,10 @@ const { data: claimableData } = useReadContract({
 // 计算总 HAF 资产（余额 + 可提取收益）
 const totalHafBalance = computed(() => {
   if (!address.value) return '0.0000';
-  
-  const balance = hafBalance.value ? Number(formatEther(hafBalance.value.value)) : 0;
+
+  const balance = hafBalanceRaw.value ? Number(formatEther(hafBalanceRaw.value as bigint)) : 0;
   const claimable = claimableData.value ? Number(formatEther((claimableData.value as any).totalClaimableHaf || 0n)) : 0;
-  
+
   return (balance + claimable).toFixed(4);
 });
 

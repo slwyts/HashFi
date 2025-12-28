@@ -6,7 +6,7 @@ import HashFiArtifact from '../../artifacts/contracts/HashFi.sol/HashFi.json';
 // 导出合约 ABI 供其他组件使用
 export const abi = HashFiArtifact.abi;
 
-// ERC20 标准 ABI（用于 USDT 等代币的 approve 和 allowance 操作）
+// ERC20 标准 ABI（用于 USDT 等代币操作）
 export const erc20Abi = [
   {
     "inputs": [{"internalType": "address","name": "spender","type": "address"},{"internalType": "uint256","name": "amount","type": "uint256"}],
@@ -18,6 +18,13 @@ export const erc20Abi = [
   {
     "inputs": [{"internalType": "address","name": "owner","type": "address"},{"internalType": "address","name": "spender","type": "address"}],
     "name": "allowance",
+    "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address","name": "account","type": "address"}],
+    "name": "balanceOf",
     "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
     "stateMutability": "view",
     "type": "function"

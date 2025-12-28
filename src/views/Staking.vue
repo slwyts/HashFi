@@ -288,14 +288,16 @@ watch(selectedPlan, (newPlan) => {
   }
 });
 
-// 读取 USDT 余额
-const { data: usdtBalanceData, refetch: refetchUsdtBalance } = useBalance({
-  address: address,
-  token: USDT_ADDRESS,
+// 读取 USDT 余额 (使用 useReadContract 替代 useBalance)
+const { data: usdtBalanceRaw, refetch: refetchUsdtBalance } = useReadContract({
+  address: USDT_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] : undefined),
   query: {
     enabled: !!address.value,
   },
-} as UseBalanceParameters);
+});
 
 // 读取用户信息
 const userArgs = computed(() => address.value ? [address.value] as const : undefined);
@@ -363,8 +365,8 @@ watch(() => allowanceData.value, (newVal) => {
 
 // USDT 余额（格式化）
 const usdtBalance = computed(() => {
-  if (!usdtBalanceData.value) return '0.00';
-  return Number(formatEther(usdtBalanceData.value.value)).toFixed(2);
+  if (!usdtBalanceRaw.value) return '0.00';
+  return Number(formatEther(usdtBalanceRaw.value as bigint)).toFixed(2);
 });
 
 // 用户质押订单列表（进行中的订单）
