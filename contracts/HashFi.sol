@@ -46,7 +46,11 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
             return;
         }
 
-        if (users[_referrer].totalStakedAmount == 0 || _referrer == address(0)) revert ReferrerNotExist();
+    // 原始校验：要求 referrer 必须有质押记录才能被作为上级
+    // if (users[_referrer].totalStakedAmount == 0 || _referrer == address(0)) revert ReferrerNotExist();
+    // 修改后：如果 referrer 为零地址则拒绝；否则允许已绑定推荐人（users[_referrer].referrer != address(0)）或已质押的地址作为上级
+    if (_referrer == address(0)) revert ReferrerNotExist();
+    if (users[_referrer].totalStakedAmount == 0 && users[_referrer].referrer == address(0)) revert ReferrerNotExist();
         if (_referrer == msg.sender) revert CannotReferSelf();
         user.referrer = _referrer;
         users[_referrer].directReferrals.push(msg.sender);
