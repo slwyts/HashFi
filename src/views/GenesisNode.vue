@@ -329,7 +329,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAccount, useReadContract } from '@wagmi/vue';
-import { formatUnits } from 'viem';
+import { formatUnits, maxUint256 } from 'viem';
 import { useI18n } from 'vue-i18n';
 import { abi, erc20Abi } from '@/core/contract';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
@@ -471,6 +471,31 @@ const usdtBalanceDisplay = computed(() => {
   return parseFloat(formatUnits(usdtBalanceRaw.value as bigint, 18)).toFixed(2);
 });
 
+// ========== 8. 检查 USDT 授权额度（allowance） ==========
+const allowanceArgs = computed(() => address.value ? [address.value, CONTRACT_ADDRESS] as const : undefined);
+
+const { data: allowanceData, refetch: refetchAllowance } = useReadContract({
+  address: USDT_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'allowance',
+  args: allowanceArgs,
+  query: {
+    enabled: !!address.value,
+  }
+} as any);
+
+const needsApproval = computed(() => {
+  if (!allowanceData.value) return false;
+  if (!genesisNodeCost.value) return false;
+  try {
+    const current = allowanceData.value as bigint;
+    const required = genesisNodeCost.value as bigint;
+    return current < required;
+  } catch (e) {
+    return false;
+  }
+});
+
 // ========== 8. 获取全网节点数据 ==========
 const { data: activeGenesisNodes, refetch: refetchActiveNodes } = useReadContract({
   address: CONTRACT_ADDRESS,
@@ -533,6 +558,8 @@ const hasStaked = computed(() => {
 const canApply = computed(() => {
   if (!address.value || !isConnected.value) return false;
   if (userIsNode.value || isPendingApproval.value) return false;
+  // 如果需要授权，则允许按钮可点（点击会触发 approve）
+  if (needsApproval.value) return true;
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) return false;
   return true;
 });
@@ -541,6 +568,8 @@ const buttonText = computed(() => {
   if (!address.value || !isConnected.value) return t('common.connectWallet');
   if (userIsNode.value) return t('genesisNode.alreadyGenesisNode');
   if (isPendingApproval.value) return t('genesisNode.applicationPending');
+  // 优先显示授权按钮（如果需要授权）
+  if (needsApproval.value && !isProcessing.value) return t('stakingPage.approveUsdt');
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) {
     return t('genesisNode.insufficientUsdt');
   }
@@ -553,10 +582,61 @@ const { callContractWithRefresh } = useEnhancedContract();
 
 const handleApply = async () => {
   if (!canApply.value) return;
-  
+
   isProcessing.value = true;
-  
+
   try {
+    // 先检查授权额度，如不足则先发起 approve（和 Staking 页面一致）
+    const currentAllowance = (allowanceData.value as bigint) || 0n;
+    const required = (genesisNodeCost.value as bigint) || 0n;
+
+    if (currentAllowance < required) {
+      // 发起 approve 并在确认后自动继续申请
+      await callContractWithRefresh(
+        {
+          address: USDT_ADDRESS,
+          abi: erc20Abi,
+          functionName: 'approve',
+          args: [CONTRACT_ADDRESS, maxUint256],
+          pendingMessage: t('stakingPage.approving'),
+          successMessage: t('stakingPage.approveSuccess'),
+          operation: 'USDT Approval',
+          onConfirmed: async () => {
+            try {
+              // 刷新授权数据
+              await refetchAllowance();
+
+              // 自动发起申请（approve 确认后）
+              await callContractWithRefresh({
+                address: CONTRACT_ADDRESS,
+                abi,
+                functionName: 'applyForGenesisNode',
+                args: [],
+                pendingMessage: t('genesisNode.applying'),
+                successMessage: t('nodeCenter.applySuccess'),
+                operation: 'Apply for Genesis Node',
+                onConfirmed: async () => {
+                  await Promise.all([
+                    refetchUser(),
+                    refetchApplication(),
+                  ]);
+                }
+              }, {});
+            } catch (err) {
+              console.error('Auto-apply after approve failed:', err);
+            }
+          }
+        },
+        {
+          refreshAllowance: refetchAllowance,
+        }
+      );
+
+      // 等待交易流程（approve 发起后，后续由 onConfirmed 处理自动申请）
+      isProcessing.value = false;
+      return;
+    }
+
     await callContractWithRefresh({
       address: CONTRACT_ADDRESS,
       abi,
@@ -573,10 +653,10 @@ const handleApply = async () => {
         ]);
       }
     }, {});
-    
+
   } catch (error: any) {
     console.error('Apply genesis node error:', error);
-    
+
     // 处理常见错误
     let errorMessage = t('stakingPage.stakeFailed');
     if (error.message?.includes('Already a genesis node')) {
@@ -586,7 +666,7 @@ const handleApply = async () => {
     } else if (error.message?.includes('insufficient allowance')) {
       errorMessage = t('stakingPage.approveUsdt');
     }
-    
+
     toast.error(errorMessage);
   } finally {
     isProcessing.value = false;
