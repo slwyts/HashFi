@@ -13,6 +13,7 @@
     "stop": "npx tsx scripts/stop-testnet.ts",
     "time": "npx tsx scripts/time-jump.ts",
     "check:balance": "dotenv -e .env.hardhat -- npx tsx scripts/check-balance.ts",
+    "check:size": "node check-bytecode.cjs",
     "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet"
   },
   "dependencies": {
