@@ -74,27 +74,25 @@
 
     <!-- 价格控制 -->
     <div class="bg-white rounded-xl p-6 shadow-lg border border-blue-100">
-      <h2 class="text-xl font-bold mb-6 text-gray-800">HAF价格控制</h2>
-      
-      <div class="mb-6 p-4 bg-blue-50 rounded-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">当前价格</p>
-            <p class="text-2xl font-bold text-blue-600 mt-1">{{ formatPrice(priceSettings.currentPrice) }} USDT</p>
-          </div>
-          <div class="text-right">
-            <p class="text-sm text-gray-600">自动涨价</p>
-            <p :class="[
-              'text-lg font-semibold mt-1',
-              priceSettings.autoUpdateEnabled ? 'text-green-600' : 'text-gray-600'
-            ]">
-              {{ priceSettings.autoUpdateEnabled ? '已启用' : '已禁用' }}
-            </p>
-          </div>
+      <h2 class="text-xl font-bold mb-6 text-gray-800">HAF价格信息</h2>
+
+      <div class="p-4 bg-blue-50 rounded-lg">
+        <div>
+          <p class="text-sm text-gray-600">当前价格</p>
+          <p class="text-2xl font-bold text-blue-600 mt-1">{{ formatPrice(priceSettings.currentPrice) }} USDT</p>
         </div>
+        <!-- <div class="text-right">
+          <p class="text-sm text-gray-600">自动涨价</p>
+          <p :class="[
+            'text-lg font-semibold mt-1',
+            priceSettings.autoUpdateEnabled ? 'text-green-600' : 'text-gray-600'
+          ]">
+            {{ priceSettings.autoUpdateEnabled ? '已启用' : '已禁用' }}
+          </p>
+        </div> -->
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <!-- <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">
             设置新价格 (USDT)
@@ -128,7 +126,7 @@
         class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
       >
         更新价格/涨幅设置
-      </button>
+      </button> -->
     </div>
   </div>
 </template>
@@ -161,10 +159,10 @@ const poolForm = ref({
   totalMined: '',
 });
 
-const priceForm = ref({
-  newPrice: '',
-  dailyRate: '',
-});
+// const priceForm = ref({
+//   newPrice: '',
+//   dailyRate: '',
+// });
 
 const isUpdatingPool = ref(false);
 
@@ -242,51 +240,51 @@ const handleUpdatePoolData = async () => {
   }
 };
 
-const handleUpdatePrice = async () => {
-  // 检查是否至少填写了一个字段
-  if (!priceForm.value.newPrice && !priceForm.value.dailyRate) {
-    toast.warning('请至少填写一个字段');
-    return;
-  }
+// const handleUpdatePrice = async () => {
+//   // 检查是否至少填写了一个字段
+//   if (!priceForm.value.newPrice && !priceForm.value.dailyRate) {
+//     toast.warning('请至少填写一个字段');
+//     return;
+//   }
 
-  // 更新价格
-  if (priceForm.value.newPrice) {
-    await callContractWithRefresh(
-      {
-        address: CONTRACT_ADDRESS,
-        abi,
-        functionName: 'setHafPrice',
-        args: [parseUnits(String(priceForm.value.newPrice), 18)],
-        operation: '正在更新价格',
-        successMessage: '价格更新成功',
-        errorMessage: '更新失败',
-        onConfirmed: async () => {
-          await refreshSystemData();
-          priceForm.value.newPrice = '';
-        },
-      },
-      {}
-    );
-  }
+//   // 更新价格
+//   if (priceForm.value.newPrice) {
+//     await callContractWithRefresh(
+//       {
+//         address: CONTRACT_ADDRESS,
+//         abi,
+//         functionName: 'setHafPrice',
+//         args: [parseUnits(String(priceForm.value.newPrice), 18)],
+//         operation: '正在更新价格',
+//         successMessage: '价格更新成功',
+//         errorMessage: '更新失败',
+//         onConfirmed: async () => {
+//           await refreshSystemData();
+//           priceForm.value.newPrice = '';
+//         },
+//       },
+//       {}
+//     );
+//   }
 
-  // 更新每日涨幅
-  if (priceForm.value.dailyRate) {
-    await callContractWithRefresh(
-      {
-        address: CONTRACT_ADDRESS,
-        abi,
-        functionName: 'setDailyPriceIncreaseRate',
-        args: [BigInt(priceForm.value.dailyRate || '0')],
-        operation: '正在更新涨幅',
-        successMessage: '涨幅更新成功',
-        errorMessage: '更新失败',
-        onConfirmed: async () => {
-          await refreshSystemData();
-          priceForm.value.dailyRate = '';
-        },
-      },
-      {}
-    );
-  }
-};
+//   // 更新每日涨幅
+//   if (priceForm.value.dailyRate) {
+//     await callContractWithRefresh(
+//       {
+//         address: CONTRACT_ADDRESS,
+//         abi,
+//         functionName: 'setDailyPriceIncreaseRate',
+//         args: [BigInt(priceForm.value.dailyRate || '0')],
+//         operation: '正在更新涨幅',
+//         successMessage: '涨幅更新成功',
+//         errorMessage: '更新失败',
+//         onConfirmed: async () => {
+//           await refreshSystemData();
+//           priceForm.value.dailyRate = '';
+//         },
+//       },
+//       {}
+//     );
+//   }
+// };
 </script>

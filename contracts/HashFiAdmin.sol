@@ -29,20 +29,20 @@ abstract contract HashFiAdmin is HashFiLogic {
         _removeFromPendingApplications(_applicant);
     }
 
-    function setHafPrice(uint256 _newPrice) external onlyOwner {
-        if (_newPrice == 0) revert InvalidAmount();
-        hafPrice = _newPrice;
-        lastPriceUpdateTime = block.timestamp;
-    }
-    
-    function setDailyPriceIncreaseRate(uint256 _rate) external onlyOwner {
-        if (_rate > 100) revert InvalidFeeRate();
-        dailyPriceIncreaseRate = _rate;
-    }
+    // function setHafPrice(uint256 _newPrice) external onlyOwner {
+    //     if (_newPrice == 0) revert InvalidAmount();
+    //     hafPrice = _newPrice;
+    //     lastPriceUpdateTime = block.timestamp;
+    // }
 
-    function setAutoPriceUpdate(bool _enabled) external onlyOwner {
-        autoPriceUpdateEnabled = _enabled;
-    }
+    // function setDailyPriceIncreaseRate(uint256 _rate) external onlyOwner {
+    //     if (_rate > 100) revert InvalidFeeRate();
+    //     dailyPriceIncreaseRate = _rate;
+    // }
+
+    // function setAutoPriceUpdate(bool _enabled) external onlyOwner {
+    //     autoPriceUpdateEnabled = _enabled;
+    // }
 
     function setWithdrawalFee(uint256 _newFeeRate) external onlyOwner {
         if (_newFeeRate > 100) revert InvalidFeeRate();
@@ -54,10 +54,10 @@ abstract contract HashFiAdmin is HashFiLogic {
         genesisNodeCost = _newCost;
     }
 
-    function setSwapFee(uint256 _newFeeRate) external onlyOwner {
-        if (_newFeeRate > 100) revert InvalidFeeRate();
-        swapFeeRate = _newFeeRate;
-    }
+    // function setSwapFee(uint256 _newFeeRate) external onlyOwner {
+    //     if (_newFeeRate > 100) revert InvalidFeeRate();
+    //     swapFeeRate = _newFeeRate;
+    // }
 
     function forceSettleUser(address _user) external onlyOwner {
         _settleUserRewards(_user);

@@ -53,7 +53,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
     }
 
 
-    function stake(uint256 _amount) external nonReentrant whenNotPaused autoUpdatePrice {
+    function stake(uint256 _amount) external nonReentrant whenNotPaused /** autoUpdatePrice **/ {
         if (users[msg.sender].referrer == address(0)) revert MustBindReferrer();
         uint8 level = _getStakingLevelByAmount(_amount);
         if (level == 0) revert InvalidStakingAmount();
@@ -91,7 +91,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         pendingGenesisApplications.push(msg.sender);
     }
 
-    function withdraw() external nonReentrant whenNotPaused autoUpdatePrice {
+    function withdraw() external nonReentrant whenNotPaused /** autoUpdatePrice **/{
         _updateDirectRewardRelease(msg.sender);
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
         
@@ -145,39 +145,39 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         }));
     }
 
-    function swap(address _tokenIn, uint256 _amountIn) external nonReentrant whenNotPaused autoUpdatePrice {
-        if (_amountIn == 0) revert InvalidAmount();
-        
-        address _tokenOut;
-        uint256 _amountOut;
+    // function swap(address _tokenIn, uint256 _amountIn) external nonReentrant whenNotPaused autoUpdatePrice {
+    //     if (_amountIn == 0) revert InvalidAmount();
+    //
+    //     address _tokenOut;
+    //     uint256 _amountOut;
 
-        if (_tokenIn == address(usdtToken)) {
-            _tokenOut = address(this);
-            
-            usdtToken.transferFrom(msg.sender, address(this), _amountIn);
-            
-            uint256 hafAmount = (_amountIn * PRICE_PRECISION) / hafPrice;
-            uint256 fee = (hafAmount * swapFeeRate) / 100;
-            _amountOut = hafAmount - fee;
-            
-            _distributeHaf(msg.sender, _amountOut);
+    //     if (_tokenIn == address(usdtToken)) {
+    //         _tokenOut = address(this);
+    //
+    //         usdtToken.transferFrom(msg.sender, address(this), _amountIn);
+    //
+    //         uint256 hafAmount = (_amountIn * PRICE_PRECISION) / hafPrice;
+    //         uint256 fee = (hafAmount * swapFeeRate) / 100;
+    //         _amountOut = hafAmount - fee;
+    //
+    //         _distributeHaf(msg.sender, _amountOut);
 
-        } else if (_tokenIn == address(this)) {
-            _tokenOut = address(usdtToken);
+    //     } else if (_tokenIn == address(this)) {
+    //         _tokenOut = address(usdtToken);
 
-            _transfer(msg.sender, address(this), _amountIn);
-            
-            uint256 usdtAmount = (_amountIn * hafPrice) / PRICE_PRECISION;
-            uint256 fee = (usdtAmount * swapFeeRate) / 100;
-            _amountOut = usdtAmount - fee;
-            
-            if (usdtToken.balanceOf(address(this)) < _amountOut) revert InsufficientBalance();
-            usdtToken.transfer(msg.sender, _amountOut);
-            
-        } else {
-            revert("Invalid swap token");
-        }
-    }
+    //         _transfer(msg.sender, address(this), _amountIn);
+    //
+    //         uint256 usdtAmount = (_amountIn * hafPrice) / PRICE_PRECISION;
+    //         uint256 fee = (usdtAmount * swapFeeRate) / 100;
+    //         _amountOut = usdtAmount - fee;
+    //
+    //         if (usdtToken.balanceOf(address(this)) < _amountOut) revert InsufficientBalance();
+    //         usdtToken.transfer(msg.sender, _amountOut);
+    //
+    //     } else {
+    //         revert("Invalid swap token");
+    //     }
+    // }
 
     function _distributeHaf(address _recipient, uint256 _amount) internal override {
         uint256 treasuryBalance = balanceOf(address(this));

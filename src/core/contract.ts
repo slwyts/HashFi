@@ -233,31 +233,31 @@ export function useWithdraw(): {
  * @param tokenIn 支付的代币地址 (HAF 合约地址 或 USDT 地址)
  * @param amountIn 支付的数量
  */
-export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | null>): {
-    config: ReturnType<typeof useSimulateContract>['data'];
-    simulateError: ReturnType<typeof useSimulateContract>['error'];
-    refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
-    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
-    isPending: ReturnType<typeof useWriteContract>['isPending'];
-    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
-    writeError: ReturnType<typeof useWriteContract>['error'];
-    hash: ReturnType<typeof useWriteContract>['data'];
-} {
-    const { data: config, error: simulateError, refetch } = useSimulateContract({
-        address: HASHFI_CONTRACT_ADDRESS,
-        abi,
-        functionName: 'swap',
-        args: computed(() => {
-            if (!tokenIn.value || !amountIn.value || amountIn.value <= 0) {
-                return undefined;
-            }
-            return [tokenIn.value, parseEther(amountIn.value.toString())] as const;
-        }),
-        chainId: CHAIN_ID
-    });
-    const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
-    return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
-}
+// export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | null>): {
+//     config: ReturnType<typeof useSimulateContract>['data'];
+//     simulateError: ReturnType<typeof useSimulateContract>['error'];
+//     refetchSimulate: ReturnType<typeof useSimulateContract>['refetch'];
+//     writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+//     isPending: ReturnType<typeof useWriteContract>['isPending'];
+//     isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+//     writeError: ReturnType<typeof useWriteContract>['error'];
+//     hash: ReturnType<typeof useWriteContract>['data'];
+// } {
+//     const { data: config, error: simulateError, refetch } = useSimulateContract({
+//         address: HASHFI_CONTRACT_ADDRESS,
+//         abi,
+//         functionName: 'swap',
+//         args: computed(() => {
+//             if (!tokenIn.value || !amountIn.value || amountIn.value <= 0) {
+//                 return undefined;
+//             }
+//             return [tokenIn.value, parseEther(amountIn.value.toString())] as const;
+//         }),
+//         chainId: CHAIN_ID
+//     });
+//     const { writeContract, isPending, isSuccess, error: writeError, data: hash } = useWriteContract();
+//     return { config, simulateError, refetchSimulate: refetch, writeContract, isPending, isSuccess, writeError, hash };
+// }
 
 /**
  * =================================================================================================
@@ -265,24 +265,24 @@ export function useSwap(tokenIn: Ref<Address | null>, amountIn: Ref<number | nul
  * =================================================================================================
  */
 
-export function useSetHafPrice(newPrice: Ref<number | null>): {
-    config: ReturnType<typeof useSimulateContract>['data'];
-    simulateError: ReturnType<typeof useSimulateContract>['error'];
-    writeContract: ReturnType<typeof useWriteContract>['writeContract'];
-    isPending: ReturnType<typeof useWriteContract>['isPending'];
-    isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
-    writeError: ReturnType<typeof useWriteContract>['error'];
-} {
-    const { data: config, error: simulateError } = useSimulateContract({
-        address: HASHFI_CONTRACT_ADDRESS,
-        abi,
-        functionName: 'setHafPrice',
-        args: computed(() => (newPrice.value && newPrice.value > 0 ? [BigInt(Math.floor(newPrice.value * 1e6))] : undefined)), // 价格精度为 1e6
-        chainId: CHAIN_ID
-    });
-    const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
-    return { config, simulateError, writeContract, isPending, isSuccess, writeError };
-}
+// export function useSetHafPrice(newPrice: Ref<number | null>): {
+//     config: ReturnType<typeof useSimulateContract>['data'];
+//     simulateError: ReturnType<typeof useSimulateContract>['error'];
+//     writeContract: ReturnType<typeof useWriteContract>['writeContract'];
+//     isPending: ReturnType<typeof useWriteContract>['isPending'];
+//     isSuccess: ReturnType<typeof useWriteContract>['isSuccess'];
+//     writeError: ReturnType<typeof useWriteContract>['error'];
+// } {
+//     const { data: config, error: simulateError } = useSimulateContract({
+//         address: HASHFI_CONTRACT_ADDRESS,
+//         abi,
+//         functionName: 'setHafPrice',
+//         args: computed(() => (newPrice.value && newPrice.value > 0 ? [BigInt(Math.floor(newPrice.value * 1e6))] : undefined)), // 价格精度为 1e6
+//         chainId: CHAIN_ID
+//     });
+//     const { writeContract, isPending, isSuccess, error: writeError } = useWriteContract();
+//     return { config, simulateError, writeContract, isPending, isSuccess, writeError };
+// }
 
 export function useSetWithdrawalFee(newFeeRate: Ref<number | null>): {
     config: ReturnType<typeof useSimulateContract>['data'];

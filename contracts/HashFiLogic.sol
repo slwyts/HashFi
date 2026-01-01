@@ -5,19 +5,19 @@ import "./HashFiStorage.sol";
 
 abstract contract HashFiLogic is HashFiStorage {
 
-    modifier autoUpdatePrice() {
-        if (autoPriceUpdateEnabled) {
-            uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / TIME_UNIT;
-            if (daysPassed > 0) {
-                for (uint i = 0; i < daysPassed; i++) {
-                    uint256 increase = (hafPrice * dailyPriceIncreaseRate) / 1000;
-                    hafPrice = hafPrice + increase;
-                }
-                lastPriceUpdateTime = lastPriceUpdateTime + (daysPassed * TIME_UNIT);
-            }
-        }
-        _;
-    }
+    // modifier autoUpdatePrice() {
+    //     if (autoPriceUpdateEnabled) {
+    //         uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / TIME_UNIT;
+    //         if (daysPassed > 0) {
+    //             for (uint i = 0; i < daysPassed; i++) {
+    //                 uint256 increase = (hafPrice * dailyPriceIncreaseRate) / 1000;
+    //                 hafPrice = hafPrice + increase;
+    //             }
+    //             lastPriceUpdateTime = lastPriceUpdateTime + (daysPassed * TIME_UNIT);
+    //         }
+    //     }
+    //     _;
+    // }
 
     function _settleUserRewards(address _user) internal {
         uint256[] memory orderIds = users[_user].orderIds;

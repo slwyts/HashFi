@@ -28,7 +28,7 @@
             <p class="text-xs text-gray-500 mt-1">当前: {{ currentFees.withdrawalFee }}%</p>
           </div>
 
-          <div>
+          <!-- <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
               闪兑手续费 (%)
             </label>
@@ -45,7 +45,7 @@
               <span class="absolute right-4 top-3 text-gray-400">%</span>
             </div>
             <p class="text-xs text-gray-500 mt-1">当前: {{ currentFees.swapFee }}%</p>
-          </div>
+          </div> -->
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -72,7 +72,7 @@
       </div>
 
       <!-- 自动价格更新 -->
-      <div class="mb-6 p-5 bg-green-50 rounded-lg">
+      <!-- <div class="mb-6 p-5 bg-green-50 rounded-lg">
         <div class="flex items-center justify-between">
           <div class="flex-1">
             <h3 class="text-lg font-semibold text-gray-800">自动价格更新</h3>
@@ -94,7 +94,7 @@
             {{ priceSettings.autoUpdateEnabled ? '已启用 - 点击禁用' : '已禁用 - 点击启用' }}
           </button>
         </div>
-      </div>
+      </div> -->
 
       <!-- 系统状态显示 -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -249,22 +249,22 @@ const handleUpdateFees = async () => {
     );
   }
 
-  if (feeForm.value.swapFee) {
-    updates.push(
-      callContractWithRefresh(
-        {
-          address: CONTRACT_ADDRESS,
-          abi,
-          functionName: 'setSwapFee',
-          args: [BigInt(Math.floor(Number(feeForm.value.swapFee)))],
-          operation: '正在更新闪兑手续费',
-          successMessage: '闪兑手续费更新成功',
-          errorMessage: '更新失败',
-        },
-        {}
-      )
-    );
-  }
+  // if (feeForm.value.swapFee) {
+  //   updates.push(
+  //     callContractWithRefresh(
+  //       {
+  //         address: CONTRACT_ADDRESS,
+  //         abi,
+  //         functionName: 'setSwapFee',
+  //         args: [BigInt(Math.floor(Number(feeForm.value.swapFee)))],
+  //         operation: '正在更新闪兑手续费',
+  //         successMessage: '闪兑手续费更新成功',
+  //         errorMessage: '更新失败',
+  //       },
+  //       {}
+  //     )
+  //   );
+  // }
 
   if (feeForm.value.genesisNodeCost) {
     updates.push(
@@ -294,21 +294,21 @@ const handleUpdateFees = async () => {
   }
 };
 
-const handleToggleAutoPrice = async () => {
-  await callContractWithRefresh(
-    {
-      address: CONTRACT_ADDRESS,
-      abi,
-      functionName: 'setAutoPriceUpdate',
-      args: [!priceSettings.value.autoUpdateEnabled],
-      operation: priceSettings.value.autoUpdateEnabled ? '正在禁用自动涨价' : '正在启用自动涨价',
-      successMessage: priceSettings.value.autoUpdateEnabled ? '自动涨价已禁用' : '自动涨价已启用',
-      errorMessage: '操作失败',
-      onConfirmed: async () => {
-        await refreshSystemData();
-      },
-    },
-    {}
-  );
-};
+// const handleToggleAutoPrice = async () => {
+//   await callContractWithRefresh(
+//     {
+//       address: CONTRACT_ADDRESS,
+//       abi,
+//       functionName: 'setAutoPriceUpdate',
+//       args: [!priceSettings.value.autoUpdateEnabled],
+//       operation: priceSettings.value.autoUpdateEnabled ? '正在禁用自动涨价' : '正在启用自动涨价',
+//       successMessage: priceSettings.value.autoUpdateEnabled ? '自动涨价已禁用' : '自动涨价已启用',
+//       errorMessage: '操作失败',
+//       onConfirmed: async () => {
+//         await refreshSystemData();
+//       },
+//     },
+//     {}
+//   );
+// };
 </script>

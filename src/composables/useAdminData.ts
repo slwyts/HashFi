@@ -184,17 +184,17 @@ export const useAdminData = () => {
     functionName: 'hafPrice',
   });
 
-  const { data: dailyRateData, refetch: refetchDailyRate } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi,
-    functionName: 'dailyPriceIncreaseRate',
-  });
+  // const { data: dailyRateData, refetch: refetchDailyRate } = useReadContract({
+  //   address: CONTRACT_ADDRESS,
+  //   abi,
+  //   functionName: 'dailyPriceIncreaseRate',
+  // });
 
-  const { data: autoPriceUpdateEnabled, refetch: refetchAutoPriceUpdate } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi,
-    functionName: 'autoPriceUpdateEnabled',
-  });
+  // const { data: autoPriceUpdateEnabled, refetch: refetchAutoPriceUpdate } = useReadContract({
+  //   address: CONTRACT_ADDRESS,
+  //   abi,
+  //   functionName: 'autoPriceUpdateEnabled',
+  // });
 
   const { data: withdrawalFeeData, refetch: refetchWithdrawalFee } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -202,11 +202,11 @@ export const useAdminData = () => {
     functionName: 'withdrawalFeeRate',
   });
 
-  const { data: swapFeeData, refetch: refetchSwapFee } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi,
-    functionName: 'swapFeeRate',
-  });
+  // const { data: swapFeeData, refetch: refetchSwapFee } = useReadContract({
+  //   address: CONTRACT_ADDRESS,
+  //   abi,
+  //   functionName: 'swapFeeRate',
+  // });
 
   const { data: genesisNodeCostData, refetch: refetchGenesisNodeCost } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -222,13 +222,13 @@ export const useAdminData = () => {
 
   const priceSettings = computed(() => ({
     currentPrice: hafPriceData.value ? formatUnits(hafPriceData.value as bigint, 18) : '0.00',
-    dailyIncreaseRate: dailyRateData.value ? (dailyRateData.value as bigint).toString() : '0',
-    autoUpdateEnabled: autoPriceUpdateEnabled.value as boolean || false,
+    // dailyIncreaseRate: dailyRateData.value ? (dailyRateData.value as bigint).toString() : '0',
+    // autoUpdateEnabled: autoPriceUpdateEnabled.value as boolean || false,
   }));
 
   const feeSettings = computed(() => ({
     withdrawalFee: withdrawalFeeData.value ? Number(withdrawalFeeData.value as bigint) : 0,
-    swapFee: swapFeeData.value ? Number(swapFeeData.value as bigint) : 0,
+    // swapFee: swapFeeData.value ? Number(swapFeeData.value as bigint) : 0,
     genesisNodeCost: genesisNodeCostData.value ? formatEther(genesisNodeCostData.value as bigint) : '0',
   }));
 
@@ -296,10 +296,10 @@ export const useAdminData = () => {
       refetchGenesisPool(),
       refetchBtcStats(),
       refetchPrice(),
-      refetchDailyRate(),
-      refetchAutoPriceUpdate(),
+      // refetchDailyRate(),
+      // refetchAutoPriceUpdate(),
       refetchWithdrawalFee(),
-      refetchSwapFee(),
+      // refetchSwapFee(),
       refetchGenesisNodeCost(),
       refetchPaused(),
     ]);
@@ -318,10 +318,10 @@ export const useAdminData = () => {
   const refreshSystemData = async () => {
     await Promise.all([
       refetchPrice(),
-      refetchDailyRate(),
-      refetchAutoPriceUpdate(),
+      // refetchDailyRate(),
+      // refetchAutoPriceUpdate(),
       refetchWithdrawalFee(),
-      refetchSwapFee(),
+      // refetchSwapFee(),
       refetchGenesisNodeCost(),
       refetchPaused(),
     ]);
