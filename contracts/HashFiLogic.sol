@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import "./HashFiStorage.sol";
+import {HashFiStorage} from "./HashFiStorage.sol";
 
 abstract contract HashFiLogic is HashFiStorage {
 

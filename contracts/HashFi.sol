@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./HashFiAdmin.sol";
-import "./HashFiView.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {HashFiAdmin} from "./HashFiAdmin.sol";
+import {HashFiView} from "./HashFiView.sol";
 
-contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
+contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
 
     constructor(address _usdtAddress, address _initialOwner) 
         ERC20("Hash Fi Token", "HAF") 
@@ -53,7 +54,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
     }
 
 
-    function stake(uint256 _amount) external nonReentrant whenNotPaused /** autoUpdatePrice **/ {
+    function stake(uint256 _amount) external whenNotPaused /** autoUpdatePrice **/ {
         if (users[msg.sender].referrer == address(0)) revert MustBindReferrer();
         uint8 level = _getStakingLevelByAmount(_amount);
         if (level == 0) revert InvalidStakingAmount();
@@ -79,7 +80,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         _updateAncestorsPerformanceAndRewards(msg.sender, _amount, level);
     }
 
-    function applyForGenesisNode() external nonReentrant whenNotPaused {
+    function applyForGenesisNode() external whenNotPaused {
         User storage user = users[msg.sender];
         if (user.isGenesisNode) revert AlreadyGenesisNode();
         if (genesisNodeApplications[msg.sender]) revert ApplicationPending();
@@ -91,7 +92,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         pendingGenesisApplications.push(msg.sender);
     }
 
-    function withdraw() external nonReentrant whenNotPaused /** autoUpdatePrice **/{
+    function withdraw() external whenNotPaused /** autoUpdatePrice **/{
         _updateDirectRewardRelease(msg.sender);
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
         
@@ -199,7 +200,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, ReentrancyGuard, Pausable {
         userHashPowers[msg.sender].btcWithdrawalAddress = _addr;
     }
 
-    function withdrawBtc(uint256 _amount) external nonReentrant whenNotPaused {
+    function withdrawBtc(uint256 _amount) external whenNotPaused {
         if (_amount < minBtcWithdrawal) revert BelowMinimum();
         if (bytes(userHashPowers[msg.sender].btcWithdrawalAddress).length == 0) revert AddressNotSet();
         
