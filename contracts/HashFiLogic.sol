@@ -5,19 +5,28 @@ import {HashFiStorage} from "./HashFiStorage.sol";
 
 abstract contract HashFiLogic is HashFiStorage {
 
-    // modifier autoUpdatePrice() {
-    //     if (autoPriceUpdateEnabled) {
-    //         uint256 daysPassed = (block.timestamp - lastPriceUpdateTime) / TIME_UNIT;
-    //         if (daysPassed > 0) {
-    //             for (uint i = 0; i < daysPassed; i++) {
-    //                 uint256 increase = (hafPrice * dailyPriceIncreaseRate) / 1000;
-    //                 hafPrice = hafPrice + increase;
-    //             }
-    //             lastPriceUpdateTime = lastPriceUpdateTime + (daysPassed * TIME_UNIT);
-    //         }
-    //     }
-    //     _;
-    // }
+    // Get HAF price from token contract
+    function getHafPrice() public view returns (uint256) {
+        if (address(hafToken) == address(0)) {
+            return 1 * PRICE_PRECISION; // Default 1:1 before token init
+        }
+        return hafToken.getPrice();
+    }
+    
+    // Check if LP is initialized
+    function _requireLpInitialized() internal view {
+        if (address(hafToken) == address(0) || !hafToken.isLpInitialized()) {
+            revert LpNotInitialized();
+        }
+    }
+
+    // Trigger token mechanisms (lazy load)
+    function _triggerTokenMechanisms() internal {
+        if (address(hafToken) != address(0)) {
+            // Transfer 0 to trigger mechanisms
+            hafToken.triggerMechanismsExternal();
+        }
+    }
 
     function _settleUserRewards(address _user) internal {
         uint256[] memory orderIds = users[_user].orderIds;
@@ -44,7 +53,7 @@ abstract contract HashFiLogic is HashFiStorage {
 
         uint256 dailyReleaseUsdt = (order.amount * baseDailyRate) / 10000;
  
-        uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / hafPrice;
+        uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / getHafPrice();
 
         uint256 baseTotalReleaseHaf = dailyReleaseHaf * daysPassed;
         uint256 baseTotalReleaseUsdt = dailyReleaseUsdt * daysPassed;
@@ -136,7 +145,7 @@ abstract contract HashFiLogic is HashFiStorage {
             }
 
             if (actualClaim > 0) {
-                uint256 actualClaimHaf = (actualClaim * PRICE_PRECISION) / hafPrice;
+                uint256 actualClaimHaf = (actualClaim * PRICE_PRECISION) / getHafPrice();
                 _addRewardRecord(_node, address(0), RewardType.Genesis, actualClaim, actualClaimHaf);
             }
             
@@ -190,7 +199,7 @@ abstract contract HashFiLogic is HashFiStorage {
             uint256 actualRewardUsdt = (receivableAmount * directRewardRates[i]) / 100;
             
             if(actualRewardUsdt > 0) {
-                uint256 rewardHaf = (actualRewardUsdt * PRICE_PRECISION) / hafPrice;
+                uint256 rewardHaf = (actualRewardUsdt * PRICE_PRECISION) / getHafPrice();
                 User storage referrerUser = users[referrer];
                 
                 _updateDirectRewardRelease(referrer);
@@ -291,7 +300,7 @@ abstract contract HashFiLogic is HashFiStorage {
             uint256 rewardUsdt = (_staticRewardUsdt * 5) / 100;
 
             if(rewardUsdt > 0){
-                uint256 rewardHaf = (rewardUsdt * PRICE_PRECISION) / hafPrice;
+                uint256 rewardHaf = (rewardUsdt * PRICE_PRECISION) / getHafPrice();
                 referrerUser.shareRewardTotal = referrerUser.shareRewardTotal + rewardHaf;
                 _addRewardRecord(referrer, _user, RewardType.Share, rewardUsdt, rewardHaf);
             }
@@ -365,7 +374,7 @@ abstract contract HashFiLogic is HashFiStorage {
 
             uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
             uint256 dailyReleaseUsdt = (order.amount * baseDailyRate) / 10000;
-            uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / hafPrice;
+            uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / getHafPrice();
             
             uint256 baseTotalReleaseHaf = dailyReleaseHaf * daysPassed;
             
@@ -453,7 +462,7 @@ abstract contract HashFiLogic is HashFiStorage {
             pendingUsdt = maxDividend - user.genesisDividendsWithdrawn;
         }
         
-        return (pendingUsdt * PRICE_PRECISION) / hafPrice;
+        return (pendingUsdt * PRICE_PRECISION) / getHafPrice();
     }
 
     function _getStakingLevelByAmount(uint256 _amount) internal view returns (uint8) {

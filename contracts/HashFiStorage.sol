@@ -4,11 +4,23 @@ pragma solidity ^0.8.33;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+interface IHAFToken {
+    function getPrice() external view returns (uint256);
+    function isLpInitialized() external view returns (bool);
+    function transferFromContract(address to, uint256 amount) external;
+    function getContractBalance() external view returns (uint256);
+    function triggerMechanismsExternal() external;
+    function balanceOf(address account) external view returns (uint256);
+    function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external;
+    function pancakePair() external view returns (address);
+    function withdrawToDefi(address token, uint256 amount) external; // 从Token合约提取资产到DeFi合约
+}
+
 abstract contract HashFiStorage is Ownable {
 
     IERC20 internal usdtToken;
+    IHAFToken public hafToken;
 
-    uint256 internal constant TOTAL_SUPPLY = 21_000_000 * 1e18;
     uint256 internal constant PRICE_PRECISION = 1e18;
     uint256 internal constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
 
@@ -30,6 +42,7 @@ abstract contract HashFiStorage is Ownable {
     error NoPendingApplication();
     error InvalidLevel();
     error InvalidFeeRate();
+    error LpNotInitialized();
 
     enum RewardType { Static, Direct, Share, Team, Genesis }
     enum BtcWithdrawalStatus { Pending, Approved, Rejected }
@@ -167,13 +180,10 @@ abstract contract HashFiStorage is Ownable {
     uint256 private constant BTC_WITHDRAWAL_FEE_RATE = 5;
     uint256 public globalTotalHashPower;
 
-    uint256 public hafPrice;
+    // hafPrice removed - now use hafToken.getPrice()
     uint256 public withdrawalFeeRate = 5;
-    uint256 public swapFeeRate = 1;
 
-    uint256 internal lastPriceUpdateTime;
-    uint256 public dailyPriceIncreaseRate = 1;
-    bool public autoPriceUpdateEnabled = false;
+    // Removed: swapFeeRate, lastPriceUpdateTime, dailyPriceIncreaseRate, autoPriceUpdateEnabled
     
     uint256 public TIME_UNIT;
     uint256 public DYNAMIC_RELEASE_PERIOD;

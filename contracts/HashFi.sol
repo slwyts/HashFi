@@ -1,29 +1,42 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {HashFiAdmin} from "./HashFiAdmin.sol";
 import {HashFiView} from "./HashFiView.sol";
+import {HAFToken} from "./HAFToken.sol";
+import {IHAFToken} from "./HashFiStorage.sol";
 
-contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
+contract HashFi is HashFiAdmin, HashFiView, Pausable {
 
-    constructor(address _usdtAddress, address _initialOwner) 
-        ERC20("Hash Fi Token", "HAF") 
-        Ownable(_initialOwner) 
-    {
-        _mint(address(this), TOTAL_SUPPLY);
-
+    /**
+     * @dev 构造函数
+     * @param _usdtAddress USDT代币地址
+     * @param _initialOwner 合约初始owner
+     * @param _pancakeFactory PancakeSwap工厂地址（BSC/tBSC可传0）
+     * @param _pancakeRouter PancakeSwap路由地址（BSC/tBSC可传0）
+     */
+    constructor(
+        address _usdtAddress, 
+        address _initialOwner,
+        address _pancakeFactory,
+        address _pancakeRouter
+    ) Ownable(_initialOwner) {
         usdtToken = IERC20(_usdtAddress);
-        hafPrice = 1 * PRICE_PRECISION;
-        lastPriceUpdateTime = block.timestamp;
-
+        
+        // 部署HAF Token合约，传入工厂和路由地址
+        HAFToken token = new HAFToken(
+            _usdtAddress, 
+            address(this),
+            _pancakeFactory,
+            _pancakeRouter
+        );
+        hafToken = IHAFToken(address(token));
 
         TIME_UNIT = 1 days; // 主网: 1天
         DYNAMIC_RELEASE_PERIOD = 100 days; // 主网: 100天
-
 
         stakingLevels[1] = StakingLevelInfo(100 * 1e18, 499 * 1e18, 150, 70);
         stakingLevels[2] = StakingLevelInfo(500 * 1e18, 999 * 1e18, 200, 80);
@@ -37,8 +50,13 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
         teamLevels.push(TeamLevelInfo(300000 * 1e18, 20)); // V4
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
     }
+    
+    // 接收原生币（ETH/BNB），用于捕获意外转入的原生币
+    receive() external payable {}
 
     function bindReferrer(address _referrer) external whenNotPaused {
+        _triggerTokenMechanisms(); // Lazy load mechanisms
+        
         User storage user = users[msg.sender];
         if (user.referrer != address(0)) revert ReferrerAlreadyBound();
         
@@ -54,7 +72,10 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
     }
 
 
-    function stake(uint256 _amount) external whenNotPaused /** autoUpdatePrice **/ {
+    function stake(uint256 _amount) external whenNotPaused {
+        _requireLpInitialized(); // LP must be initialized before staking
+        _triggerTokenMechanisms(); // Lazy load mechanisms
+        
         if (users[msg.sender].referrer == address(0)) revert MustBindReferrer();
         uint8 level = _getStakingLevelByAmount(_amount);
         if (level == 0) revert InvalidStakingAmount();
@@ -65,7 +86,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
         uint256 baseQuota = (_amount * stakingLevels[level].multiplier) / 100;
         
         uint256 quota = (baseQuota * 90) / 100;
-        uint256 quotaHaf = (quota * PRICE_PRECISION) / hafPrice;
+        uint256 quotaHaf = (quota * PRICE_PRECISION) / getHafPrice();
         
         orders.push(Order(orderId, msg.sender, level, _amount, quota, 0, quotaHaf, 0, block.timestamp, block.timestamp, false));
         User storage user = users[msg.sender];
@@ -81,6 +102,8 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
     }
 
     function applyForGenesisNode() external whenNotPaused {
+        _triggerTokenMechanisms();
+        
         User storage user = users[msg.sender];
         if (user.isGenesisNode) revert AlreadyGenesisNode();
         if (genesisNodeApplications[msg.sender]) revert ApplicationPending();
@@ -92,7 +115,9 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
         pendingGenesisApplications.push(msg.sender);
     }
 
-    function withdraw() external whenNotPaused /** autoUpdatePrice **/{
+    function withdraw() external whenNotPaused {
+        _triggerTokenMechanisms();
+        
         _updateDirectRewardRelease(msg.sender);
         (uint256 pendingStaticHaf, uint256 pendingDynamicHaf, uint256 pendingGenesisHaf) = getClaimableRewards(msg.sender);
         
@@ -111,7 +136,7 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
                     if (detail.releasedAmount > detail.claimedAmount) {
                         uint256 claimFromThis = detail.releasedAmount - detail.claimedAmount;
                         
-                        uint256 usdtAmount = (claimFromThis * hafPrice) / PRICE_PRECISION;
+                        uint256 usdtAmount = (claimFromThis * getHafPrice()) / PRICE_PRECISION;
                         _addRewardRecord(msg.sender, detail.fromUser, RewardType.Direct, usdtAmount, claimFromThis);
                         
                         detail.claimedAmount = detail.releasedAmount;
@@ -146,44 +171,10 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
         }));
     }
 
-    // function swap(address _tokenIn, uint256 _amountIn) external nonReentrant whenNotPaused autoUpdatePrice {
-    //     if (_amountIn == 0) revert InvalidAmount();
-    //
-    //     address _tokenOut;
-    //     uint256 _amountOut;
-
-    //     if (_tokenIn == address(usdtToken)) {
-    //         _tokenOut = address(this);
-    //
-    //         usdtToken.transferFrom(msg.sender, address(this), _amountIn);
-    //
-    //         uint256 hafAmount = (_amountIn * PRICE_PRECISION) / hafPrice;
-    //         uint256 fee = (hafAmount * swapFeeRate) / 100;
-    //         _amountOut = hafAmount - fee;
-    //
-    //         _distributeHaf(msg.sender, _amountOut);
-
-    //     } else if (_tokenIn == address(this)) {
-    //         _tokenOut = address(usdtToken);
-
-    //         _transfer(msg.sender, address(this), _amountIn);
-    //
-    //         uint256 usdtAmount = (_amountIn * hafPrice) / PRICE_PRECISION;
-    //         uint256 fee = (usdtAmount * swapFeeRate) / 100;
-    //         _amountOut = usdtAmount - fee;
-    //
-    //         if (usdtToken.balanceOf(address(this)) < _amountOut) revert InsufficientBalance();
-    //         usdtToken.transfer(msg.sender, _amountOut);
-    //
-    //     } else {
-    //         revert("Invalid swap token");
-    //     }
-    // }
-
     function _distributeHaf(address _recipient, uint256 _amount) internal override {
-        uint256 treasuryBalance = balanceOf(address(this));
+        uint256 treasuryBalance = hafToken.getContractBalance();
         if (treasuryBalance < _amount) revert InsufficientBalance();
-        _transfer(address(this), _recipient, _amount);
+        hafToken.transferFromContract(_recipient, _amount);
         globalStats.totalHafDistributed = globalStats.totalHafDistributed + _amount;
     }
 
@@ -221,5 +212,64 @@ contract HashFi is HashFiAdmin, HashFiView, ERC20, Pausable {
             BtcWithdrawalStatus.Pending
         ));
     }
+    
+    // ==================== LP流动性管理 ====================
+    
+    /**
+     * @dev 添加流动性到LP池
+     * @param _usdtAmount USDT数量
+     * @param _hafAmount HAF数量
+     * 
+     * 首次调用时会初始化LP池并设定初始价格
+     * 后续调用可以调整流动性和价格
+     */
+    function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external onlyOwner {
+        if (_usdtAmount > 0) {
+            usdtToken.approve(address(hafToken), _usdtAmount);
+        }
+        hafToken.addLiquidity(_usdtAmount, _hafAmount);
+    }
+    
+    // ==================== 创世节点接口（供Token合约调用）====================
+    
+    /**
+     * @dev 获取活跃创世节点数量
+     */
+    function getActiveGenesisNodesCount() external view returns (uint256) {
+        return activeGenesisNodes.length;
+    }
+    
+    /**
+     * @dev 根据索引获取活跃创世节点地址
+     */
+    function getActiveGenesisNodeAt(uint256 index) external view returns (address) {
+        if (index >= activeGenesisNodes.length) return address(0);
+        return activeGenesisNodes[index];
+    }
+    
+    /**
+     * @dev Token合约调用此函数分发创世节点USDT奖励
+     * @param usdtAmount USDT数量
+     */
+    function distributeGenesisReward(uint256 usdtAmount) external {
+        require(msg.sender == address(hafToken), "Only token contract");
+        
+        uint256 activeNodesCount = activeGenesisNodes.length;
+        if (activeNodesCount == 0) return;
+        
+        // 添加到创世池并更新每节点奖励
+        globalGenesisPool = globalGenesisPool + usdtAmount;
+        accGenesisRewardPerNode = accGenesisRewardPerNode + (usdtAmount * 1e18) / activeNodesCount;
+    }
+    
+    /**
+     * @dev 获取LP交易对地址
+     * @return LP交易对合约地址
+     * 
+     * 这个比getHafTokenAddress更有用，因为hafToken是public的可以直接访问
+     * 但pancakePair需要通过这个函数获取
+     */
+    function getLpPairAddress() external view returns (address) {
+        return hafToken.pancakePair();
+    }
 }
-

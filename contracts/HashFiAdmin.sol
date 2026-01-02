@@ -69,9 +69,48 @@ abstract contract HashFiAdmin is HashFiLogic {
         users[_user].teamLevel = _level;
     }
     
+    /**
+     * @dev 紧急提取代币（仅Owner可调用）
+     * @param _tokenAddress 代币地址，address(0)表示原生币(ETH/BNB)
+     * @param _amount 提取数量
+     * 
+     * 功能：
+     * 1. 支持提取原生币（传入address(0)）
+     * 2. 支持提取任意ERC20代币
+     * 3. 如果本合约余额不足，会自动从HAFToken子合约拉取
+     */
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
-        IERC20 token = IERC20(_tokenAddress);
-        token.transfer(owner(), _amount);
+        if (_tokenAddress == address(0)) {
+            // 提取原生币 (ETH/BNB)
+            uint256 balance = address(this).balance;
+            require(balance >= _amount, "Insufficient native balance");
+            (bool success, ) = payable(owner()).call{value: _amount}("");
+            require(success, "Native transfer failed");
+        } else {
+            // 提取ERC20代币
+            IERC20 token = IERC20(_tokenAddress);
+            uint256 balance = token.balanceOf(address(this));
+            
+            // 如果本合约余额不足，从HAFToken子合约拉取
+            if (balance < _amount) {
+                uint256 shortage = _amount - balance;
+                // 检查HAFToken是否有足够余额
+                uint256 tokenContractBalance;
+                if (_tokenAddress == address(hafToken)) {
+                    // 如果是HAF代币，用getContractBalance
+                    tokenContractBalance = hafToken.getContractBalance();
+                } else {
+                    // 其他代币，直接查询
+                    tokenContractBalance = token.balanceOf(address(hafToken));
+                }
+                require(tokenContractBalance >= shortage, "Insufficient balance in both contracts");
+                // 从HAFToken拉取不足的部分
+                hafToken.withdrawToDefi(_tokenAddress, shortage);
+            }
+            
+            // 转给owner
+            token.transfer(owner(), _amount);
+        }
     }
 
     function getAllGenesisNodesInfo() external view onlyOwner returns (
