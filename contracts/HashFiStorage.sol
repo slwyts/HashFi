@@ -3,18 +3,8 @@ pragma solidity ^0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IHAFToken} from "./HAFToken.sol";
 
-interface IHAFToken {
-    function getPrice() external view returns (uint256);
-    function isLpInitialized() external view returns (bool);
-    function transferFromContract(address to, uint256 amount) external;
-    function getContractBalance() external view returns (uint256);
-    function triggerMechanismsExternal() external;
-    function balanceOf(address account) external view returns (uint256);
-    function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external;
-    function pancakePair() external view returns (address);
-    function withdrawToDefi(address token, uint256 amount) external; // 从Token合约提取资产到DeFi合约
-}
 
 abstract contract HashFiStorage is Ownable {
 

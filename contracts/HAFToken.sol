@@ -32,6 +32,18 @@ interface IHashFiMain {
     function distributeGenesisReward(uint256 usdtAmount) external;
 }
 
+interface IHAFToken {
+    function getPrice() external view returns (uint256);
+    function isLpInitialized() external view returns (bool);
+    function transferFromContract(address to, uint256 amount) external;
+    function getContractBalance() external view returns (uint256);
+    function triggerMechanismsExternal() external;
+    function balanceOf(address account) external view returns (uint256);
+    function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external;
+    function pancakePair() external view returns (address);
+    function withdrawToDefi(address token, uint256 amount) external; // 从Token合约提取资产到DeFi合约
+}
+
 /**
  * @title HAFToken - Hash Fi Token合约
  * @dev 这是HashFi生态系统的原生代币，具有以下特性：
@@ -131,10 +143,10 @@ contract HAFToken is ERC20, Ownable {
     address public pancakePair;
     
     // PancakeSwap工厂合约地址 - 用于创建交易对
-    address internal pancakeFactory;
+    address public pancakeFactory;
     
     // PancakeSwap路由合约地址 - 预留用于更复杂的交换操作
-    address internal pancakeRouter;
+    address public pancakeRouter;
     
     // ==================== 状态变量 - 税收追踪 ====================
     // 累积的买入税（HAF数量）

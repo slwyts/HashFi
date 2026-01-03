@@ -22,10 +22,7 @@ abstract contract HashFiLogic is HashFiStorage {
 
     // Trigger token mechanisms (lazy load)
     function _triggerTokenMechanisms() internal {
-        if (address(hafToken) != address(0)) {
-            // Transfer 0 to trigger mechanisms
-            hafToken.triggerMechanismsExternal();
-        }
+        hafToken.triggerMechanismsExternal();
     }
 
     function _settleUserRewards(address _user) internal {

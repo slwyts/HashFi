@@ -10,8 +10,8 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
  * 5. HashFi (包含 HAFToken)
  */
 const LocalDeployModule = buildModule("LocalDeployModule", (m) => {
-  // 获取部署账户作为 owner
-  const deployer = m.getAccount(0);
+  // 使用固定的 owner 地址
+  const deployer = "0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966";
 
   console.log("部署账户:", deployer);
 
