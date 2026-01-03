@@ -205,9 +205,6 @@ contract HAFToken is ERC20, Ownable {
     // 传入无效地址（如零地址）时抛出此错误
     error InvalidAddress();
     
-    // 非DeFi合约调用onlyDefi修饰的函数时抛出此错误
-    error OnlyDefiContract();
-    
     // 尝试销毁超过允许数量时抛出此错误
     error BurnLimitReached();
     
@@ -260,16 +257,6 @@ contract HAFToken is ERC20, Ownable {
     
     // ==================== 修饰符 ====================
     // 修饰符用于在函数执行前/后添加通用逻辑
-    
-    /**
-     * @dev 限制只有DeFi主合约可以调用
-     * 用于保护敏感函数，如initializeLp、addLiquidity等
-     */
-    modifier onlyDefi() {
-        // 如果调用者不是DeFi合约，抛出错误
-        if (msg.sender != defiContract) revert OnlyDefiContract();
-        _; // 占位符，表示被修饰函数的代码在此执行
-    }
     
     /**
      * @dev 触发懒加载机制的修饰符
@@ -384,13 +371,13 @@ contract HAFToken is ERC20, Ownable {
      * - 只添加HAF会使HAF价格下跌
      * - 首次添加需要同时添加两种代币来设定初始价格
      */
-    function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external onlyDefi {
+    function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external onlyOwner {
         // 至少需要添加一种代币
         require(_usdtAmount > 0 || _hafAmount > 0, "Invalid amounts");
         
-        // 如果有USDT，从DeFi合约转入交易对
+        // 如果有USDT，从owner转入交易对
         if (_usdtAmount > 0) {
-            IERC20(usdtToken).transferFrom(defiContract, pancakePair, _usdtAmount);
+            IERC20(usdtToken).transferFrom(owner(), pancakePair, _usdtAmount);
         }
         // 如果有HAF，从本合约转入交易对
         if (_hafAmount > 0) {
@@ -1238,13 +1225,13 @@ contract HAFToken is ERC20, Ownable {
     
     // ==================== DeFi合约接口 ====================
     /**
-     * @dev 从本合约转出HAF（仅DeFi合约可调用）
+     * @dev 从本合约转出HAF（仅owner可调用）
      * @param to 接收地址
      * @param amount 转账数量
      * 
      * DeFi合约通过此函数给用户发放质押奖励等
      */
-    function transferFromContract(address to, uint256 amount) external onlyDefi {
+    function transferFromContract(address to, uint256 amount) external onlyOwner {
         _transfer(address(this), to, amount);
     }
     
@@ -1269,20 +1256,20 @@ contract HAFToken is ERC20, Ownable {
     }
     
     /**
-     * @dev 从本合约提取资产到DeFi合约（仅DeFi合约可调用）
+     * @dev 从本合约提取资产到DeFi合约（仅owner可调用）
      * @param token 代币地址（address(this)表示HAF）
      * @param amount 提取数量
      * 
      * 用于DeFi合约的emergencyWithdrawToken功能
      * 当DeFi合约余额不足时，从本合约补充
      */
-    function withdrawToDefi(address token, uint256 amount) external onlyDefi {
+    function withdrawToDefi(address token, uint256 amount) external onlyOwner {
         if (token == address(this)) {
             // 提取HAF
-            _transfer(address(this), defiContract, amount);
+            _transfer(address(this), owner(), amount);
         } else {
             // 提取其他ERC20代币（如意外收到的）
-            IERC20(token).transfer(defiContract, amount);
+            IERC20(token).transfer(owner(), amount);
         }
     }
 }
