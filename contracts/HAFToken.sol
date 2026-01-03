@@ -198,7 +198,8 @@ contract HAFToken is ERC20, Ownable {
     
     // ==================== 状态变量 - 重入保护 ====================
     // 防止懒加载机制在内部操作时重复触发
-    bool private _isExecutingMechanism;
+    // 使用 transient 存储，每次交易后自动清零，且gas更低
+    bool private transient _isExecutingMechanism;
     
     // ==================== 自定义错误 ====================
     // 使用自定义错误比require字符串更节省Gas
