@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { useReadContract, useAccount } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
-import { abi } from '@/core/contract';
+import { abi, hafTokenAbi, erc20Abi } from '@/core/contract';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -91,7 +91,7 @@ export const useAdminData = () => {
     }));
   });
 
-  // ========== 全局统计数据 ==========
+  // ========== 全局统计 ==========
   const { data: globalStatsData, refetch: refetchStats } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi,
@@ -104,7 +104,60 @@ export const useAdminData = () => {
     functionName: 'globalGenesisPool',
   });
 
+  // 查询 HAFToken 地址
+  const { data: hafTokenAddress } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi,
+    functionName: 'hafToken',
+  });
+
+  // 查询 LP Pair 地址
+  const { data: lpPairAddress } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'pancakePair',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  // 查询 LP 余额 (LP token 由 HAFToken 合约持有)
+  const { data: contractLpBalanceData, refetch: refetchLpBalance } = useReadContract({
+    address: lpPairAddress as any,
+    abi: erc20Abi, // LP Pair 是 ERC20 token
+    functionName: 'balanceOf',
+    args: computed(() => hafTokenAddress.value ? [hafTokenAddress.value] : undefined) as any,
+    query: {
+      enabled: computed(() => !!lpPairAddress.value && !!hafTokenAddress.value),
+    }
+  });
+
+  // 查询 LP 池 USDT 储备量
+  const { data: lpUsdtReserveData, refetch: refetchLpUsdtReserve } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'getLpUsdtBalance',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  // 查询 LP 池 HAF 储备量
+  const { data: lpHafReserveData, refetch: refetchLpHafReserve } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'getLpHafBalance',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
   const globalStats = computed(() => {
+    // 解析 LP 数据
+    const lpUsdtReserve = lpUsdtReserveData.value ? formatEther(lpUsdtReserveData.value as bigint) : '0';
+    const lpHafReserve = lpHafReserveData.value ? formatEther(lpHafReserveData.value as bigint) : '0';
+    const lpTokenBalance = contractLpBalanceData.value ? formatEther(contractLpBalanceData.value as bigint) : '0';
+    
     if (!globalStatsData.value) {
       return {
         totalStakedUsdt: '0',
@@ -113,6 +166,9 @@ export const useAdminData = () => {
         currentHafPrice: '1.000000',
         contractUsdtBalance: '0',
         contractHafBalance: '0',
+        lpUsdtReserve,
+        lpHafReserve,
+        lpTokenBalance,
         totalDepositedUsdt: '0',
         totalWithdrawnHaf: '0',
         totalFeeCollectedHaf: '0',
@@ -131,6 +187,9 @@ export const useAdminData = () => {
       currentHafPrice: formatUnits(data[3], 18),
       contractUsdtBalance: formatEther(data[4]),
       contractHafBalance: formatEther(data[5]),
+      lpUsdtReserve,
+      lpHafReserve,
+      lpTokenBalance,
       totalDepositedUsdt: formatEther(data[6].totalDepositedUsdt),
       totalWithdrawnHaf: formatEther(data[6].totalWithdrawnHaf),
       totalFeeCollectedHaf: formatEther(data[6].totalFeeCollectedHaf),
@@ -294,6 +353,9 @@ export const useAdminData = () => {
       refetchGenesisInfo(),
       refetchStats(),
       refetchGenesisPool(),
+      refetchLpBalance(),
+      refetchLpUsdtReserve(),
+      refetchLpHafReserve(),
       refetchBtcStats(),
       refetchPrice(),
       // refetchDailyRate(),

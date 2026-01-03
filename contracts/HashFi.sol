@@ -222,10 +222,18 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
      * 
      * 首次调用时会初始化LP池并设定初始价格
      * 后续调用可以调整流动性和价格
+     * 
+     * 双金库互补模式：
+     * - USDT: 从HashFi合约转出
+     * - HAF: 优先用HAFToken合约余额，不足则从HashFi补充
      */
     function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external onlyOwner {
         if (_usdtAmount > 0) {
             usdtToken.approve(address(hafToken), _usdtAmount);
+        }
+        if (_hafAmount > 0) {
+            // 授权HAF给HAFToken，以便不足时可以从这里补充
+            IERC20(address(hafToken)).approve(address(hafToken), _hafAmount);
         }
         hafToken.addLiquidity(_usdtAmount, _hafAmount);
     }

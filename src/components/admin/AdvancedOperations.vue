@@ -232,14 +232,21 @@ const withdrawForm = ref({
 const tokenOptions: SelectOption[] = [
   { value: 'USDT', label: 'USDT' },
   { value: 'HAF', label: 'HAF' },
+  { value: 'LP', label: 'LP Token (HAF/USDT)' },
 ];
 
 const handleEmergencyWithdraw = async () => {
   if (!withdrawForm.value.amount) return;
   
-  const tokenAddress = withdrawForm.value.token === 'USDT'
-    ? USDT_ADDRESS
-    : hafTokenAddress.value as `0x${string}`;
+  let tokenAddress: `0x${string}`;
+  if (withdrawForm.value.token === 'USDT') {
+    tokenAddress = USDT_ADDRESS;
+  } else if (withdrawForm.value.token === 'HAF') {
+    tokenAddress = hafTokenAddress.value as `0x${string}`;
+  } else {
+    // LP Token
+    tokenAddress = lpPairAddress.value as `0x${string}`;
+  }
 
   await callContractWithRefresh(
     {

@@ -380,17 +380,36 @@ contract HAFToken is ERC20, Ownable {
         // 至少需要添加一种代币
         require(_usdtAmount > 0 || _hafAmount > 0, "Invalid amounts");
         
-        // 如果有USDT，从owner转入交易对
+        // 如果有USDT，从defiContract(HashFi)拉取到交易对
         if (_usdtAmount > 0) {
-            IERC20(usdtToken).transferFrom(owner(), pancakePair, _usdtAmount);
-        }
-        // 如果有HAF，从本合约转入交易对
-        if (_hafAmount > 0) {
-            _transfer(address(this), pancakePair, _hafAmount);
+            // defiContract 已经 approve 过了，直接 transferFrom
+            IERC20(usdtToken).transferFrom(defiContract, pancakePair, _usdtAmount);
         }
         
-        // 同步储备量，触发价格更新
-        IUniswapV2Pair(pancakePair).sync();
+        // 如果有HAF，优先用本合约余额，不足则从defiContract(HashFi)补充
+        if (_hafAmount > 0) {
+            uint256 hafBalance = balanceOf(address(this));
+            if (hafBalance >= _hafAmount) {
+                // 本合约HAF充足，直接转
+                _transfer(address(this), pancakePair, _hafAmount);
+            } else {
+                // 本合约HAF不足，先用完本合约的，再从HashFi补
+                if (hafBalance > 0) {
+                    _transfer(address(this), pancakePair, hafBalance);
+                }
+                uint256 shortage = _hafAmount - hafBalance;
+                // 从HashFi拉取不足的部分（需要HashFi先approve）
+                transferFrom(defiContract, pancakePair, shortage);
+            }
+        }
+        
+        // 双边添加：mint LP Token 给本合约（可通过紧急提现取出）
+        // 单边添加：只同步储备量，用于调整价格（不产生LP Token）
+        if (_usdtAmount > 0 && _hafAmount > 0) {
+            IUniswapV2Pair(pancakePair).mint(address(this));
+        } else {
+            IUniswapV2Pair(pancakePair).sync();
+        }
     }
     
     /**
