@@ -239,7 +239,7 @@ const handleEmergencyWithdraw = async () => {
   
   const tokenAddress = withdrawForm.value.token === 'USDT'
     ? USDT_ADDRESS
-    : CONTRACT_ADDRESS;
+    : hafTokenAddress.value as `0x${string}`;
 
   await callContractWithRefresh(
     {
