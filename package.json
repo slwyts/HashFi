@@ -9,7 +9,7 @@
     "build": "npx hardhat compile && vue-tsc -b && vite build --mode production",
     "preview": "vite preview",
     "testnet": "npx tsx scripts/start-auto-testnet.ts",
-    "testnet:dev": "npx tsx scripts/start-auto-testnet.ts --no-logs && npx tsx -e \"setTimeout(()=>{},3000)\" && npm run dev:local",
+    "testnet:dev": "npx tsx scripts/start-auto-testnet.ts && npx tsx -e \"setTimeout(()=>{},3000)\" && npm run dev:local",
     "stop": "npx tsx scripts/stop-testnet.ts",
     "time": "npx tsx scripts/time-jump.ts",
     "check:balance": "dotenv -e .env.hardhat -- npx tsx scripts/check-balance.ts",

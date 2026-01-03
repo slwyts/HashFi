@@ -7,9 +7,6 @@ abstract contract HashFiLogic is HashFiStorage {
 
     // Get HAF price from token contract
     function getHafPrice() public view returns (uint256) {
-        if (address(hafToken) == address(0)) {
-            return 1 * PRICE_PRECISION; // Default 1:1 before token init
-        }
         return hafToken.getPrice();
     }
     

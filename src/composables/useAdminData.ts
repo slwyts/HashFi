@@ -181,7 +181,7 @@ export const useAdminData = () => {
   const { data: hafPriceData, refetch: refetchPrice } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi,
-    functionName: 'hafPrice',
+    functionName: 'getHafPrice',
   });
 
   // const { data: dailyRateData, refetch: refetchDailyRate } = useReadContract({

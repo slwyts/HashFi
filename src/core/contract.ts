@@ -125,7 +125,7 @@ export function useClaimableRewards(userAddress?: Ref<Address | undefined>) {
 
 // --- 全局配置读取 ---
 export function useHafPrice() {
-    return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'hafPrice' });
+    return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getHafPrice' });
 }
 
 export function useStakingLevelInfo(level: Ref<1 | 2 | 3 | 4>) {

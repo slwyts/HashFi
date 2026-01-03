@@ -159,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { parseEther } from 'viem';
 import { useReadContract } from '@wagmi/vue';
 import { useAdminData } from '../../composables/useAdminData';
@@ -195,31 +195,31 @@ const { data: hafTokenAddress } = useReadContract({
 
 // 获取LP Pair地址
 const { data: lpPairAddress } = useReadContract({
-  address: (hafTokenAddress?.value as `0x${string}`) || undefined,
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
   abi: hafTokenAbi,
   functionName: 'pancakePair',
   query: {
-    enabled: !!hafTokenAddress?.value,
+    enabled: computed(() => !!hafTokenAddress.value),
   },
 });
 
 // 获取Factory地址
 const { data: factoryAddress } = useReadContract({
-  address: (hafTokenAddress?.value as `0x${string}`) || undefined,
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
   abi: hafTokenAbi,
   functionName: 'pancakeFactory',
   query: {
-    enabled: !!hafTokenAddress?.value,
+    enabled: computed(() => !!hafTokenAddress.value),
   },
 });
 
 // 获取Router地址
 const { data: routerAddress } = useReadContract({
-  address: (hafTokenAddress?.value as `0x${string}`) || undefined,
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
   abi: hafTokenAbi,
   functionName: 'pancakeRouter',
   query: {
-    enabled: !!hafTokenAddress?.value,
+    enabled: computed(() => !!hafTokenAddress.value),
   },
 });
 

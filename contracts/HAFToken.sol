@@ -657,7 +657,7 @@ contract HAFToken is ERC20, Ownable {
         // 尝试执行自动销毁（每2小时）
         _tryAutoBurn();
     }
-    
+
     /**
      * @dev 尝试执行每日燃烧
      * 检查是否到达新的一天（UTC+8），如果是则执行燃烧
