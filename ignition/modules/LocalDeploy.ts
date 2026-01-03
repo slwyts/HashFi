@@ -1,13 +1,19 @@
-/**
- * TokenTest 部署模块
- * 用于测试 HAFToken 的完整部署：USDT + MockUniswap + HashFi
- */
-
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-const TokenTestModule = buildModule("TokenTestModule", (m) => {
+/**
+ * 本地完整部署脚本
+ * 部署顺序：
+ * 1. Mock USDT
+ * 2. Mock WETH
+ * 3. Mock Uniswap Factory
+ * 4. Mock Uniswap Router
+ * 5. HashFi (包含 HAFToken)
+ */
+const LocalDeployModule = buildModule("LocalDeployModule", (m) => {
   // 获取部署账户作为 owner
   const deployer = m.getAccount(0);
+
+  console.log("部署账户:", deployer);
 
   // 1. 部署 Mock USDT
   const usdt = m.contract("USDT", [], { id: "USDT" });
@@ -27,4 +33,4 @@ const TokenTestModule = buildModule("TokenTestModule", (m) => {
   return { usdt, weth, factory, router, hashfi };
 });
 
-export default TokenTestModule;
+export default LocalDeployModule;

@@ -91,7 +91,7 @@ async function main() {
   }
 
   const addresses = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
-  const usdtAddress = addresses['FullDeployModule#USDT'] as `0x${string}`;
+  const usdtAddress = addresses['LocalDeployModule#USDT'] as `0x${string}`;
 
   if (!usdtAddress) {
     console.error('❌ 未找到 USDT 地址');

@@ -110,8 +110,8 @@ function updateEnvFile(deploymentFile: string): void {
 
   try {
     const deployedAddresses = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
-    const usdtAddress = deployedAddresses['FullDeployModule#USDT']
-    const hashfiAddress = deployedAddresses['FullDeployModule#HashFi']
+    const usdtAddress = deployedAddresses['LocalDeployModule#USDT']
+    const hashfiAddress = deployedAddresses['LocalDeployModule#HashFi']
 
     let envContent = readFileSync(envFile, 'utf-8')
 
@@ -175,7 +175,7 @@ async function main() {
 
   // Deploy contracts
   console.log('Deploying contracts...')
-  const deployResult = await runCommand('npx', ['hardhat', 'ignition', 'deploy', 'ignition/modules/FullDeploy.ts', '--network', 'localhost'])
+  const deployResult = await runCommand('npx', ['hardhat', 'ignition', 'deploy', 'ignition/modules/LocalDeploy.ts', '--network', 'localhost'])
 
   if (deployResult.code !== 0) {
     console.error('Failed to deploy contracts!')

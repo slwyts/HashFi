@@ -14,7 +14,6 @@
     "time": "npx tsx scripts/time-jump.ts",
     "check:balance": "dotenv -e .env.hardhat -- npx tsx scripts/check-balance.ts",
     "check:size": "node check-bytecode.cjs",
-    "test:token": "npx hardhat run scripts/test-token.ts --network hardhat",
     "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet"
   },
   "dependencies": {
@@ -39,12 +38,9 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.6",
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
-    "@types/chai": "^5.2.3",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^25.0.3",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/tsconfig": "^0.8.1",
-    "chai": "^6.2.2",
     "dotenv": "^17.2.3",
     "hardhat": "^3.1.0",
     "tsx": "^4.21.0",
