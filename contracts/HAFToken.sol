@@ -401,9 +401,9 @@ contract HAFToken is ERC20, Ownable {
      * 返回值示例：0.1 USDT/HAF 返回 0.1 * 1e18 = 1e17
      */
     function getPrice() public view returns (uint256) {
-        // 如果LP未初始化或交易对不存在，返回默认价格1:1
+        // 如果LP未初始化或交易对不存在，返回默认价格0
         if (!isLpInitialized()) {
-            return 1 * PRICE_PRECISION;
+            return 0 * PRICE_PRECISION;
         }
         
         // 获取交易对合约实例

@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-// Lazy load components for better performance
 const Staking = () => import('./views/Staking.vue');
 const StakingOrderDetail = () => import('./views/StakingOrderDetail.vue');
 // const Swap = () => import('./views/Swap.vue');
@@ -10,8 +9,7 @@ const Profile = () => import('./views/Profile.vue');
 const GenesisNode = () => import('./views/GenesisNode.vue');
 const HashPower = () => import('./views/HashPower.vue');
 const Admin = () => import('./views/Admin.vue');
-const ContentView = () => import('./views/ContentView.vue'); // 新增通用内容页面
-// const ContentTest = () => import('./views/ContentTest.vue'); // 测试页面（可选）
+const ContentView = () => import('./views/ContentView.vue');
 
 const routes = [
   { path: '/', redirect: '/staking' },
@@ -24,23 +22,18 @@ const routes = [
   { path: '/genesis-node', component: GenesisNode },
   { path: '/hashpower', component: HashPower },
   { path: '/admin', component: Admin },
-  { path: '/content/:data?', name: 'content', component: ContentView }, // 通用内容页面
-  // { path: '/content-test', component: ContentTest }, // 测试页面（可选，用于开发测试）
+  { path: '/content/:data?', name: 'content', component: ContentView },
   {
     path: '/invite/:code',
     redirect: (to: any) => {
-      // 处理邀请码并重定向到 profile 页面
       const inviteCode = to.params.code as string;
       console.log('Processing invite code:', inviteCode);
-
-      // 重定向到 profile 页面，携带原始邀请码参数
       return `/profile?invite=${inviteCode}`;
     }
   },
 ];
 
 const router = createRouter({
-  // 使用 HTML5 History 模式（去掉 URL 中的 #）
   history: createWebHistory(),
   routes,
 });
