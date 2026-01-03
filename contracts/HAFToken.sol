@@ -196,6 +196,10 @@ contract HAFToken is ERC20, Ownable {
     // 包括：本合约、DeFi合约、黑洞地址、零地址、交易对地址
     mapping(address => bool) public isTaxExempt;
     
+    // ==================== 状态变量 - 重入保护 ====================
+    // 防止懒加载机制在内部操作时重复触发
+    bool private _isExecutingMechanism;
+    
     // ==================== 自定义错误 ====================
     // 使用自定义错误比require字符串更节省Gas
     
@@ -652,10 +656,19 @@ contract HAFToken is ERC20, Ownable {
      * 3. 即使长时间无交互，下次交互时会补执行
      */
     function _triggerLazyMechanisms() internal {
+        // 防止重入：如果正在执行机制，直接返回
+        if (_isExecutingMechanism) return;
+        
+        // 设置标志
+        _isExecutingMechanism = true;
+        
         // 尝试执行每日燃烧（UTC+8早8点）
         _tryDailyBurn();
         // 尝试执行自动销毁（每2小时）
         _tryAutoBurn();
+        
+        // 重置标志
+        _isExecutingMechanism = false;
     }
 
     /**
