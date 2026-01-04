@@ -30,6 +30,88 @@ export const erc20Abi = [
     "outputs": [{"internalType": "uint256","name": "","type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address","name": "to","type": "address"},{"internalType": "uint256","name": "amount","type": "uint256"}],
+    "name": "transfer",
+    "outputs": [{"internalType": "bool","name": "","type": "bool"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+] as const;
+
+// UniswapV2 Pair ABI（用于 LP 池 swap 操作）
+export const uniswapV2PairAbi = [
+  {
+    "inputs": [],
+    "name": "getReserves",
+    "outputs": [
+      {"internalType": "uint112","name": "_reserve0","type": "uint112"},
+      {"internalType": "uint112","name": "_reserve1","type": "uint112"},
+      {"internalType": "uint32","name": "_blockTimestampLast","type": "uint32"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "token0",
+    "outputs": [{"internalType": "address","name": "","type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "token1",
+    "outputs": [{"internalType": "address","name": "","type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256","name": "amount0Out","type": "uint256"},
+      {"internalType": "uint256","name": "amount1Out","type": "uint256"},
+      {"internalType": "address","name": "to","type": "address"},
+      {"internalType": "bytes","name": "data","type": "bytes"}
+    ],
+    "name": "swap",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "sync",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+] as const;
+
+// UniswapV2 Router ABI（用于一次性完成 swap）
+export const uniswapV2RouterAbi = [
+  {
+    "inputs": [
+      {"internalType": "uint256","name": "amountIn","type": "uint256"},
+      {"internalType": "uint256","name": "amountOutMin","type": "uint256"},
+      {"internalType": "address[]","name": "path","type": "address[]"},
+      {"internalType": "address","name": "to","type": "address"},
+      {"internalType": "uint256","name": "deadline","type": "uint256"}
+    ],
+    "name": "swapExactTokensForTokens",
+    "outputs": [{"internalType": "uint256[]","name": "amounts","type": "uint256[]"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256","name": "amountIn","type": "uint256"},
+      {"internalType": "address[]","name": "path","type": "address[]"}
+    ],
+    "name": "getAmountsOut",
+    "outputs": [{"internalType": "uint256[]","name": "amounts","type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;
 
@@ -108,7 +190,7 @@ export function useOrderInfo(orderId: Ref<number | undefined>) {
 export function useRewardRecords(userAddress?: Ref<Address | undefined>) {
     const { address: connectedAddress } = useAccount();
     const targetAddress = computed(() => userAddress?.value || connectedAddress.value);
-    return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getRewardRecords', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
+    return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getUserRewardRecords', args: computed(() => (targetAddress.value ? [targetAddress.value] : undefined)), query: { enabled: () => !!targetAddress.value } });
 }
 
 export function useDirectReferrals(userAddress?: Ref<Address | undefined>) {
@@ -124,8 +206,42 @@ export function useClaimableRewards(userAddress?: Ref<Address | undefined>) {
 }
 
 // --- 全局配置读取 ---
+
+// 获取 HAF 价格（从LP池计算）
 export function useHafPrice() {
     return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getHafPrice' });
+}
+
+// 获取 HAFToken 合约地址
+export function useHafTokenAddress() {
+    return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'hafToken' });
+}
+
+// 获取 LP Pair 地址
+export function useLpPairAddress() {
+    return useReadContract({ chainId: CHAIN_ID, abi, address: HASHFI_CONTRACT_ADDRESS, functionName: 'getLpPairAddress' });
+}
+
+// 获取 LP 池储备量
+export function useLpReserves(lpPairAddress: Ref<Address | undefined>) {
+    return useReadContract({
+        chainId: CHAIN_ID,
+        abi: uniswapV2PairAbi,
+        address: computed(() => lpPairAddress.value) as any,
+        functionName: 'getReserves',
+        query: { enabled: () => !!lpPairAddress.value, refetchInterval: 10000 }
+    });
+}
+
+// 获取 LP 池 token0 地址
+export function useLpToken0(lpPairAddress: Ref<Address | undefined>) {
+    return useReadContract({
+        chainId: CHAIN_ID,
+        abi: uniswapV2PairAbi,
+        address: computed(() => lpPairAddress.value) as any,
+        functionName: 'token0',
+        query: { enabled: () => !!lpPairAddress.value }
+    });
 }
 
 export function useStakingLevelInfo(level: Ref<1 | 2 | 3 | 4>) {

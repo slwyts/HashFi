@@ -329,7 +329,7 @@ const { data: userOrdersData, refetch: refetchOrders } = useReadContract({
 const { data: hafPriceData } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
-  functionName: 'hafPrice',
+  functionName: 'getHafPrice',
   query: {
     enabled: true,
   },

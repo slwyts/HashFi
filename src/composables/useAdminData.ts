@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { useReadContract, useAccount } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
 import { abi, hafTokenAbi, erc20Abi } from '@/core/contract';
+import { useBitcoinData } from './useBitcoinData';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -200,42 +201,6 @@ export const useAdminData = () => {
     };
   });
 
-  // ========== BTC数据 ==========
-  const { data: btcStatsData, refetch: refetchBtcStats } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi,
-    functionName: 'getBtcStats',
-  });
-
-  const btcStats = computed(() => {
-    if (!btcStatsData.value) {
-      return {
-        totalHashrate: '0',
-        globalHashrate: '0',
-        dailyRewardPerT: '0',
-        currentDifficulty: '0',
-        btcPrice: '0',
-        nextHalvingTime: '0',
-        totalMined: '0',
-        yesterdayMined: '0',
-        lastUpdateTime: '0',
-      };
-    }
-
-    const data = btcStatsData.value as any;
-    return {
-      totalHashrate: formatEther(data.totalHashrate),
-      globalHashrate: formatEther(data.globalHashrate),
-      dailyRewardPerT: formatUnits(data.dailyRewardPerT, 6),
-      currentDifficulty: data.currentDifficulty.toString(),
-      btcPrice: formatUnits(data.btcPrice, 6),
-      nextHalvingTime: data.nextHalvingTime.toString(),
-      totalMined: formatEther(data.totalMined),
-      yesterdayMined: formatEther(data.yesterdayMined),
-      lastUpdateTime: data.lastUpdateTime.toString(),
-    };
-  });
-
   // ========== 价格与费率数据 ==========
   const { data: hafPriceData, refetch: refetchPrice } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -356,7 +321,6 @@ export const useAdminData = () => {
       refetchLpBalance(),
       refetchLpUsdtReserve(),
       refetchLpHafReserve(),
-      refetchBtcStats(),
       refetchPrice(),
       // refetchDailyRate(),
       // refetchAutoPriceUpdate(),
@@ -401,7 +365,6 @@ export const useAdminData = () => {
     
     // 统计数据
     globalStats,
-    btcStats,
     
     // 价格与费率
     priceSettings,
@@ -419,6 +382,5 @@ export const useAdminData = () => {
     refreshGenesisData,
     refreshSystemData,
     refetchStats,
-    refetchBtcStats,
   };
 };
