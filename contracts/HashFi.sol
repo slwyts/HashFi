@@ -256,21 +256,6 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
     }
     
     /**
-     * @dev Token合约调用此函数分发创世节点USDT奖励
-     * @param usdtAmount USDT数量
-     */
-    function distributeGenesisReward(uint256 usdtAmount) external {
-        require(msg.sender == address(hafToken), "Only token contract");
-        
-        uint256 activeNodesCount = activeGenesisNodes.length;
-        if (activeNodesCount == 0) return;
-        
-        // 添加到创世池并更新每节点奖励
-        globalGenesisPool = globalGenesisPool + usdtAmount;
-        accGenesisRewardPerNode = accGenesisRewardPerNode + (usdtAmount * 1e18) / activeNodesCount;
-    }
-    
-    /**
      * @dev 获取LP交易对地址
      * @return LP交易对合约地址
      * 

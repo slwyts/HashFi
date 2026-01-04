@@ -19,17 +19,15 @@ import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pa
 /**
  * @title IHashFiMain接口
  * @dev 定义与HashFi主合约交互所需的函数接口
- * HAF代币需要调用主合约来获取创世节点信息并分发奖励
+ * HAF代币需要调用主合约来获取创世节点信息
  */
 interface IHashFiMain {
     // 获取主合约的所有者地址 - 用于接收社区份额和卖出税
     function owner() external view returns (address);
-    // 获取活跃创世节点的数量 - 用于计算分发
+    // 获取活跃创世节点的数量 - 用于计算分发阈值
     function getActiveGenesisNodesCount() external view returns (uint256);
-    // 根据索引获取活跃创世节点的地址 - 用于遍历分发
+    // 根据索引获取活跃创世节点的地址 - 用于直接转账USDT
     function getActiveGenesisNodeAt(uint256 index) external view returns (address);
-    // 分发创世节点奖励(USDT) - 将买入税转换后的USDT分发给创世节点
-    function distributeGenesisReward(uint256 usdtAmount) external;
 }
 
 interface IHAFToken {
@@ -119,11 +117,6 @@ contract HAFToken is ERC20, Ownable {
     
     // 自动销毁间隔：2小时
     uint256 private constant AUTO_BURN_INTERVAL = 2 hours;
-    
-    // ==================== 买入税分发阈值 ====================
-    // 当累积的买入税价值达到365 USDT时，触发分发给创世节点
-    // 这样可以减少频繁小额转账的Gas消耗
-    uint256 private constant GENESIS_DISTRIBUTE_THRESHOLD = 365 * 1e18;
     
     // ==================== 特殊地址 ====================
     // 黑洞地址（死亡地址）：用于"伪销毁"代币
@@ -558,43 +551,54 @@ contract HAFToken is ERC20, Ownable {
      * @dev 检查并分发买入税给创世节点
      * 
      * 工作流程：
-     * 1. 计算累积买入税的USDT价值
-     * 2. 如果价值≥365 USDT，触发分发
-     * 3. 将HAF兑换成USDT
-     * 4. 通知DeFi合约分发给创世节点
+     * 1. 获取活跃创世节点数量 T
+     * 2. 如果 T = 0，跳过（没有分发对象）
+     * 3. 计算累积买入税的USDT价值
+     * 4. 如果价值 >= T USDT，触发分发
+     * 5. 将HAF兑换成USDT，直接平均分给每个节点（约1U/节点）
      */
     function _checkAndDistributeBuyTax() internal {
+        // 获取活跃创世节点数量
+        uint256 genesisCount = IHashFiMain(defiContract).getActiveGenesisNodesCount();
+        
+        // 如果没有活跃创世节点，跳过
+        if (genesisCount == 0) return;
+        
         // 获取当前HAF价格（USDT计价）
         uint256 price = getPrice();
         // 计算累积买入税的USDT价值
         uint256 taxValueUsdt = (accumulatedBuyTax * price) / PRICE_PRECISION;
         
-        // 如果达到分发阈值（365 USDT）
-        if (taxValueUsdt >= GENESIS_DISTRIBUTE_THRESHOLD) {
-            // 获取活跃创世节点数量
-            uint256 genesisCount = IHashFiMain(defiContract).getActiveGenesisNodesCount();
+        // 分发阈值 = 创世节点数量 T（每节点1 USDT）
+        // 例如：10个节点，阈值就是10 USDT
+        uint256 threshold = genesisCount * 1e18;
+        
+        // 如果达到分发阈值
+        if (taxValueUsdt >= threshold) {
+            // 将累积的HAF兑换成USDT
+            uint256 hafToSwap = accumulatedBuyTax;
+            // 执行HAF→USDT兑换
+            uint256 usdtReceived = _swapHafToUsdt(hafToSwap);
             
-            // 如果有活跃创世节点
-            if (genesisCount > 0) {
-                // 将累积的HAF兑换成USDT
-                uint256 hafToSwap = accumulatedBuyTax;
-                // 执行HAF→USDT兑换
-                uint256 usdtReceived = _swapHafToUsdt(hafToSwap);
+            // 如果成功获得USDT，直接平均分给每个创世节点
+            if (usdtReceived > 0) {
+                // 计算每个节点分多少（约1U，考虑滑点可能略少）
+                uint256 amountPerNode = usdtReceived / genesisCount;
                 
-                // 如果成功获得USDT
-                if (usdtReceived > 0) {
-                    // 将USDT转给DeFi合约
-                    IERC20(usdtToken).transfer(defiContract, usdtReceived);
-                    // 通知DeFi合约分发创世节点奖励
-                    IHashFiMain(defiContract).distributeGenesisReward(usdtReceived);
-                    
-                    // 触发买入税分发事件
-                    emit BuyTaxDistributed(hafToSwap, usdtReceived);
+                // 遍历所有活跃创世节点，直接转USDT
+                for (uint256 i = 0; i < genesisCount; i++) {
+                    address node = IHashFiMain(defiContract).getActiveGenesisNodeAt(i);
+                    if (node != address(0) && amountPerNode > 0) {
+                        IERC20(usdtToken).transfer(node, amountPerNode);
+                    }
                 }
                 
-                // 清零累积买入税
-                accumulatedBuyTax = 0;
+                // 触发买入税分发事件
+                emit BuyTaxDistributed(hafToSwap, usdtReceived);
             }
+            
+            // 清零累积买入税
+            accumulatedBuyTax = 0;
         }
     }
     
@@ -603,11 +607,7 @@ contract HAFToken is ERC20, Ownable {
      * @param _hafAmount 要兑换的HAF数量
      * @return 获得的USDT数量
      * 
-     * 使用恒定乘积公式计算输出：
-     * amountOut = (amountIn * 9975 * reserveOut) / (reserveIn * 10000 + amountIn * 9975)
-     * 其中9975/10000代表扣除0.25%手续费（PancakeSwap标准）
-     * 
-     * 注意：这是简化实现，生产环境应使用Router合约
+     * 使用恒定乘积公式计算输出，然后调用pair.swap执行兑换
      */
     function _swapHafToUsdt(uint256 _hafAmount) internal returns (uint256) {
         // 如果数量为0或交易对不存在，返回0
@@ -634,13 +634,9 @@ contract HAFToken is ERC20, Ownable {
         }
         
         // 使用恒定乘积公式计算输出（扣除0.25%手续费）
-        // PancakeSwap手续费是0.25%，所以乘以9975/10000
         uint256 amountInWithFee = _hafAmount * 9975;
-        // 分子 = 输入量(含手续费) * USDT储备量
         uint256 numerator = amountInWithFee * usdtReserve;
-        // 分母 = HAF储备量 * 10000 + 输入量(含手续费)
         uint256 denominator = hafReserve * 10000 + amountInWithFee;
-        // 计算USDT输出量
         uint256 usdtOut = numerator / denominator;
         
         // 如果输出为0，返回0
@@ -649,18 +645,14 @@ contract HAFToken is ERC20, Ownable {
         // 将HAF转入交易对
         _transfer(address(this), pancakePair, _hafAmount);
         
-        // 同步交易对储备量
-        // 注意：这里实际上只是同步，并没有真正执行swap
-        // 完整的swap需要调用pair的swap函数
+        // 调用swap执行兑换，USDT转到本合约
         if (token0 == address(this)) {
-            IUniswapV2Pair(pancakePair).sync();
+            // HAF是token0，输出USDT(token1)
+            pair.swap(0, usdtOut, address(this), new bytes(0));
         } else {
-            IUniswapV2Pair(pancakePair).sync();
+            // HAF是token1，输出USDT(token0)
+            pair.swap(usdtOut, 0, address(this), new bytes(0));
         }
-        
-        // 注意：这是简化实现
-        // 实际生产环境中应该使用Router的swapExactTokensForTokens
-        // 这里直接返回计算值，实际USDT需要从LP取出
         
         return usdtOut;
     }
