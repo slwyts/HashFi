@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite --mode production",
     "dev:local": "vite --mode localnet",
+    "dev:dev": "vite --mode development",
     "build": "npx hardhat compile && vue-tsc -b && vite build --mode production",
-    "preview": "vite preview",
+    "build:dev" : "npx hardhat compile && vue-tsc -b && vite build --mode development",
+    "preview": "vite preview --mode production",
+    "preview:dev": "vite preview --mode development",
     "testnet": "npx tsx scripts/start-auto-testnet.ts",
     "testnet:dev": "npx tsx scripts/start-auto-testnet.ts && npx tsx -e \"setTimeout(()=>{},3000)\" && npm run dev:local",
     "stop": "npx tsx scripts/stop-testnet.ts",

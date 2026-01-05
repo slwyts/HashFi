@@ -10,7 +10,7 @@ const HashFiBscTestnetModule = buildModule("HashFiBscTestnetModule", (m) => {
   const usdtAddress = "0x9c1A27a6E140973eAA6e5b63dBc04E1177B431E7";
   
   // 合约 owner 地址
-  const initialOwner = m.getParameter("initialOwner", "0x492d5B3022d48185a7ecDc1A97Dc414B939cF867");
+  const initialOwner = m.getParameter("initialOwner", "0x40e9046a0d8fea5691221279a3b9f4ec3d34a55b");
   
   // PancakeSwap 地址：传0使用BSC测试网默认地址
   const pancakeFactory = "0x0000000000000000000000000000000000000000";
