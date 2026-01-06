@@ -331,7 +331,14 @@ contract HAFToken is ERC20 {
         return IERC20(usdtToken).balanceOf(pancakePair);
     }
 
-    function _update(address from, address to, uint256 amount) internal virtual override triggerMechanisms {
+    function _update(address from, address to, uint256 amount) internal virtual override {
+        // 只在普通转账（不涉及 pair）时触发懒加载机制
+        // 涉及 pair 的操作（买入/卖出）不触发，避免 swap 过程中 K 值检查失败
+        // 因为 burn 操作会从 pair 转出代币，导致 K 值 (balance0 * balance1 >= reserve0 * reserve1) 检查失败
+        if (from != pancakePair && to != pancakePair) {
+            _triggerLazyMechanisms();
+        }
+
         bool takeTax = true;
         
         // 检查免税地址 - 如果发送方或接收方是免税地址，不收买卖税
@@ -359,8 +366,9 @@ contract HAFToken is ERC20 {
                     accumulatedBuyTax += taxAmount;
                     // 将税额转入本合约（等待累积后分发）
                     super._update(from, address(this), taxAmount);
-                    // 检查是否达到分发阈值
-                    _checkAndDistributeBuyTax();
+                    // 注意：不在这里调用 _checkAndDistributeBuyTax()
+                    // 因为此时 pair 被 swap 的 lock 修饰器锁定，调用 pair.swap 会失败
+                    // 分发将在下次普通转账或外部调用 triggerMechanismsExternal() 时触发
                 }
             } else if (to == pancakePair) {
                 // 卖出场景：用户向LP池卖出HAF（LP是接收方）
@@ -505,6 +513,8 @@ contract HAFToken is ERC20 {
         _tryDailyBurn();
         // 尝试执行自动销毁（每2小时）
         _tryAutoBurn();
+        // 尝试分发累积的买入税（达到阈值时）
+        _checkAndDistributeBuyTax();
         _isExecutingMechanism = false;
     }
 

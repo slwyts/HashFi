@@ -23,6 +23,15 @@ contract MockUniswapV2Pair is ERC20 {
 
     uint256 public constant MINIMUM_LIQUIDITY = 10**3;
 
+    // 重入锁 - 模拟 PancakeSwap 的行为
+    uint private unlocked = 1;
+    modifier lock() {
+        require(unlocked == 1, "UniswapV2: LOCKED");
+        unlocked = 0;
+        _;
+        unlocked = 1;
+    }
+
     event Mint(address indexed sender, uint256 amount0, uint256 amount1);
     event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to);
     event Swap(
@@ -62,7 +71,7 @@ contract MockUniswapV2Pair is ERC20 {
     }
 
     // 添加流动性 (mint LP tokens)
-    function mint(address to) external returns (uint256 liquidity) {
+    function mint(address to) external lock returns (uint256 liquidity) {
         (uint112 _reserve0, uint112 _reserve1,) = getReserves();
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
@@ -84,7 +93,7 @@ contract MockUniswapV2Pair is ERC20 {
     }
 
     // 移除流动性 (burn LP tokens)
-    function burn(address to) external returns (uint256 amount0, uint256 amount1) {
+    function burn(address to) external lock returns (uint256 amount0, uint256 amount1) {
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
         uint256 liquidity = balanceOf(address(this));
@@ -106,7 +115,7 @@ contract MockUniswapV2Pair is ERC20 {
     }
 
     // 交换
-    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata) external {
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata) external lock {
         require(amount0Out > 0 || amount1Out > 0, "INSUFFICIENT_OUTPUT_AMOUNT");
         (uint112 _reserve0, uint112 _reserve1,) = getReserves();
         require(amount0Out < _reserve0 && amount1Out < _reserve1, "INSUFFICIENT_LIQUIDITY");

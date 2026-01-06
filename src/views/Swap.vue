@@ -587,7 +587,7 @@ const handleSwap = async () => {
     } else {
       expectedOutput = calculateSwapOutput(amountIn, hafReserve, usdtReserve);
     }
-    const amountOutMin = expectedOutput * 95n / 100n; // 5% 滑点（考虑税收）
+    const amountOutMin = expectedOutput * 75n / 100n; // 25% 滑点（考虑税收+价格波动）
 
     // deadline: 从区块链获取当前时间 + 20分钟（避免时间跳跃测试时过期）
     const block = await getBlock(config);
