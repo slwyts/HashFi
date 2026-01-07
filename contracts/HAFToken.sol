@@ -99,6 +99,9 @@ contract HAFToken is ERC20 {
     // PancakeSwap路由合约地址 - 预留用于更复杂的交换操作
     address public pancakeRouter;
     
+    // 税收金库 - 用于解决Uniswap不允许Swap到自身的限制
+    TaxVault public taxVault;
+    
     // 累积的买入税（HAF数量）
     // 当价值达到365 USDT时，兑换成USDT分发给创世节点
     uint256 internal accumulatedBuyTax;
@@ -241,8 +244,12 @@ contract HAFToken is ERC20 {
 
         _mint(address(this), TOTAL_SUPPLY);
         
+        // 初始化税收金库
+        taxVault = new TaxVault();
+
         // 设置免税地址 - 这些地址的转账不收取买入/卖出税
         isTaxExempt[address(this)] = true;
+        isTaxExempt[address(taxVault)] = true;
         isTaxExempt[_defiContract] = true;
         isTaxExempt[DEAD_ADDRESS] = true;
         isTaxExempt[address(0)] = true;
@@ -401,7 +408,7 @@ contract HAFToken is ERC20 {
     
     // ==================== 买入税分发 ====================
     /**
-     * @dev 检查并分发买入税给创世节点
+     * @dev 检查并分发买入税給创世节点
      * 
      * 工作流程：
      * 1. 获取活跃创世节点数量 T
@@ -491,6 +498,12 @@ contract HAFToken is ERC20 {
         uint256 numerator = amountInWithFee * usdtReserve;
         uint256 denominator = hafReserve * 10000 + amountInWithFee;
         uint256 usdtOut = numerator / denominator;
+
+        // 【安全缓冲】将请求金额打个折 (99.9%)，确保交易 100% 成功
+        // 留一点点余量给 LP 池，防止因费率/精度问题导致 K 值校验失败而回滚
+        if (usdtOut > 0) {
+            usdtOut = (usdtOut * 9990) / 10000;
+        }
         
         // 如果输出为0，返回0
         if (usdtOut == 0) return 0;
@@ -498,16 +511,20 @@ contract HAFToken is ERC20 {
         // 将HAF转入交易对
         _transfer(address(this), pancakePair, _hafAmount);
         
-        // 调用swap执行兑换，USDT转到本合约
+        // 调用swap执行兑换，USDT转到税收金库
         if (token0 == address(this)) {
             // HAF是token0，输出USDT(token1)
-            pair.swap(0, usdtOut, address(this), new bytes(0));
+            pair.swap(0, usdtOut, address(taxVault), new bytes(0));
         } else {
             // HAF是token1，输出USDT(token0)
-            pair.swap(usdtOut, 0, address(this), new bytes(0));
+            pair.swap(usdtOut, 0, address(taxVault), new bytes(0));
         }
         
-        return usdtOut;
+        // 从税收金库取回所有USDT到本合约，以实际收到为准
+        // 这样可以规避费率计算偏差、转账扣税等问题
+        uint256 actualUsdtReceived = taxVault.withdrawAllToken(usdtToken, address(this));
+
+        return actualUsdtReceived;
     }
     
     function _triggerLazyMechanisms() internal {
@@ -1001,5 +1018,33 @@ contract HAFToken is ERC20 {
         } else {
             IERC20(token).transfer(defiContract, amount);
         }
+    }
+}
+
+/**
+ * @title TaxVault - 税收中转金库
+ * @dev 用于接收Swap出来的USDT，规避Uniswap不允许Swap到Token合约自身的限制
+ */
+contract TaxVault {
+    address public immutable owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner");
+       _;
+    }
+
+    /**
+     * @dev 让owner可以提取里面的所有Token，并返回提取的数量
+     */
+    function withdrawAllToken(address token, address to) external onlyOwner returns (uint256) {
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance > 0) {
+            IERC20(token).transfer(to, balance);
+        }
+        return balance;
     }
 }
