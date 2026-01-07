@@ -109,13 +109,44 @@
         </div>
       </div>
     </div>
+
+    <!-- 手动设置创世节点 -->
+    <div class="bg-white rounded-xl p-6 shadow-lg border border-orange-100">
+      <h3 class="text-lg font-bold mb-4 text-gray-800">手动设置创世节点</h3>
+      <p class="text-sm text-gray-500 mb-4">⚠️ 管理员强制设置，无需申请流程</p>
+      <div class="flex flex-col md:flex-row gap-3">
+        <input
+          v-model="manualAddress"
+          type="text"
+          placeholder="输入钱包地址 0x..."
+          class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-mono text-sm"
+        />
+        <div class="w-full md:w-auto md:min-w-[160px]">
+          <CustomSelect
+            v-model="setGenesisValue"
+            :options="genesisOptions"
+            placeholder="选择操作"
+          />
+        </div>
+        <button
+          @click="handleSetGenesisNode"
+          :disabled="!manualAddress || isProcessing()"
+          class="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg font-semibold whitespace-nowrap"
+        >
+          确认设置
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useAdminData } from '../../composables/useAdminData';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
 import { abi } from '@/core/contract';
+import CustomSelect from './CustomSelect.vue';
+import type { SelectOption } from './CustomSelect.vue';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -127,6 +158,16 @@ const {
 } = useAdminData();
 
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
+
+// 手动设置创世节点
+const manualAddress = ref('');
+const setGenesisValue = ref<boolean>(true);
+
+// 创世节点操作选项
+const genesisOptions: SelectOption[] = [
+  { value: true, label: '设为创世节点', icon: '✅' },
+  { value: false, label: '取消创世节点', icon: '❌' },
+];
 
 const formatNumber = (value: string | number) => {
   const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -163,6 +204,29 @@ const handleReject = async (applicant: string) => {
       successMessage: '已拒绝申请',
       errorMessage: '操作失败',
       onConfirmed: async () => {
+        await refreshGenesisData();
+      },
+    },
+    {}
+  );
+};
+
+const handleSetGenesisNode = async () => {
+  if (!manualAddress.value) return;
+
+  const actionText = setGenesisValue.value ? '设为创世节点' : '取消创世节点';
+
+  await callContractWithRefresh(
+    {
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'setGenesisNode',
+      args: [manualAddress.value as `0x${string}`, setGenesisValue.value],
+      operation: `正在${actionText}`,
+      successMessage: `${actionText}成功`,
+      errorMessage: `${actionText}失败`,
+      onConfirmed: async () => {
+        manualAddress.value = '';
         await refreshGenesisData();
       },
     },

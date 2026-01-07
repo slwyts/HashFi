@@ -25,9 +25,60 @@ abstract contract HashFiAdmin is HashFiLogic {
     
     function rejectGenesisNode(address _applicant) external onlyOwner {
         if (!genesisNodeApplications[_applicant]) revert NoPendingApplication();
-        
+
         genesisNodeApplications[_applicant] = false;
         _removeFromPendingApplications(_applicant);
+    }
+
+    /**
+     * @dev 强制设置或取消创世节点（仅Owner可调用）
+     * @param _user 用户地址
+     * @param _isGenesisNode true=设为创世节点，false=取消创世节点
+     */
+    function setGenesisNode(address _user, bool _isGenesisNode) external onlyOwner {
+        if (_user == address(0)) revert InvalidAddress();
+        User storage user = users[_user];
+
+        if (_isGenesisNode) {
+            // 设为创世节点
+            if (user.isGenesisNode) revert AlreadyGenesisNode();
+
+            user.isGenesisNode = true;
+            genesisNodes.push(_user);
+            activeGenesisNodes.push(_user);
+            isActiveGenesisNode[_user] = true;
+            user.genesisRewardDebt = accGenesisRewardPerNode;
+
+            // 清理可能存在的申请状态
+            if (genesisNodeApplications[_user]) {
+                genesisNodeApplications[_user] = false;
+                _removeFromPendingApplications(_user);
+            }
+        } else {
+            // 取消创世节点
+            if (!user.isGenesisNode) revert NotGenesisNode();
+
+            user.isGenesisNode = false;
+            isActiveGenesisNode[_user] = false;
+
+            // 从 genesisNodes 数组移除
+            for (uint i = 0; i < genesisNodes.length; i++) {
+                if (genesisNodes[i] == _user) {
+                    genesisNodes[i] = genesisNodes[genesisNodes.length - 1];
+                    genesisNodes.pop();
+                    break;
+                }
+            }
+
+            // 从 activeGenesisNodes 数组移除
+            for (uint i = 0; i < activeGenesisNodes.length; i++) {
+                if (activeGenesisNodes[i] == _user) {
+                    activeGenesisNodes[i] = activeGenesisNodes[activeGenesisNodes.length - 1];
+                    activeGenesisNodes.pop();
+                    break;
+                }
+            }
+        }
     }
 
     // function setHafPrice(uint256 _newPrice) external onlyOwner {

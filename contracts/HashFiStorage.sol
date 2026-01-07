@@ -30,6 +30,7 @@ abstract contract HashFiStorage is Ownable {
     error InvalidOrder();
     error AlreadyProcessed();
     error NoPendingApplication();
+    error NotGenesisNode();
     error InvalidLevel();
     error InvalidFeeRate();
     error LpNotInitialized();
