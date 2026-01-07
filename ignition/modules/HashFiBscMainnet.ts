@@ -7,6 +7,7 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
  */
 const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
   // BSC Mainnet 上的 USDT (BSC-USD) 地址
+  // 实际地址 0x55d398326f99059ff775485246999027b3197955 目前暂时使用测试token地址进行部署测试
   const usdtAddress = "0x91be819583bB301509c9aA3640DcE1F1CC03A49C";
 
   // 合约 owner 地址
@@ -17,7 +18,8 @@ const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
   const pancakeRouter = "0x0000000000000000000000000000000000000000";
 
   // 部署 HashFi 主合约（会自动部署 HAFToken 并创建 LP 池）
-  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, pancakeFactory, pancakeRouter], {
+  // 如需迁移数据，请使用 npm run deploy:bsc:migrate 脚本
+  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, pancakeFactory, pancakeRouter, [], [], []], {
     id: "HashFi",
   });
 

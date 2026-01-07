@@ -15,10 +15,12 @@
     "testnet:dev": "npx tsx scripts/start-auto-testnet.ts && npx tsx -e \"setTimeout(()=>{},1000)\" && npm run dev:local",
     "stop": "npx tsx scripts/stop-testnet.ts",
     "time": "npx tsx scripts/time-jump.ts",
-    "check:balance": "dotenv -e .env.hardhat -- npx tsx scripts/check-balance.ts",
+    "check:balance": "npx tsx scripts/check-balance.ts",
     "check:size": "node check-bytecode.cjs",
     "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet",
-    "deploy:bsc": "npx hardhat ignition deploy ignition/modules/HashFiBscMainnet.ts --network bscMainnet"
+    "deploy:bsc": "npx hardhat ignition deploy ignition/modules/HashFiBscMainnet.ts --network bscMainnet",
+    "deploy:bsc:migrate": "npx hardhat run scripts/deploy-bsc-mainnet.ts --network bscMainnet",
+    "export:data": "npx tsx scripts/exportData.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",

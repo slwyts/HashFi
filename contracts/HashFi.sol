@@ -17,18 +17,24 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
      * @param _initialOwner 合约初始owner
      * @param _pancakeFactory PancakeSwap工厂地址（BSC/tBSC可传0）
      * @param _pancakeRouter PancakeSwap路由地址（BSC/tBSC可传0）
+     * @param _migrationUsers 迁移用户地址列表（可为空数组）
+     * @param _migrationReferrers 迁移用户对应的推荐人列表（与_migrationUsers一一对应）
+     * @param _migrationGenesisNodes 迁移创世节点列表（可为空数组）
      */
     constructor(
-        address _usdtAddress, 
+        address _usdtAddress,
         address _initialOwner,
         address _pancakeFactory,
-        address _pancakeRouter
+        address _pancakeRouter,
+        address[] memory _migrationUsers,
+        address[] memory _migrationReferrers,
+        address[] memory _migrationGenesisNodes
     ) Ownable(_initialOwner) {
         usdtToken = IERC20(_usdtAddress);
-        
+
         // 部署HAF Token合约，传入工厂和路由地址
         HAFToken token = new HAFToken(
-            _usdtAddress, 
+            _usdtAddress,
             address(this),
             _pancakeFactory,
             _pancakeRouter
@@ -49,6 +55,48 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
         teamLevels.push(TeamLevelInfo(100000 * 1e18, 15)); // V3
         teamLevels.push(TeamLevelInfo(300000 * 1e18, 20)); // V4
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
+
+        // 迁移数据初始化
+        _initMigrationData(_migrationUsers, _migrationReferrers, _migrationGenesisNodes);
+    }
+
+    /**
+     * @dev 初始化迁移数据（仅构造函数调用）
+     */
+    function _initMigrationData(
+        address[] memory _users,
+        address[] memory _referrers,
+        address[] memory _genesisNodes
+    ) private {
+        require(_users.length == _referrers.length, "Migration: length mismatch");
+
+        // 初始化用户绑定关系
+        for (uint256 i = 0; i < _users.length; i++) {
+            address user = _users[i];
+            address referrer = _referrers[i];
+
+            if (user == address(0)) continue;
+
+            User storage u = users[user];
+            u.referrer = referrer;
+            u.totalStakedAmount = 1; // 标记为有效账号（方案A）
+
+            // 建立双向关系（推荐人的直推列表）
+            if (referrer != address(0) && referrer != address(0x0000000000000000000000000000000000000001)) {
+                users[referrer].directReferrals.push(user);
+            }
+        }
+
+        // 初始化创世节点
+        for (uint256 i = 0; i < _genesisNodes.length; i++) {
+            address node = _genesisNodes[i];
+            if (node == address(0)) continue;
+
+            users[node].isGenesisNode = true;
+            genesisNodes.push(node);
+            activeGenesisNodes.push(node);
+            isActiveGenesisNode[node] = true;
+        }
     }
     
     // 接收原生币（ETH/BNB），用于捕获意外转入的原生币

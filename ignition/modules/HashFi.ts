@@ -18,7 +18,8 @@ const HashFiModule = buildModule("HashFiModule", (m) => {
   });
 
   // 部署 HashFi 主合约（会自动部署 HAFToken 并创建 LP 池）
-  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, pancakeFactory, pancakeRouter], {
+  // 不迁移数据，传入空数组
+  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, pancakeFactory, pancakeRouter, [], [], []], {
     id: "HashFi",
   });
 

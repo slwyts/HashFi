@@ -28,7 +28,8 @@ const LocalDeployModule = buildModule("LocalDeployModule", (m) => {
   const router = m.contract("MockUniswapV2Router02", [factory, weth], { id: "Router" });
 
   // 5. 部署 HashFi (包含 HAFToken)
-  const hashfi = m.contract("HashFi", [usdt, deployer, factory, router], { id: "HashFi" });
+  // 本地测试不迁移数据
+  const hashfi = m.contract("HashFi", [usdt, deployer, factory, router, [], [], []], { id: "HashFi" });
 
   return { usdt, weth, factory, router, hashfi };
 });
