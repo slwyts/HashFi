@@ -7,10 +7,10 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
  */
 const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
   // BSC Mainnet 上的 USDT (BSC-USD) 地址
-  const usdtAddress = "0x55d398326f99059fF775485246999027B3197955";
+  const usdtAddress = "0x91be819583bB301509c9aA3640DcE1F1CC03A49C";
 
   // 合约 owner 地址
-  const initialOwner = m.getParameter("initialOwner", "0x40e9046a0d8fea5691221279a3b9f4ec3d34a55b");
+  const initialOwner = m.getParameter("initialOwner", "0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966");
 
   // PancakeSwap 地址：传0使用BSC主网默认地址
   const pancakeFactory = "0x0000000000000000000000000000000000000000";
