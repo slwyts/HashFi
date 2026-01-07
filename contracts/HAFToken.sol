@@ -245,8 +245,8 @@ contract HAFToken is ERC20 {
         
         // 创建空池子
         pancakePair = IUniswapV2Factory(pancakeFactory).createPair(address(this), usdtToken);
-        // 将交易对设为免税
-        isTaxExempt[pancakePair] = true;
+        // 将交易对设为免税 - 移除此行，否则买卖税不生效
+        // isTaxExempt[pancakePair] = true;
         
         // 将当前时间对齐到UTC+8的当日0点（实际是前一天的UTC 16:00）
         lastDailyBurnTime = _alignToUtc8Morning(block.timestamp);
