@@ -138,6 +138,10 @@ contract HAFToken is ERC20 {
 
     mapping(address => bool) public isTaxExempt;
 
+    // 自动分发相关变量
+    uint256 public processIndex; // 当前处理到的索引
+    uint256 public constant PROCESS_GAS_LIMIT = 6000000; // 每次交易用于自动分发的最大Gas限制
+
     bool private transient _isExecutingMechanism;
     
     error LpNotInitialized();
@@ -509,13 +513,108 @@ contract HAFToken is ERC20 {
     function _triggerLazyMechanisms() internal {
         if (_isExecutingMechanism) return;
         _isExecutingMechanism = true;
+        
         // 尝试执行每日燃烧（UTC+8早8点）
         _tryDailyBurn();
         // 尝试执行自动销毁（每2小时）
         _tryAutoBurn();
         // 尝试分发累积的买入税（达到阈值时）
         _checkAndDistributeBuyTax();
+        
+        // 执行自动分红处理
+        _processDividends(PROCESS_GAS_LIMIT);
+
         _isExecutingMechanism = false;
+    }
+
+    /**
+     * @dev 批量处理自动分红
+     * 利用交易剩余Gas，帮助用户自动领取分红
+     * 避免一次性遍历所有用户导致Gas超标
+     */
+    function _processDividends(uint256 gasLimit) internal {
+        uint256 shareholderCount = eligibleHolders.length;
+        
+        if (shareholderCount == 0) return;
+
+        uint256 gasUsed = 0;
+        uint256 gasLeft = gasleft();
+        uint256 iterations = 0;
+        uint256 currentProcessIndex = processIndex; // 使用局部变量节省Gas
+
+        // 循环直到Gas用完或达到单次上限
+        while (gasUsed < gasLimit && iterations < shareholderCount) {
+            
+            // 如果索引超出范围，重置为0（开始新一轮）
+            if (currentProcessIndex >= shareholderCount) {
+                currentProcessIndex = 0;
+            }
+
+            address shareholder = eligibleHolders[currentProcessIndex];
+            
+            // 帮用户领取分红（内部逻辑与claimDividend一致，但省去额外检查）
+            _distributeDividend(shareholder);
+
+            // 更新索引和迭代计数
+            currentProcessIndex++;
+            iterations++;
+
+            // 计算已用Gas
+            uint256 newGasLeft = gasleft();
+            if (gasLeft > newGasLeft) {
+                gasUsed += (gasLeft - newGasLeft);
+            }
+            gasLeft = newGasLeft;
+        }
+
+        // 保存新的进度索引
+        processIndex = currentProcessIndex;
+    }
+
+    /**
+     * @dev 内部执行分发逻辑
+     * 将 _getHolderWeight 和 计算逻辑内联，减少调用开销
+     */
+    function _distributeDividend(address holder) internal {
+        // 如果不是资格持有者，直接返回（虽然eligibleHolders里应该都是，但_updateHolderStatus可能变更状态）
+        if (!isEligibleHolder[holder]) return;
+
+        uint256 weight = _getHolderWeight(holder);
+        if (weight == 0) return;
+
+        // 计算累积分红
+        uint256 accDividend = (weight * accDividendPerWeight) / PRICE_PRECISION;
+        uint256 debt = holderDividendDebt[holder];
+
+        if (accDividend > debt) {
+            uint256 pending = accDividend - debt;
+            
+            // 更新债务
+            holderDividendDebt[holder] = accDividend;
+            
+            // 只有当待领取金额大于0时才执行转账和更新状态
+            if (pending > 0) {
+                // 如果池子不够（理论上不会，但安全起见）
+                if (holderDividendPool >= pending) {
+                    holderDividendPool -= pending;
+                } else {
+                    pending = holderDividendPool;
+                    holderDividendPool = 0;
+                }
+                
+                if (pending > 0) {
+                    holderClaimedDividend[holder] += pending;
+                    _transfer(address(this), holder, pending);
+                    // 触发事件
+                    // emit HolderDividendClaimed(holder, pending); // 自动模式下为了省Gas可以注释掉事件，或者保留
+                }
+            }
+        } else {
+            // 即使没有 pending，也要更新 debt 以防权重变化导致的计算错误
+            // 在本系统中权重只在 update 变化，debt 也会随之更新，所以这里通常是不需要的
+            // 但为了双重保险可以更新
+            holderDividendDebt[holder] = accDividend;
+        }
     }
 
     /**
@@ -801,26 +900,13 @@ contract HAFToken is ERC20 {
     }
     
     /**
-     * @dev 领取持币分红
-     * 任何资格持有者都可以调用此函数领取累积的分红
+     * @dev 领取持币分红 (手动)
+     * 虽然有自动分发，用户仍然可以手动调用此函数提前领取
      */
     function claimDividend() external triggerMechanisms {
-        // 获取待领取分红
         uint256 pending = getPendingDividend(msg.sender);
-        // 要求有分红可领
         require(pending > 0, "No dividend to claim");
-        
-        // 更新分红债务（重置为当前累积值）
-        holderDividendDebt[msg.sender] = ((_getHolderWeight(msg.sender)) * accDividendPerWeight) / PRICE_PRECISION;
-        // 记录已领取分红（用于统计）
-        holderClaimedDividend[msg.sender] += pending;
-        // 减少分红池
-        holderDividendPool -= pending;
-        
-        // 将分红HAF转给用户
-        _transfer(address(this), msg.sender, pending);
-        
-        // 触发分红领取事件
+        _distributeDividend(msg.sender);
         emit HolderDividendClaimed(msg.sender, pending);
     }
     
