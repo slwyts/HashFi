@@ -10,7 +10,8 @@ const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
   // 实际地址 0x55d398326f99059ff775485246999027b3197955 目前暂时使用测试token地址进行部署测试
   const usdtAddress = "0x91be819583bB301509c9aA3640DcE1F1CC03A49C";
 
-  // 合约 owner 地址
+  // 合约 owner 地址, 默认为开发者地址
+  // 项目方地址 0x40E9046a0D8fEA5691221279A3B9f4ec3D34A55B
   const initialOwner = m.getParameter("initialOwner", "0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966");
 
   // PancakeSwap 地址：传0使用BSC主网默认地址
