@@ -90,7 +90,7 @@
       <button 
         @click="handleStake"
         class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-xl mt-6 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 disabled:from-blue-200 disabled:to-blue-300 disabled:cursor-not-allowed disabled:opacity-80 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
-        :disabled="!address || !stakeAmount || !isAmountInRange || isProcessing()"
+        :disabled="!address || !stakeAmount || !isAmountInRange || isProcessing() || isInsufficientBalance"
       >
         {{ buttonText }}
       </button>
@@ -477,6 +477,14 @@ const isAmountTooHigh = computed(() => {
   return selectedPlan.value.maxStake !== Infinity && stakeAmount.value > selectedPlan.value.maxStake;
 });
 
+// 检查余额是否不足
+const isInsufficientBalance = computed(() => {
+  if (!stakeAmount.value) return false;
+  if (usdtBalanceRaw.value === undefined) return true;
+  const balance = Number(formatEther(usdtBalanceRaw.value as bigint));
+  return stakeAmount.value > balance;
+});
+
 // 检查是否需要授权
 const needsApproval = computed(() => {
   if (!stakeAmount.value) return false;
@@ -498,6 +506,9 @@ const needsApproval = computed(() => {
 const buttonText = computed(() => {
   if (!address.value) return t('stakingPage.connectWallet');
   if (isProcessing()) return t('stakingPage.processing');
+  
+  if (isInsufficientBalance.value) return t('stakingPage.insufficientBalance');
+
   if (needsApproval.value) return t('stakingPage.approveUsdt');
   return t('stakingPage.stakeNow');
 });

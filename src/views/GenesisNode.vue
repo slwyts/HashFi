@@ -558,6 +558,10 @@ const hasStaked = computed(() => {
 const canApply = computed(() => {
   if (!address.value || !isConnected.value) return false;
   if (userIsNode.value || isPendingApproval.value) return false;
+  
+  // 必须先完成质押
+  if (!hasStaked.value) return false;
+
   // 如果需要授权，则允许按钮可点（点击会触发 approve）
   if (needsApproval.value) return true;
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) return false;
@@ -568,6 +572,10 @@ const buttonText = computed(() => {
   if (!address.value || !isConnected.value) return t('common.connectWallet');
   if (userIsNode.value) return t('genesisNode.alreadyGenesisNode');
   if (isPendingApproval.value) return t('genesisNode.applicationPending');
+  
+  // 检查是否已完成质押
+  if (!hasStaked.value) return t('genesisNode.pleaseStakeFirst');
+
   // 优先显示授权按钮（如果需要授权）
   if (needsApproval.value && !isProcessing.value) return t('stakingPage.approveUsdt');
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) {
