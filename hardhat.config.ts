@@ -49,6 +49,13 @@ const config: HardhatUserConfig = {
       accounts: [configVariable("BSC_TESTNET_PRIVATE_KEY")],
       chainId: 97,
     },
+    bscMainnet: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable("BSC_MAINNET_RPC_URL"),
+      accounts: [configVariable("BSC_TESTNET_PRIVATE_KEY")], // 复用测试网私钥
+      chainId: 56,
+    },
   },
 };
 

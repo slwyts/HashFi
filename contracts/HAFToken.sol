@@ -39,7 +39,7 @@ interface IHAFToken {
  * 4. 卖出税1.5% - 直接转给owner
  * 5. 每日燃烧5% LP池中的HAF：1%创世节点，1%社区，3%持币分红
  * 6. 每2小时自动销毁0.2%到黑洞地址
- * 7. 持币≥88 HAF可参与分红
+ * 7. 持币≥365 HAF可参与分红
  */
 contract HAFToken is ERC20 {
 
@@ -49,9 +49,9 @@ contract HAFToken is ERC20 {
     // 价格精度：1e18，用于避免整数除法精度丢失
     uint256 public constant PRICE_PRECISION = 1e18;
     
-    // 持币分红门槛：88枚HAF
-    // 持有≥88 HAF的地址才能参与每日3%的持币分红
-    uint256 public constant HOLDER_THRESHOLD = 88 * 1e18;
+    // 持币分红门槛：365枚HAF
+    // 持有≥365 HAF的地址才能参与每日3%的持币分红
+    uint256 public constant HOLDER_THRESHOLD = 365 * 1e18;
 
     uint256 private constant UTC8_OFFSET = 8 hours;
 
@@ -110,7 +110,7 @@ contract HAFToken is ERC20 {
     uint256 internal lastAutoBurnTime;
     
     // 符合分红资格的持有者地址数组
-    // 持有≥88 HAF的地址会被添加到此数组
+    // 持有≥365 HAF的地址会被添加到此数组
     address[] internal eligibleHolders;
     
     // 地址是否符合分红资格的映射（快速查找）
@@ -667,9 +667,9 @@ contract HAFToken is ERC20 {
      * @dev 更新持有者的分红资格状态
      * @param holder 持有者地址
      * 
-     * 在每次转账后调用，检查持有者是否跨过88 HAF门槛
-     * - 新增资格：余额从<88变为≥88
-     * - 移除资格：余额从≥88变为<88
+     * 在每次转账后调用，检查持有者是否跨过365 HAF门槛
+     * - 新增资格：余额从<365变为≥365
+     * - 移除资格：余额从≥365变为<365
      */
     function _updateHolderStatus(address holder) internal {
         // 排除特殊地址（这些地址不应参与分红）
@@ -683,7 +683,7 @@ contract HAFToken is ERC20 {
         
         // 获取持有者当前余额
         uint256 balance = balanceOf(holder);
-        // 判断是否应该有资格（持有≥88 HAF）
+        // 判断是否应该有资格（持有≥365 HAF）
         bool shouldBeEligible = balance >= HOLDER_THRESHOLD;
         
         // 如果应该有资格但目前没有，添加到资格列表
@@ -739,9 +739,9 @@ contract HAFToken is ERC20 {
     /**
      * @dev 计算所有资格持有者的总权重
      * @return 总权重
-     * 
-     * 权重计算：weight = balance / 88（向下取整）
-     * 例如：持有176 HAF的地址权重为2，持有100 HAF的地址权重为1
+     *
+     * 权重计算：weight = balance / 365（向下取整）
+     * 例如：持有730 HAF的地址权重为2，持有400 HAF的地址权重为1
      */
     function _calculateTotalWeight() internal view returns (uint256) {
         uint256 totalWeight = 0;
@@ -752,7 +752,7 @@ contract HAFToken is ERC20 {
             uint256 balance = balanceOf(holder);
             // 如果余额仍然达标（可能已被转出）
             if (balance >= HOLDER_THRESHOLD) {
-                // 权重 = 余额 / 88（向下取整）
+                // 权重 = 余额 / 365（向下取整）
                 totalWeight += balance / HOLDER_THRESHOLD;
             }
         }
@@ -767,9 +767,9 @@ contract HAFToken is ERC20 {
      */
     function _getHolderWeight(address holder) internal view returns (uint256) {
         uint256 balance = balanceOf(holder);
-        // 如果余额不足88，权重为0
+        // 如果余额不足365，权重为0
         if (balance < HOLDER_THRESHOLD) return 0;
-        // 权重 = 余额 / 88
+        // 权重 = 余额 / 365
         return balance / HOLDER_THRESHOLD;
     }
     

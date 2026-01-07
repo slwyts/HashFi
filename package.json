@@ -12,12 +12,13 @@
     "preview": "vite preview --mode production",
     "preview:dev": "vite preview --mode development",
     "testnet": "npx tsx scripts/start-auto-testnet.ts",
-    "testnet:dev": "npx tsx scripts/start-auto-testnet.ts && npx tsx -e \"setTimeout(()=>{},3000)\" && npm run dev:local",
+    "testnet:dev": "npx tsx scripts/start-auto-testnet.ts && npx tsx -e \"setTimeout(()=>{},1000)\" && npm run dev:local",
     "stop": "npx tsx scripts/stop-testnet.ts",
     "time": "npx tsx scripts/time-jump.ts",
     "check:balance": "dotenv -e .env.hardhat -- npx tsx scripts/check-balance.ts",
     "check:size": "node check-bytecode.cjs",
-    "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet"
+    "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet",
+    "deploy:bsc": "npx hardhat ignition deploy ignition/modules/HashFiBscMainnet.ts --network bscMainnet"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
