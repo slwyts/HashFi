@@ -19,7 +19,17 @@ const config: HardhatUserConfig = {
           },
           viaIR: true,
         },
-      }
+      },
+      production: {
+        version: "0.8.33",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 833,
+          },
+          viaIR: true,
+        },
+      },
     },
   },
   networks: {
