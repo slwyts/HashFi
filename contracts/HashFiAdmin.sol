@@ -185,7 +185,7 @@ abstract contract HashFiAdmin is HashFiLogic {
         return (nodes, totalDividends, withdrawn);
     }
 
-    function getPendingGenesisApplications() external view onlyOwner returns (address[] memory) {
+    function getPendingGenesisApplications() external view returns (address[] memory) {
         return pendingGenesisApplications;
     }
 
