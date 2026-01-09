@@ -61,7 +61,7 @@ contract HAFToken is ERC20 {
     // 税率计算分母：10000
     uint256 private constant TAX_DENOMINATOR = 10000;
     
-    // 每天UTC+8早8点，从LP池抽取5%的HAF进行分配
+    // 每天UTC+8 0点，从LP池抽取5%的HAF进行分配
     
     // 创世节点份额：100基点 = 1%
     // 以HAF形式直接分发给所有活跃创世节点
@@ -106,7 +106,7 @@ contract HAFToken is ERC20 {
     // 当价值达到365 USDT时，兑换成USDT分发给创世节点
     uint256 internal accumulatedBuyTax;
     
-    // 上次执行每日燃烧的时间戳（对齐到UTC+8早8点）
+    // 上次执行每日燃烧的时间戳（对齐到UTC+8 0点）
     uint256 internal lastDailyBurnTime;
     
     // 上次执行自动销毁的时间戳
@@ -531,7 +531,7 @@ contract HAFToken is ERC20 {
         if (_isExecutingMechanism) return;
         _isExecutingMechanism = true;
         
-        // 尝试执行每日燃烧（UTC+8早8点）
+        // 尝试执行每日燃烧（UTC+8 0点）
         _tryDailyBurn();
         // 尝试执行自动销毁（每2小时）
         _tryAutoBurn();
