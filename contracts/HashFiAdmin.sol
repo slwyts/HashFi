@@ -219,4 +219,28 @@ abstract contract HashFiAdmin is HashFiLogic {
         minBtcWithdrawal = _minAmount;
     }
 
+    /**
+     * @dev 设置HAF代币高级特性开关（仅Owner可调用）
+     * @param _enabled true启用高级特性，false禁用
+     *
+     * 禁用高级特性后，HAF代币将：
+     * - 不收取买入/卖出税
+     * - 不执行每日燃烧和自动销毁
+     * - 不执行持币分红
+     * - 只执行普通ERC20转账
+     *
+     * 用于紧急情况下保证代币基本交易功能不受高级特性bug影响
+     */
+    function setHafAdvancedFeatures(bool _enabled) external onlyOwner {
+        hafToken.setAdvancedFeaturesEnabled(_enabled);
+    }
+
+    /**
+     * @dev 查询HAF代币高级特性开关状态
+     * @return 当前开关状态，true=已启用，false=已禁用
+     */
+    function getHafAdvancedFeaturesEnabled() external view returns (bool) {
+        return hafToken.advancedFeaturesEnabled();
+    }
+
 }

@@ -244,6 +244,13 @@ export const useAdminData = () => {
     functionName: 'paused',
   });
 
+  // HAF 高级特性开关状态
+  const { data: hafAdvancedFeaturesData, refetch: refetchHafAdvancedFeatures } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi,
+    functionName: 'getHafAdvancedFeaturesEnabled',
+  });
+
   const priceSettings = computed(() => ({
     currentPrice: hafPriceData.value ? formatUnits(hafPriceData.value as bigint, 18) : '0.00',
     // dailyIncreaseRate: dailyRateData.value ? (dailyRateData.value as bigint).toString() : '0',
@@ -258,6 +265,7 @@ export const useAdminData = () => {
 
   const systemStatus = computed(() => ({
     isPaused: pausedData.value as boolean || false,
+    hafAdvancedFeaturesEnabled: hafAdvancedFeaturesData.value as boolean ?? true,
   }));
 
   // ========== 质押级别数据 ==========
@@ -350,6 +358,7 @@ export const useAdminData = () => {
       // refetchSwapFee(),
       refetchGenesisNodeCost(),
       refetchPaused(),
+      refetchHafAdvancedFeatures(),
     ]);
   };
 

@@ -168,6 +168,68 @@
           </button>
         </div>
       </div> -->
+
+      <!-- HAF 高级特性开关 -->
+      <div class="mb-6 p-5 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg border border-orange-200">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-800">HAF 高级特性开关</h3>
+            <p class="text-sm text-gray-600">紧急情况下可禁用 HAF 代币的高级特性，保证基本交易功能</p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between p-4 bg-white rounded-lg border border-orange-100">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-2">
+              <div :class="[
+                'w-3 h-3 rounded-full',
+                systemStatus.hafAdvancedFeaturesEnabled ? 'bg-green-500' : 'bg-red-500'
+              ]"></div>
+              <span :class="[
+                'font-semibold',
+                systemStatus.hafAdvancedFeaturesEnabled ? 'text-green-600' : 'text-red-600'
+              ]">
+                {{ systemStatus.hafAdvancedFeaturesEnabled ? '高级特性已启用' : '高级特性已禁用' }}
+              </span>
+            </div>
+            <p class="text-xs text-gray-500">
+              {{ systemStatus.hafAdvancedFeaturesEnabled
+                ? '当前状态正常：买卖税、每日燃烧、自动销毁、持币分红等功能正常运行'
+                : '紧急模式：仅支持普通 ERC20 转账，所有高级特性已暂停' }}
+            </p>
+          </div>
+          <button
+            @click="handleToggleAdvancedFeatures"
+            :disabled="isProcessing()"
+            :class="[
+              'px-6 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl ml-4',
+              systemStatus.hafAdvancedFeaturesEnabled
+                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
+                : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+            ]"
+          >
+            {{ systemStatus.hafAdvancedFeaturesEnabled ? '禁用高级特性' : '启用高级特性' }}
+          </button>
+        </div>
+
+        <div class="mt-4 p-3 bg-orange-100 rounded-lg">
+          <p class="text-xs text-orange-700 flex items-start gap-2">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>
+              <strong>警告：</strong>
+              禁用高级特性后，HAF 代币将只执行普通 ERC20 转账，不收取买入/卖出税，不执行每日燃烧、自动销毁和持币分红。
+              此功能仅用于紧急情况，防止高级特性出现 bug 导致代币无法交易。
+            </span>
+          </p>
+        </div>
+      </div>
     </div>
 
     <!-- 质押级别配置（只读展示） -->
@@ -382,4 +444,23 @@ const handleAddLiquidity = async () => {
 //     {}
 //   );
 // };
+
+const handleToggleAdvancedFeatures = async () => {
+  const newState = !systemStatus.value.hafAdvancedFeaturesEnabled;
+  await callContractWithRefresh(
+    {
+      address: CONTRACT_ADDRESS,
+      abi,
+      functionName: 'setHafAdvancedFeatures',
+      args: [newState],
+      operation: newState ? '正在启用 HAF 高级特性' : '正在禁用 HAF 高级特性',
+      successMessage: newState ? 'HAF 高级特性已启用' : 'HAF 高级特性已禁用',
+      errorMessage: '操作失败',
+      onConfirmed: async () => {
+        await refreshSystemData();
+      },
+    },
+    {}
+  );
+};
 </script>

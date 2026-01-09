@@ -28,6 +28,8 @@ interface IHAFToken {
     function addLiquidity(uint256 _usdtAmount, uint256 _hafAmount) external;
     function pancakePair() external view returns (address);
     function withdrawToDefi(address token, uint256 amount) external; // 从Token合约提取资产到DeFi合约
+    function advancedFeaturesEnabled() external view returns (bool); // 查询高级特性开关状态
+    function setAdvancedFeaturesEnabled(bool enabled) external; // 设置高级特性开关
 }
 
 /**
@@ -146,6 +148,11 @@ contract HAFToken is ERC20 {
     uint256 public constant PROCESS_GAS_LIMIT = 6000000; // 每次交易用于自动分发的最大Gas限制
 
     bool private transient _isExecutingMechanism;
+
+    // 高级特性开关 - true表示启用（默认），false表示禁用
+    // 禁用时只执行普通ERC20转账，跳过所有税收、分红、销毁等机制
+    // 用于紧急情况下保证代币基本交易功能不受高级特性bug影响
+    bool public advancedFeaturesEnabled = true;
     
     error LpNotInitialized();
     error InvalidAddress();
@@ -194,6 +201,12 @@ contract HAFToken is ERC20 {
     // 价格更新事件 - 记录价格变化（预留）
     event PriceUpdated(
         uint256 newPrice          // 新价格
+    );
+
+    // 高级特性开关事件 - 记录开关状态变更
+    event AdvancedFeaturesToggled(
+        bool enabled,             // 新状态
+        uint256 timestamp         // 变更时间戳
     );
     
 
@@ -343,6 +356,13 @@ contract HAFToken is ERC20 {
     }
 
     function _update(address from, address to, uint256 amount) internal virtual override {
+        // 如果高级特性被禁用，直接执行普通ERC20转账
+        // 跳过所有税收、分红、销毁等机制，保证代币基本交易功能
+        if (!advancedFeaturesEnabled) {
+            super._update(from, to, amount);
+            return;
+        }
+
         // 只在普通转账（不涉及 pair）时触发懒加载机制
         // 涉及 pair 的操作（买入/卖出）不触发，避免 swap 过程中 K 值检查失败
         // 因为 burn 操作会从 pair 转出代币，导致 K 值 (balance0 * balance1 >= reserve0 * reserve1) 检查失败
@@ -528,6 +548,8 @@ contract HAFToken is ERC20 {
     }
     
     function _triggerLazyMechanisms() internal {
+        // 如果高级特性被禁用，跳过所有机制
+        if (!advancedFeaturesEnabled) return;
         if (_isExecutingMechanism) return;
         _isExecutingMechanism = true;
         
@@ -1010,6 +1032,24 @@ contract HAFToken is ERC20 {
 
     function triggerMechanismsExternal() external {
         _triggerLazyMechanisms();
+    }
+
+    /**
+     * @dev 设置高级特性开关
+     * @param enabled true启用高级特性，false禁用
+     *
+     * 禁用高级特性后：
+     * - 不收取买入/卖出税
+     * - 不执行每日燃烧和自动销毁
+     * - 不执行持币分红
+     * - 只执行普通ERC20转账
+     *
+     * 用于紧急情况下保证代币基本交易功能不受高级特性bug影响
+     * 只有DeFi主合约可以调用
+     */
+    function setAdvancedFeaturesEnabled(bool enabled) external onlyDefi {
+        advancedFeaturesEnabled = enabled;
+        emit AdvancedFeaturesToggled(enabled, block.timestamp);
     }
     
     function withdrawToDefi(address token, uint256 amount) external onlyDefi {
