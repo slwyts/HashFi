@@ -164,7 +164,7 @@ abstract contract HashFiAdmin is HashFiLogic {
         }
     }
 
-    function getAllGenesisNodesInfo() external view onlyOwner returns (
+    function getAllGenesisNodesInfo() external view returns (
         address[] memory nodes,
         uint256[] memory totalDividends,
         uint256[] memory withdrawn

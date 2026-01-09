@@ -2,7 +2,7 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 /**
  * BSC Mainnet 部署脚本
- * 只部署 HashFi 合约，使用已存在的 USDT 地址
+ * 部署顺序：HashFi -> HAFToken -> setHafToken
  * PancakeSwap 地址使用默认主网地址（传0）
  */
 const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
@@ -18,13 +18,20 @@ const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
   const pancakeFactory = "0x0000000000000000000000000000000000000000";
   const pancakeRouter = "0x0000000000000000000000000000000000000000";
 
-  // 部署 HashFi 主合约（会自动部署 HAFToken 并创建 LP 池）
-  // 如需迁移数据，请使用 npm run deploy:bsc:migrate 脚本
-  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, pancakeFactory, pancakeRouter, [], [], []], {
+  // 1. 部署 HashFi（不含迁移数据）
+  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, [], [], []], {
     id: "HashFi",
   });
 
-  return { hashFi };
+  // 2. 部署 HAFToken（传入 HashFi 地址）
+  const hafToken = m.contract("HAFToken", [usdtAddress, hashFi, pancakeFactory, pancakeRouter], {
+    id: "HAFToken",
+  });
+
+  // 3. 绑定 HAFToken 到 HashFi
+  m.call(hashFi, "setHafToken", [hafToken], { id: "setHafToken" });
+
+  return { hashFi, hafToken };
 });
 
 export default HashFiBscMainnetModule;

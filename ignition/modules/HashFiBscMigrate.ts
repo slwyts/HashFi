@@ -7,6 +7,8 @@ import path from "path";
  * 使用方式: npm run deploy:bsc:migrate
  *
  * 通过环境变量 MIGRATION_FILE 指定迁移数据文件，默认使用 migration-data-latest.json
+ * 
+ * 部署顺序：HashFi -> HAFToken -> setHafToken
  */
 
 // 读取迁移数据
@@ -72,16 +74,28 @@ const HashFiBscMigrateModule = buildModule("HashFiBscMigrateModule", (m) => {
   const referrers = m.getParameter("referrers", migrationData.referrers);
   const genesisNodes = m.getParameter("genesisNodes", migrationData.genesisNodes);
 
-  // 部署 HashFi 主合约（会自动部署 HAFToken 并创建 LP 池）
+  // 1. 部署 HashFi（含迁移数据）
   const hashFi = m.contract(
     "HashFi",
-    [usdtAddress, initialOwner, pancakeFactory, pancakeRouter, users, referrers, genesisNodes],
+    [usdtAddress, initialOwner, users, referrers, genesisNodes],
     {
       id: "HashFi",
     }
   );
 
-  return { hashFi };
+  // 2. 部署 HAFToken（传入 HashFi 地址）
+  const hafToken = m.contract(
+    "HAFToken",
+    [usdtAddress, hashFi, pancakeFactory, pancakeRouter],
+    {
+      id: "HAFToken",
+    }
+  );
+
+  // 3. 绑定 HAFToken 到 HashFi
+  m.call(hashFi, "setHafToken", [hafToken], { id: "setHafToken" });
+
+  return { hashFi, hafToken };
 });
 
 export default HashFiBscMigrateModule;

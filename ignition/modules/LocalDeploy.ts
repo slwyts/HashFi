@@ -7,7 +7,9 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
  * 2. Mock WETH
  * 3. Mock Uniswap Factory
  * 4. Mock Uniswap Router
- * 5. HashFi (包含 HAFToken)
+ * 5. HashFi
+ * 6. HAFToken
+ * 7. setHafToken 绑定
  */
 const LocalDeployModule = buildModule("LocalDeployModule", (m) => {
   // 使用固定的 owner 地址
@@ -27,11 +29,16 @@ const LocalDeployModule = buildModule("LocalDeployModule", (m) => {
   // 4. 部署 Mock Uniswap Router
   const router = m.contract("MockUniswapV2Router02", [factory, weth], { id: "Router" });
 
-  // 5. 部署 HashFi (包含 HAFToken)
-  // 本地测试不迁移数据
-  const hashfi = m.contract("HashFi", [usdt, deployer, factory, router, [], [], []], { id: "HashFi" });
+  // 5. 部署 HashFi（不含迁移数据）
+  const hashfi = m.contract("HashFi", [usdt, deployer, [], [], []], { id: "HashFi" });
 
-  return { usdt, weth, factory, router, hashfi };
+  // 6. 部署 HAFToken（传入 HashFi 地址）
+  const hafToken = m.contract("HAFToken", [usdt, hashfi, factory, router], { id: "HAFToken" });
+
+  // 7. 绑定 HAFToken 到 HashFi
+  m.call(hashfi, "setHafToken", [hafToken], { id: "setHafToken" });
+
+  return { usdt, weth, factory, router, hashfi, hafToken };
 });
 
 export default LocalDeployModule;

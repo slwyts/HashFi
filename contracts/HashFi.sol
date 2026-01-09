@@ -6,7 +6,6 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {HashFiAdmin} from "./HashFiAdmin.sol";
 import {HashFiView} from "./HashFiView.sol";
-import {HAFToken} from "./HAFToken.sol";
 import {IHAFToken} from "./HashFiStorage.sol";
 
 contract HashFi is HashFiAdmin, HashFiView, Pausable {
@@ -15,8 +14,6 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
      * @dev 构造函数
      * @param _usdtAddress USDT代币地址
      * @param _initialOwner 合约初始owner
-     * @param _pancakeFactory PancakeSwap工厂地址（BSC/tBSC可传0）
-     * @param _pancakeRouter PancakeSwap路由地址（BSC/tBSC可传0）
      * @param _migrationUsers 迁移用户地址列表（可为空数组）
      * @param _migrationReferrers 迁移用户对应的推荐人列表（与_migrationUsers一一对应）
      * @param _migrationGenesisNodes 迁移创世节点列表（可为空数组）
@@ -24,22 +21,11 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
     constructor(
         address _usdtAddress,
         address _initialOwner,
-        address _pancakeFactory,
-        address _pancakeRouter,
         address[] memory _migrationUsers,
         address[] memory _migrationReferrers,
         address[] memory _migrationGenesisNodes
     ) Ownable(_initialOwner) {
         usdtToken = IERC20(_usdtAddress);
-
-        // 部署HAF Token合约，传入工厂和路由地址
-        HAFToken token = new HAFToken(
-            _usdtAddress,
-            address(this),
-            _pancakeFactory,
-            _pancakeRouter
-        );
-        hafToken = IHAFToken(address(token));
 
         TIME_UNIT = 1 days; // 主网: 1天
         DYNAMIC_RELEASE_PERIOD = 100 days; // 主网: 100天
@@ -58,6 +44,16 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
 
         // 迁移数据初始化
         _initMigrationData(_migrationUsers, _migrationReferrers, _migrationGenesisNodes);
+    }
+
+    /**
+     * @dev 设置HAFToken地址（只能设置一次，任何人可调用）
+     * @param _hafToken HAFToken合约地址
+     */
+    function setHafToken(address _hafToken) external {
+        require(address(hafToken) == address(0), "HAFToken already set");
+        require(_hafToken != address(0), "Invalid address");
+        hafToken = IHAFToken(_hafToken);
     }
 
     /**
