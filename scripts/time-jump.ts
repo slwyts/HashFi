@@ -1,13 +1,54 @@
-const days = parseInt(process.argv[2])
+const input = process.argv[2]
 
-if (isNaN(days) || days <= 0) {
-  console.log('Please specify the number of days to jump')
-  console.log('Usage: npm run time <days>')
-  console.log('Example: npm run time 7  # Jump 7 days')
+if (!input) {
+  console.log('Please specify the time to jump')
+  console.log('Usage: npm run time <duration>')
+  console.log('Examples:')
+  console.log('  npm run time 7    # Jump 7 days (default)')
+  console.log('  npm run time 10s  # Jump 10 seconds')
+  console.log('  npm run time 10m  # Jump 10 minutes')
+  console.log('  npm run time 10h  # Jump 10 hours')
+  console.log('  npm run time 10d  # Jump 10 days')
   process.exit(1)
 }
 
-const seconds = days * 24 * 60 * 60
+let seconds = 0
+let durationDescription = ''
+
+// Parse input: number + optional unit (s/m/h/d)
+const match = input.match(/^(\d+)([smhd]?)$/i)
+
+if (!match) {
+  console.error('Invalid format. Please use format like 10s, 10m, 10h, or 10d.')
+  process.exit(1)
+}
+
+const value = parseInt(match[1])
+const unit = match[2].toLowerCase() || 'd' // Default to days if no unit
+
+if (value <= 0) {
+  console.error('Duration must be positive')
+  process.exit(1)
+}
+
+switch (unit) {
+  case 's':
+    seconds = value
+    durationDescription = `${value} seconds`
+    break
+  case 'm':
+    seconds = value * 60
+    durationDescription = `${value} minutes`
+    break
+  case 'h':
+    seconds = value * 3600
+    durationDescription = `${value} hours`
+    break
+  case 'd':
+    seconds = value * 24 * 3600
+    durationDescription = `${value} days`
+    break
+}
 const RPC_URL = 'http://localhost:8545'
 
 async function rpcCall(method: string, params: unknown[] = []): Promise<unknown> {
@@ -43,7 +84,7 @@ function formatDate(timestamp: number): string {
 }
 
 async function main() {
-  console.log(`Jumping time by ${days} days (${seconds} seconds)...`)
+  console.log(`Jumping time by ${durationDescription} (${seconds} seconds)...`)
 
   // Check if node is running
   try {
@@ -86,7 +127,7 @@ async function main() {
   console.log('New state:')
   console.log(`   Block: ${newBlock}`)
   console.log(`   Time: ${formatDate(newTimestamp)}`)
-  console.log(`   Jumped: ${days} days`)
+  console.log(`   Jumped: ${durationDescription}`)
 }
 
 main().catch((error) => {

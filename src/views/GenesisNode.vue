@@ -267,7 +267,7 @@
         </div>
 
         <!-- 退出进度 -->
-        <div class="mb-6">
+        <!-- <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <span class="text-sm font-medium text-gray-700">{{ t('genesisNode.exitProgress') }}</span>
             <span class="text-sm text-blue-600 font-semibold">{{ exitProgress }}%</span>
@@ -290,7 +290,7 @@
               ✅ {{ t('genesisNode.exitConditionMet') }}
             </span>
           </p>
-        </div>
+        </div> -->
 
         <!-- 提取按钮 -->
         <button 
@@ -558,6 +558,10 @@ const hasStaked = computed(() => {
 const canApply = computed(() => {
   if (!address.value || !isConnected.value) return false;
   if (userIsNode.value || isPendingApproval.value) return false;
+  
+  // 必须先完成质押
+  if (!hasStaked.value) return false;
+
   // 如果需要授权，则允许按钮可点（点击会触发 approve）
   if (needsApproval.value) return true;
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) return false;
@@ -568,6 +572,10 @@ const buttonText = computed(() => {
   if (!address.value || !isConnected.value) return t('common.connectWallet');
   if (userIsNode.value) return t('genesisNode.alreadyGenesisNode');
   if (isPendingApproval.value) return t('genesisNode.applicationPending');
+  
+  // 检查是否已完成质押
+  if (!hasStaked.value) return t('genesisNode.pleaseStakeFirst');
+
   // 优先显示授权按钮（如果需要授权）
   if (needsApproval.value && !isProcessing.value) return t('stakingPage.approveUsdt');
   if (parseFloat(usdtBalanceDisplay.value) < parseFloat(nodeCostDisplay.value)) {

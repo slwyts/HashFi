@@ -76,20 +76,24 @@
     <div class="bg-white rounded-xl p-6 shadow-lg border border-blue-100">
       <h2 class="text-xl font-bold mb-6 text-gray-800">HAF价格信息</h2>
 
-      <div class="p-4 bg-blue-50 rounded-lg">
-        <div>
+      <div class="space-y-4">
+        <!-- 当前价格 -->
+        <div class="p-4 bg-blue-50 rounded-lg">
           <p class="text-sm text-gray-600">当前价格</p>
           <p class="text-2xl font-bold text-blue-600 mt-1">{{ formatPrice(priceSettings.currentPrice) }} USDT</p>
         </div>
-        <!-- <div class="text-right">
-          <p class="text-sm text-gray-600">自动涨价</p>
-          <p :class="[
-            'text-lg font-semibold mt-1',
-            priceSettings.autoUpdateEnabled ? 'text-green-600' : 'text-gray-600'
-          ]">
-            {{ priceSettings.autoUpdateEnabled ? '已启用' : '已禁用' }}
-          </p>
-        </div> -->
+
+        <!-- LP池子储备量 -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-4 bg-green-50 rounded-lg">
+            <p class="text-sm text-gray-600">LP池 USDT储备</p>
+            <p class="text-xl font-bold text-green-600 mt-1">{{ lpReserves.usdt }} USDT</p>
+          </div>
+          <div class="p-4 bg-purple-50 rounded-lg">
+            <p class="text-sm text-gray-600">LP池 HAF储备</p>
+            <p class="text-xl font-bold text-purple-600 mt-1">{{ lpReserves.haf }} HAF</p>
+          </div>
+        </div>
       </div>
 
       <!-- <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -132,13 +136,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { parseUnits } from 'viem';
+import { ref, computed } from 'vue';
+import { parseUnits, formatUnits } from 'viem';
+import { useReadContract } from '@wagmi/vue';
 import { useAdminData } from '../../composables/useAdminData';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
 import { useBitcoinData } from '@/composables/useBitcoinData';
 import { useToast } from '@/composables/useToast';
-import { abi } from '@/core/contract';
+import { abi, hafTokenAbi } from '@/core/contract';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 const WORKER_API = import.meta.env.VITE_API_URL || 'https://hashfi-api.a3144390867.workers.dev';
@@ -151,6 +156,85 @@ const {
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 const { btcData, refetch: refetchBtcData } = useBitcoinData();
 const toast = useToast();
+
+// ========== 获取 LP 池子储备量 ==========
+// 1. 获取 HAFToken 地址
+const { data: hafTokenAddress } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'hafToken',
+});
+
+// 2. 获取 LP Pair 地址
+const { data: lpPairAddress } = useReadContract({
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
+  abi: hafTokenAbi,
+  functionName: 'pancakePair',
+  query: {
+    enabled: computed(() => !!hafTokenAddress.value),
+  },
+});
+
+// 3. 获取 Pair 的储备量 (Uniswap V2 Pair ABI)
+const pairAbi = [
+  {
+    constant: true,
+    inputs: [],
+    name: 'getReserves',
+    outputs: [
+      { name: 'reserve0', type: 'uint112' },
+      { name: 'reserve1', type: 'uint112' },
+      { name: 'blockTimestampLast', type: 'uint32' },
+    ],
+    type: 'function',
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: 'token0',
+    outputs: [{ name: '', type: 'address' }],
+    type: 'function',
+  },
+] as const;
+
+const { data: reservesData } = useReadContract({
+  address: computed(() => lpPairAddress.value as `0x${string}` | undefined),
+  abi: pairAbi,
+  functionName: 'getReserves',
+  query: {
+    enabled: computed(() => !!lpPairAddress.value),
+    refetchInterval: 10000, // 每10秒刷新
+  },
+});
+
+const { data: token0Address } = useReadContract({
+  address: computed(() => lpPairAddress.value as `0x${string}` | undefined),
+  abi: pairAbi,
+  functionName: 'token0',
+  query: {
+    enabled: computed(() => !!lpPairAddress.value),
+  },
+});
+
+// 计算 LP 储备量显示
+const lpReserves = computed(() => {
+  if (!reservesData.value || !token0Address.value || !hafTokenAddress.value) {
+    return { usdt: '0.00', haf: '0.00' };
+  }
+
+  const [reserve0, reserve1] = reservesData.value as [bigint, bigint, number];
+  
+  // 判断哪个是 HAF，哪个是 USDT
+  const isHafToken0 = (token0Address.value as string).toLowerCase() === (hafTokenAddress.value as string).toLowerCase();
+  
+  const usdtReserve = isHafToken0 ? reserve1 : reserve0;
+  const hafReserve = isHafToken0 ? reserve0 : reserve1;
+  
+  return {
+    usdt: parseFloat(formatUnits(usdtReserve, 18)).toFixed(2),
+    haf: parseFloat(formatUnits(hafReserve, 18)).toFixed(2),
+  };
+});
 
 // ✅ 矿池数据表单
 const poolForm = ref({

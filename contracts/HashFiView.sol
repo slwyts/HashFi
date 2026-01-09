@@ -74,7 +74,7 @@ abstract contract HashFiView is HashFiLogic {
 
         uint256 baseDailyRate = stakingLevels[order.level].dailyRate;
         uint256 dailyReleaseUsdt = (order.amount * baseDailyRate) / 10000;
-        uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / hafPrice;
+        uint256 dailyReleaseHaf = (dailyReleaseUsdt * PRICE_PRECISION) / getHafPrice();
         
         uint256 baseTotalReleaseHaf = dailyReleaseHaf * daysPassed;
         uint256 baseTotalReleaseUsdt = dailyReleaseUsdt * daysPassed;
@@ -169,9 +169,9 @@ abstract contract HashFiView is HashFiLogic {
     ) {
         totalOrders = orders.length;
         totalGenesisNodesCount = genesisNodes.length;
-        currentHafPrice = hafPrice;
+        currentHafPrice = getHafPrice();
         contractUsdtBalance = usdtToken.balanceOf(address(this));
-        contractHafBalance = IERC20(address(this)).balanceOf(address(this));
+        contractHafBalance = hafToken.getContractBalance();
         
         uint256 activeStakedUsdt = 0;
         for (uint i = 0; i < orders.length; i++) {

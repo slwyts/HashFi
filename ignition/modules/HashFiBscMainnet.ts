@@ -1,18 +1,20 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 /**
- * BSC Testnet 部署脚本
+ * BSC Mainnet 部署脚本
  * 部署顺序：HashFi -> HAFToken -> setHafToken
- * PancakeSwap 地址使用默认测试网地址（传0）
+ * PancakeSwap 地址使用默认主网地址（传0）
  */
-const HashFiBscTestnetModule = buildModule("HashFiBscTestnetModule", (m) => {
-  // BSC Testnet 上已部署的 USDT 地址
-  const usdtAddress = "0x9c1A27a6E140973eAA6e5b63dBc04E1177B431E7";
-  
-  // 合约 owner 地址
-  const initialOwner = m.getParameter("initialOwner", "0x40e9046a0d8fea5691221279a3b9f4ec3d34a55b");
-  
-  // PancakeSwap 地址：传0使用BSC测试网默认地址
+const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
+  // BSC Mainnet 上的 USDT (BSC-USD) 地址
+  // 实际地址 0x55d398326f99059ff775485246999027b3197955 目前暂时使用测试token地址进行部署测试
+  const usdtAddress = "0x91be819583bB301509c9aA3640DcE1F1CC03A49C";
+
+  // 合约 owner 地址, 默认为开发者地址
+  // 项目方地址 0x40E9046a0D8fEA5691221279A3B9f4ec3D34A55B
+  const initialOwner = m.getParameter("initialOwner", "0xA4b76D7Cae384C9a5fD5f573Cef74BFdB980E966");
+
+  // PancakeSwap 地址：传0使用BSC主网默认地址
   const pancakeFactory = "0x0000000000000000000000000000000000000000";
   const pancakeRouter = "0x0000000000000000000000000000000000000000";
 
@@ -32,4 +34,4 @@ const HashFiBscTestnetModule = buildModule("HashFiBscTestnetModule", (m) => {
   return { hashFi, hafToken };
 });
 
-export default HashFiBscTestnetModule;
+export default HashFiBscMainnetModule;

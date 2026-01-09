@@ -171,17 +171,19 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAccount, useReadContract } from '@wagmi/vue';
+import { useAccount, useReadContract, useConfig } from '@wagmi/vue';
+import { getBlock } from '@wagmi/core';
 import { formatUnits, parseUnits, maxUint256, type Address } from 'viem';
-import { abi, erc20Abi, CONTRACT, USDT } from '@/core/contract';
+import { abi, erc20Abi, uniswapV2PairAbi, uniswapV2RouterAbi, hafTokenAbi, CONTRACT, USDT } from '@/core/contract';
 import { useToast } from '@/composables/useToast';
 import { useEnhancedContract } from '@/composables/useEnhancedContract';
 
 const { t } = useI18n();
 const { address } = useAccount();
 const toast = useToast();
+const config = useConfig();
 
-const CONTRACT_ADDRESS = CONTRACT;
+const HASHFI_CONTRACT = CONTRACT;
 const USDT_ADDRESS = USDT;
 
 type EthereumProvider = {
@@ -196,6 +198,97 @@ const getEthereumProvider = (): EthereumProvider | undefined => {
 const isWalletAvailable = computed(() => !!getEthereumProvider());
 const isAddingToken = ref(false);
 
+// ========== 1. 获取 HAFToken 地址 ==========
+const { data: hafTokenAddress } = useReadContract({
+  address: HASHFI_CONTRACT,
+  abi,
+  functionName: 'hafToken',
+  query: { staleTime: 60000 }
+});
+
+// ========== 2. 获取 LP Pair 地址 ==========
+const { data: lpPairAddress } = useReadContract({
+  address: HASHFI_CONTRACT,
+  abi,
+  functionName: 'getLpPairAddress',
+  query: { staleTime: 60000 }
+});
+
+// ========== 3. 获取 Router 地址（从 HAFToken 合约） ==========
+const { data: routerAddress } = useReadContract({
+  address: computed(() => hafTokenAddress.value as Address | undefined),
+  abi: hafTokenAbi,
+  functionName: 'pancakeRouter',
+  query: {
+    enabled: computed(() => !!hafTokenAddress.value),
+    staleTime: 60000
+  }
+} as any);
+
+// ========== 4. 获取 HAF 价格（从主合约的 getHafPrice） ==========
+const { data: hafPrice } = useReadContract({
+  address: HASHFI_CONTRACT,
+  abi,
+  functionName: 'getHafPrice',
+  query: { refetchInterval: 30000 }
+});
+
+// ========== 5. 获取 LP 池储备 ==========
+const { data: lpReserves, refetch: refetchReserves } = useReadContract({
+  address: computed(() => lpPairAddress.value as Address | undefined),
+  abi: uniswapV2PairAbi,
+  functionName: 'getReserves',
+  query: {
+    enabled: computed(() => !!lpPairAddress.value),
+    refetchInterval: 10000
+  }
+} as any);
+
+// ========== 6. 获取 LP 池 token0 地址 ==========
+const { data: lpToken0 } = useReadContract({
+  address: computed(() => lpPairAddress.value as Address | undefined),
+  abi: uniswapV2PairAbi,
+  functionName: 'token0',
+  query: { enabled: computed(() => !!lpPairAddress.value) }
+} as any);
+
+// HAF 价格显示 (18 decimals - 合约使用 PRICE_PRECISION = 1e18)
+const hafPriceDisplay = computed(() => {
+  if (!hafPrice.value) return '0.00';
+  return parseFloat(formatUnits(hafPrice.value as bigint, 18)).toFixed(4);
+});
+
+// ========== 7. 获取 USDT 余额 ==========
+const { data: usdtBalanceRaw, refetch: refetchUsdtBalance } = useReadContract({
+  address: USDT_ADDRESS,
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] as const : undefined),
+  query: { enabled: !!address.value }
+} as any);
+
+const usdtBalanceDisplay = computed(() => {
+  if (!usdtBalanceRaw.value) return '0.00';
+  return parseFloat(formatUnits(usdtBalanceRaw.value as bigint, 18)).toFixed(2);
+});
+
+// ========== 8. 获取 HAF 余额（使用 HAFToken 地址） ==========
+const { data: hafBalanceRaw, refetch: refetchHafBalance } = useReadContract({
+  address: computed(() => hafTokenAddress.value as Address | undefined),
+  abi: erc20Abi,
+  functionName: 'balanceOf',
+  args: computed(() => address.value ? [address.value] as const : undefined),
+  query: { enabled: computed(() => !!address.value && !!hafTokenAddress.value) }
+} as any);
+
+const hafBalanceDisplay = computed(() => {
+  if (!hafBalanceRaw.value) return '0.00';
+  return parseFloat(formatUnits(hafBalanceRaw.value as bigint, 18)).toFixed(4);
+});
+
+// HAFToken 地址显示（用于添加到钱包）
+const hafTokenAddressDisplay = computed(() => hafTokenAddress.value as Address | undefined);
+
 const addTokenToWallet = async () => {
   if (isAddingToken.value) return;
 
@@ -205,9 +298,13 @@ const addTokenToWallet = async () => {
   }
 
   const provider = getEthereumProvider();
-
   if (!provider) {
     toast.error(t('swapPage.walletNotSupported'));
+    return;
+  }
+
+  if (!hafTokenAddressDisplay.value) {
+    toast.error('HAFToken address not loaded');
     return;
   }
 
@@ -223,7 +320,7 @@ const addTokenToWallet = async () => {
       params: {
         type: 'ERC20',
         options: {
-          address: CONTRACT_ADDRESS,
+          address: hafTokenAddressDisplay.value,
           symbol: 'HAF',
           decimals: 18,
           image: imageUrl,
@@ -248,68 +345,20 @@ const addTokenToWallet = async () => {
   }
 };
 
-// ========== 1. 获取 HAF 价格 ==========
-const { data: hafPrice } = useReadContract({
-  address: CONTRACT_ADDRESS,
-  abi,
-  functionName: 'hafPrice',
-  query: {
-    refetchInterval: 30000, // 每30秒刷新一次
-  }
-});
-
-// HAF 价格显示 (18 decimals - 合约使用 PRICE_PRECISION = 1e18)
-const hafPriceDisplay = computed(() => {
-  if (!hafPrice.value) return '0.00';
-  return parseFloat(formatUnits(hafPrice.value as bigint, 18)).toFixed(4);
-});
-
-// ========== 2. 获取 USDT 余额 ==========
-const { data: usdtBalanceRaw, refetch: refetchUsdtBalance } = useReadContract({
-  address: USDT_ADDRESS,
-  abi: erc20Abi,
-  functionName: 'balanceOf',
-  args: computed(() => address.value ? [address.value] as const : undefined),
-  query: {
-    enabled: !!address.value,
-  }
-} as any);
-
-const usdtBalanceDisplay = computed(() => {
-  if (!usdtBalanceRaw.value) return '0.00';
-  return parseFloat(formatUnits(usdtBalanceRaw.value as bigint, 18)).toFixed(2);
-});
-
-// ========== 3. 获取 HAF 余额 ==========
-const { data: hafBalanceRaw, refetch: refetchHafBalance } = useReadContract({
-  address: CONTRACT_ADDRESS,
-  abi: erc20Abi,
-  functionName: 'balanceOf',
-  args: computed(() => address.value ? [address.value] as const : undefined),
-  query: {
-    enabled: !!address.value,
-  }
-} as any);
-
-const hafBalanceDisplay = computed(() => {
-  if (!hafBalanceRaw.value) return '0.00';
-  return parseFloat(formatUnits(hafBalanceRaw.value as bigint, 18)).toFixed(4);
-});
-
-// ========== 4. 代币配置 ==========
+// ========== 9. 代币配置 ==========
 const tokens = computed(() => ({
-  HAF: { 
-    name: 'HAF', 
-  icon: '/logo.png', 
-    balance: hafBalanceDisplay.value, 
+  HAF: {
+    name: 'HAF',
+    icon: '/logo.png',
+    balance: hafBalanceDisplay.value,
     decimals: 18,
-    address: CONTRACT_ADDRESS
+    address: hafTokenAddressDisplay.value || ('' as Address)
   },
-  USDT: { 
-    name: 'USDT', 
-    icon: '/icons/usdt.svg', 
-    balance: usdtBalanceDisplay.value, 
-    decimals: 18, 
+  USDT: {
+    name: 'USDT',
+    icon: '/icons/usdt.svg',
+    balance: usdtBalanceDisplay.value,
+    decimals: 18,
     address: USDT_ADDRESS
   },
 }));
@@ -324,70 +373,115 @@ const toAmount = ref<number | null>(null);
 const showTokenSelector = ref(false);
 const selectorType = ref<'from' | 'to'>('from');
 
-// 更新代币余额
+// 更新代币余额和地址
 watch(() => tokens.value, (newTokens) => {
   Object.assign(fromToken, fromToken.name === 'USDT' ? newTokens.USDT : newTokens.HAF);
   Object.assign(toToken, toToken.name === 'USDT' ? newTokens.USDT : newTokens.HAF);
 }, { deep: true });
 
-// ========== 5. 计算汇率 ==========
+// ========== 10. 计算汇率 ==========
 const currentRate = computed(() => {
   if (!hafPrice.value) return '0';
-  const price = parseFloat(formatUnits(hafPrice.value as bigint, 18)); // ✅ 18 位精度
-  
+  const price = parseFloat(formatUnits(hafPrice.value as bigint, 18));
+
   if (fromToken.name === 'USDT') {
     // USDT → HAF: 1 USDT = 1/hafPrice HAF
-    return (1 / price).toFixed(4);
+    return price > 0 ? (1 / price).toFixed(4) : '0';
   } else {
     // HAF → USDT: 1 HAF = hafPrice USDT
     return price.toFixed(4);
   }
 });
 
-// ========== 6. 兑换计算逻辑 ==========
+// ========== 11. 使用恒定乘积公式计算兑换数量 ==========
+const calculateSwapOutput = (amountIn: bigint, reserveIn: bigint, reserveOut: bigint): bigint => {
+  if (reserveIn === 0n || reserveOut === 0n || amountIn === 0n) return 0n;
+  // 扣除0.25%手续费 (9975/10000)
+  const amountInWithFee = amountIn * 9975n;
+  const numerator = amountInWithFee * reserveOut;
+  const denominator = reserveIn * 10000n + amountInWithFee;
+  return numerator / denominator;
+};
+
+// 根据LP池储备计算输出
+const getSwapAmounts = computed(() => {
+  if (!lpReserves.value || !lpToken0.value || !hafTokenAddressDisplay.value) {
+    return { hafReserve: 0n, usdtReserve: 0n, isHafToken0: false };
+  }
+
+  const [reserve0, reserve1] = lpReserves.value as [bigint, bigint, number];
+  const token0 = lpToken0.value as Address;
+
+  // 确定哪个是HAF，哪个是USDT
+  const isHafToken0 = token0.toLowerCase() === hafTokenAddressDisplay.value.toLowerCase();
+
+  return {
+    hafReserve: isHafToken0 ? reserve0 : reserve1,
+    usdtReserve: isHafToken0 ? reserve1 : reserve0,
+    isHafToken0
+  };
+});
+
+// ========== 12. 兑换计算逻辑 ==========
 const handleFromAmountChange = () => {
-  if (!fromAmount.value || !hafPrice.value) {
+  if (!fromAmount.value || fromAmount.value <= 0) {
     toAmount.value = null;
     return;
   }
 
-  const price = parseFloat(hafPriceDisplay.value);
-  const feeRate = 0.00;
-  
+  const { hafReserve, usdtReserve } = getSwapAmounts.value;
+  if (hafReserve === 0n || usdtReserve === 0n) {
+    // 如果没有LP储备，使用价格估算
+    if (!hafPrice.value) {
+      toAmount.value = null;
+      return;
+    }
+    const price = parseFloat(formatUnits(hafPrice.value as bigint, 18));
+    if (fromToken.name === 'USDT') {
+      toAmount.value = parseFloat((fromAmount.value / price).toFixed(4));
+    } else {
+      toAmount.value = parseFloat((fromAmount.value * price).toFixed(2));
+    }
+    return;
+  }
+
+  const amountIn = parseUnits(fromAmount.value.toString(), 18);
+
   if (fromToken.name === 'USDT') {
     // USDT -> HAF
-    const hafAmount = fromAmount.value / price;
-    const afterFee = hafAmount * (1 - feeRate);
-    toAmount.value = parseFloat(afterFee.toFixed(4));
+    const hafOut = calculateSwapOutput(amountIn, usdtReserve, hafReserve);
+    toAmount.value = parseFloat(parseFloat(formatUnits(hafOut, 18)).toFixed(4));
   } else {
     // HAF -> USDT
-    const usdtAmount = fromAmount.value * price;
-    const afterFee = usdtAmount * (1 - feeRate);
-    toAmount.value = parseFloat(afterFee.toFixed(2));
+    const usdtOut = calculateSwapOutput(amountIn, hafReserve, usdtReserve);
+    toAmount.value = parseFloat(parseFloat(formatUnits(usdtOut, 18)).toFixed(2));
   }
 };
 
 const handleToAmountChange = () => {
-  if (!toAmount.value || !hafPrice.value) {
+  if (!toAmount.value || toAmount.value <= 0) {
     fromAmount.value = null;
     return;
   }
 
-  const price = parseFloat(hafPriceDisplay.value);
-  const feeRate = 0.02;
-  
+  // 反向计算（简化处理，使用价格估算）
+  if (!hafPrice.value) {
+    fromAmount.value = null;
+    return;
+  }
+
+  const price = parseFloat(formatUnits(hafPrice.value as bigint, 18));
+
   if (fromToken.name === 'USDT') {
-    // USDT -> HAF (反推需要的USDT)
-    const hafBeforeFee = toAmount.value / (1 - feeRate);
-    fromAmount.value = parseFloat((hafBeforeFee * price).toFixed(2));
+    // 想要 X HAF，需要多少 USDT
+    fromAmount.value = parseFloat((toAmount.value * price * 1.003).toFixed(2)); // 加上手续费估算
   } else {
-    // HAF -> USDT (反推需要的HAF)
-    const usdtBeforeFee = toAmount.value / (1 - feeRate);
-    fromAmount.value = parseFloat((usdtBeforeFee / price).toFixed(4));
+    // 想要 X USDT，需要多少 HAF
+    fromAmount.value = parseFloat((toAmount.value / price * 1.003).toFixed(4));
   }
 };
 
-// ========== 7. 切换代币 ==========
+// ========== 13. 切换代币 ==========
 const switchTokens = () => {
   const tempToken = { ...fromToken };
   Object.assign(fromToken, toToken);
@@ -395,98 +489,147 @@ const switchTokens = () => {
   handleFromAmountChange();
 };
 
-// ========== 8. USDT 授权 ==========
+// ========== 14. 授权检查（授权给 Router） ==========
 const allowanceArgs = computed(() => {
-  if (!address.value || fromToken.name !== 'USDT') return undefined;
-  return [address.value, CONTRACT_ADDRESS] as const;
+  if (!address.value || !routerAddress.value) return undefined;
+  return [address.value, routerAddress.value] as const;
 });
 
-const { data: allowance, refetch: refetchAllowance } = useReadContract({
+// USDT 授权额度（给Router）
+const { data: usdtAllowance, refetch: refetchUsdtAllowance } = useReadContract({
   address: USDT_ADDRESS,
   abi: erc20Abi,
   functionName: 'allowance',
   args: allowanceArgs,
   query: {
-    enabled: computed(() => !!address.value && fromToken.name === 'USDT'),
-    refetchInterval: 3000, // 每3秒刷新授权额度
+    enabled: computed(() => !!address.value && !!routerAddress.value),
+    refetchInterval: 3000
   }
-});
+} as any);
+
+// HAF 授权额度（给Router）
+const { data: hafAllowance, refetch: refetchHafAllowance } = useReadContract({
+  address: computed(() => hafTokenAddressDisplay.value),
+  abi: erc20Abi,
+  functionName: 'allowance',
+  args: allowanceArgs,
+  query: {
+    enabled: computed(() => !!address.value && !!routerAddress.value && !!hafTokenAddressDisplay.value),
+    refetchInterval: 3000
+  }
+} as any);
 
 const needsApproval = computed(() => {
-  // 只有USDT→HAF需要授权
-  if (fromToken.name !== 'USDT') return false;
-  
-  // 如果未连接钱包或未输入金额，不检查授权
-  if (!address.value || !fromAmount.value || fromAmount.value <= 0) return false;
-  
-  // 如果还没有查询到授权额度，假设需要授权
-  if (!allowance.value) return true;
-  
-  const amount = parseUnits(fromAmount.value.toString(), 18);  // 测试网USDT是18位
-  const needApproval = (allowance.value as bigint) < amount;
-  
-  console.log('🔍 授权检查:', {
-    当前授权额度: allowance.value?.toString(),
-    需要金额: amount.toString(),
-    需要授权: needApproval
-  });
-  
-  return needApproval;
+  if (!address.value || !fromAmount.value || fromAmount.value <= 0 || !routerAddress.value) return false;
+
+  const amount = parseUnits(fromAmount.value.toString(), 18);
+
+  if (fromToken.name === 'USDT') {
+    if (!usdtAllowance.value) return true;
+    return (usdtAllowance.value as bigint) < amount;
+  } else {
+    if (!hafAllowance.value) return true;
+    return (hafAllowance.value as bigint) < amount;
+  }
 });
 
 // 增强的合约交互
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 
 const handleApprove = async () => {
-  if (!fromAmount.value || !address.value) return;
+  if (!fromAmount.value || !address.value || !routerAddress.value) return;
+
+  const tokenAddress = fromToken.name === 'USDT' ? USDT_ADDRESS : hafTokenAddressDisplay.value;
+  if (!tokenAddress) return;
 
   try {
     await callContractWithRefresh(
       {
-        address: USDT_ADDRESS,
+        address: tokenAddress,
         abi: erc20Abi,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESS, maxUint256],
+        args: [routerAddress.value as Address, maxUint256],
         pendingMessage: t('swapPage.approving'),
         successMessage: t('swapPage.approveSuccess'),
-        operation: 'USDT Approval for Swap',
+        operation: `${fromToken.name} Approval for Router`,
       },
       {
-        refreshAllowance: refetchAllowance,
+        refreshAllowance: fromToken.name === 'USDT' ? refetchUsdtAllowance : refetchHafAllowance,
       }
     );
   } catch (error: any) {
     console.error('Approve error:', error);
-    // 错误已经在 useEnhancedContract 中处理
   }
 };
 
+// ========== 15. 执行 Swap（使用 Router） ==========
 const handleSwap = async () => {
-  if (!fromAmount.value || !address.value) return;
+  if (!fromAmount.value || !address.value || !routerAddress.value || !hafTokenAddressDisplay.value) return;
+
+  const { hafReserve, usdtReserve } = getSwapAmounts.value;
+  if (hafReserve === 0n || usdtReserve === 0n) {
+    toast.error('LP pool not initialized');
+    return;
+  }
 
   try {
-    const amount = parseUnits(fromAmount.value.toString(), 18);
-    const tokenInAddress = fromToken.name === 'USDT' ? USDT_ADDRESS : CONTRACT_ADDRESS;
-    
-    console.log('💱 闪兑:', {
+    const amountIn = parseUnits(fromAmount.value.toString(), 18);
+
+    // 构建交易路径
+    const path = fromToken.name === 'USDT'
+      ? [USDT_ADDRESS, hafTokenAddressDisplay.value]  // USDT -> HAF
+      : [hafTokenAddressDisplay.value, USDT_ADDRESS]; // HAF -> USDT
+
+    // 计算最小输出（设置5%滑点保护，因为HAF有税）
+    let expectedOutput: bigint;
+    if (fromToken.name === 'USDT') {
+      expectedOutput = calculateSwapOutput(amountIn, usdtReserve, hafReserve);
+    } else {
+      expectedOutput = calculateSwapOutput(amountIn, hafReserve, usdtReserve);
+    }
+    const amountOutMin = expectedOutput * 75n / 100n; // 25% 滑点（考虑税收+价格波动）
+
+    // deadline: 从区块链获取当前时间 + 20分钟（避免时间跳跃测试时过期）
+    const block = await getBlock(config);
+    const deadline = block.timestamp + 1200n; // 区块链时间 + 20分钟
+
+    console.log('💱 Router Swap (SupportingFee):', {
       方向: `${fromToken.name} → ${toToken.name}`,
       输入金额: fromAmount.value,
-      Wei金额: amount.toString(),
-      tokenIn地址: tokenInAddress,
-      预计获得: toAmount.value
+      amountIn: amountIn.toString(),
+      amountOutMin: amountOutMin.toString(),
+      path,
+      deadline: deadline.toString(),
+      router: routerAddress.value
     });
-    
+
+    // 使用 swapExactTokensForTokensSupportingFeeOnTransferTokens（支持转账扣税代币）
+    const swapWithFeeAbi = [
+      {
+        "inputs": [
+          {"internalType": "uint256","name": "amountIn","type": "uint256"},
+          {"internalType": "uint256","name": "amountOutMin","type": "uint256"},
+          {"internalType": "address[]","name": "path","type": "address[]"},
+          {"internalType": "address","name": "to","type": "address"},
+          {"internalType": "uint256","name": "deadline","type": "uint256"}
+        ],
+        "name": "swapExactTokensForTokensSupportingFeeOnTransferTokens",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ] as const;
+
     await callContractWithRefresh(
       {
-        address: CONTRACT_ADDRESS,
-        abi,
-        functionName: 'swap',
-        args: [tokenInAddress, amount],
+        address: routerAddress.value as Address,
+        abi: swapWithFeeAbi,
+        functionName: 'swapExactTokensForTokensSupportingFeeOnTransferTokens',
+        args: [amountIn, amountOutMin, path, address.value, deadline],
         pendingMessage: t('swapPage.swapping'),
         successMessage: t('swapPage.swapSuccess'),
         operation: `${fromToken.name} to ${toToken.name} Swap`,
         onConfirmed: () => {
-          // 清空输入
           fromAmount.value = null;
           toAmount.value = null;
         }
@@ -495,40 +638,40 @@ const handleSwap = async () => {
         refreshBalance: async () => {
           await refetchUsdtBalance();
           await refetchHafBalance();
+          await refetchReserves();
         },
       }
     );
   } catch (error: any) {
     console.error('Swap error:', error);
-    // 错误已经在 useEnhancedContract 中处理
   }
 };
 
-// ========== 10. 按钮状态 ==========
+// ========== 16. 按钮状态 ==========
 const canSwap = computed(() => {
   if (!address.value) return false;
   if (!fromAmount.value || fromAmount.value <= 0) return false;
-  if (fromToken.name === 'USDT' && fromAmount.value < 10) return false; // 最小10 USDT
-  
+  if (!routerAddress.value || !hafTokenAddressDisplay.value) return false;
+  if (fromToken.name === 'USDT' && fromAmount.value < 10) return false;
+
   const balance = parseFloat(fromToken.balance);
   if (fromAmount.value > balance) return false;
-  
-  // 如果需要授权，按钮也可点击（用于授权操作）
+
   if (needsApproval.value) return true;
-  
+
   return true;
 });
 
 const buttonText = computed(() => {
   if (!address.value) return t('common.connectWallet');
+  if (!routerAddress.value) return t('swapPage.lpNotInitialized') || 'Router Not Available';
   if (!fromAmount.value || fromAmount.value <= 0) return t('swapPage.enterAmount');
   if (fromToken.name === 'USDT' && fromAmount.value < 10) return t('swapPage.minSwapAmountError');
   if (fromAmount.value > parseFloat(fromToken.balance)) return t('swapPage.insufficientBalance');
-  
-  // 优先显示授权按钮（如果需要授权）
+
   if (needsApproval.value && !isProcessing()) return t('swapPage.approveUnlimited');
   if (isProcessing()) return t('swapPage.processing');
-  
+
   return t('swapPage.swap');
 });
 
@@ -554,7 +697,7 @@ const toValue = computed(() => {
   return toAmount.value * parseFloat(hafPriceDisplay.value);
 });
 
-// ========== 11. 代币选择器逻辑 ==========
+// ========== 17. 代币选择器逻辑 ==========
 const openTokenSelector = (type: 'from' | 'to') => {
   selectorType.value = type;
   showTokenSelector.value = true;
@@ -567,22 +710,18 @@ const closeTokenSelector = () => {
 const selectToken = (token: any) => {
   const currentToken = selectorType.value === 'from' ? fromToken : toToken;
   const otherToken = selectorType.value === 'from' ? toToken : fromToken;
-  
-  // 如果选择的代币和另一个代币相同，则交换它们
+
   if (token.name === otherToken.name) {
     switchTokens();
   } else {
-    // 否则直接更新当前代币
     Object.assign(currentToken, token);
-    // 重新计算金额
     handleFromAmountChange();
   }
-  
+
   closeTokenSelector();
 };
 
-const canSelectToken = (token: any) => {
-  // 所有代币都可以选择
+const canSelectToken = (_token: any) => {
   return true;
 };
 

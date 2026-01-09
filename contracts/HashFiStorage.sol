@@ -3,12 +3,14 @@ pragma solidity ^0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IHAFToken} from "./HAFToken.sol";
+
 
 abstract contract HashFiStorage is Ownable {
 
     IERC20 internal usdtToken;
+    IHAFToken public hafToken;
 
-    uint256 internal constant TOTAL_SUPPLY = 21_000_000 * 1e18;
     uint256 internal constant PRICE_PRECISION = 1e18;
     uint256 internal constant GENESIS_NODE_EXIT_MULTIPLIER = 3;
 
@@ -28,8 +30,10 @@ abstract contract HashFiStorage is Ownable {
     error InvalidOrder();
     error AlreadyProcessed();
     error NoPendingApplication();
+    error NotGenesisNode();
     error InvalidLevel();
     error InvalidFeeRate();
+    error LpNotInitialized();
 
     enum RewardType { Static, Direct, Share, Team, Genesis }
     enum BtcWithdrawalStatus { Pending, Approved, Rejected }
@@ -167,13 +171,10 @@ abstract contract HashFiStorage is Ownable {
     uint256 private constant BTC_WITHDRAWAL_FEE_RATE = 5;
     uint256 public globalTotalHashPower;
 
-    uint256 public hafPrice;
+    // hafPrice removed - now use hafToken.getPrice()
     uint256 public withdrawalFeeRate = 5;
-    uint256 public swapFeeRate = 1;
 
-    uint256 internal lastPriceUpdateTime;
-    uint256 public dailyPriceIncreaseRate = 1;
-    bool public autoPriceUpdateEnabled = false;
+    // Removed: swapFeeRate, lastPriceUpdateTime, dailyPriceIncreaseRate, autoPriceUpdateEnabled
     
     uint256 public TIME_UNIT;
     uint256 public DYNAMIC_RELEASE_PERIOD;

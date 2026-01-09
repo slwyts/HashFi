@@ -66,6 +66,7 @@
     "stakeFailed": "认购失败",
     "processing": "处理中",
     "connectWallet": "请先连接钱包",
+    "insufficientBalance": "USDT 余额不足",
     "bindReferrerFirst": "请先绑定推荐人才能认购"
   },
   "swapPage": {

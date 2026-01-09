@@ -126,6 +126,22 @@
           <p class="text-sm text-gray-600">管理员地址</p>
           <p class="text-xs font-mono font-semibold text-green-600 mt-1 break-all">{{ ownerAddress || '加载中...' }}</p>
         </div>
+        <div class="p-4 bg-orange-50 rounded-lg">
+          <p class="text-sm text-gray-600">HAF Token地址</p>
+          <p class="text-xs font-mono font-semibold text-orange-600 mt-1 break-all">{{ hafTokenAddress || '加载中...' }}</p>
+        </div>
+        <div class="p-4 bg-pink-50 rounded-lg">
+          <p class="text-sm text-gray-600">LP Pair地址</p>
+          <p class="text-xs font-mono font-semibold text-pink-600 mt-1 break-all">{{ lpPairAddress || '加载中...' }}</p>
+        </div>
+        <div class="p-4 bg-indigo-50 rounded-lg">
+          <p class="text-sm text-gray-600">DEX Factory地址</p>
+          <p class="text-xs font-mono font-semibold text-indigo-600 mt-1 break-all">{{ factoryAddress || '加载中...' }}</p>
+        </div>
+        <div class="p-4 bg-cyan-50 rounded-lg">
+          <p class="text-sm text-gray-600">DEX Router地址</p>
+          <p class="text-xs font-mono font-semibold text-cyan-600 mt-1 break-all">{{ routerAddress || '加载中...' }}</p>
+        </div>
         <div class="p-4 rounded-lg" :class="[
           systemStatus.isPaused ? 'bg-red-50' : 'bg-green-50'
         ]">
@@ -143,12 +159,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { parseEther } from 'viem';
 import { useReadContract } from '@wagmi/vue';
 import { useAdminData } from '../../composables/useAdminData';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
-import { abi } from '@/core/contract';
+import { abi, hafTokenAbi } from '@/core/contract';
 import CustomSelect from './CustomSelect.vue';
 import type { SelectOption } from './CustomSelect.vue';
 
@@ -170,6 +186,43 @@ const { data: ownerAddress } = useReadContract({
   functionName: 'owner',
 });
 
+// 获取HAF Token地址
+const { data: hafTokenAddress } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'hafToken',
+});
+
+// 获取LP Pair地址
+const { data: lpPairAddress } = useReadContract({
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
+  abi: hafTokenAbi,
+  functionName: 'pancakePair',
+  query: {
+    enabled: computed(() => !!hafTokenAddress.value),
+  },
+});
+
+// 获取Factory地址
+const { data: factoryAddress } = useReadContract({
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
+  abi: hafTokenAbi,
+  functionName: 'pancakeFactory',
+  query: {
+    enabled: computed(() => !!hafTokenAddress.value),
+  },
+});
+
+// 获取Router地址
+const { data: routerAddress } = useReadContract({
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
+  abi: hafTokenAbi,
+  functionName: 'pancakeRouter',
+  query: {
+    enabled: computed(() => !!hafTokenAddress.value),
+  },
+});
+
 const withdrawForm = ref({
   token: 'USDT',
   amount: '',
@@ -179,14 +232,21 @@ const withdrawForm = ref({
 const tokenOptions: SelectOption[] = [
   { value: 'USDT', label: 'USDT' },
   { value: 'HAF', label: 'HAF' },
+  { value: 'LP', label: 'LP Token (HAF/USDT)' },
 ];
 
 const handleEmergencyWithdraw = async () => {
   if (!withdrawForm.value.amount) return;
   
-  const tokenAddress = withdrawForm.value.token === 'USDT'
-    ? USDT_ADDRESS
-    : CONTRACT_ADDRESS;
+  let tokenAddress: `0x${string}`;
+  if (withdrawForm.value.token === 'USDT') {
+    tokenAddress = USDT_ADDRESS;
+  } else if (withdrawForm.value.token === 'HAF') {
+    tokenAddress = hafTokenAddress.value as `0x${string}`;
+  } else {
+    // LP Token
+    tokenAddress = lpPairAddress.value as `0x${string}`;
+  }
 
   await callContractWithRefresh(
     {

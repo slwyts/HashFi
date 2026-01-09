@@ -1,7 +1,8 @@
 import { computed, ref } from 'vue';
 import { useReadContract, useAccount } from '@wagmi/vue';
 import { formatEther, formatUnits } from 'viem';
-import { abi } from '@/core/contract';
+import { abi, hafTokenAbi, erc20Abi } from '@/core/contract';
+import { useBitcoinData } from './useBitcoinData';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
@@ -91,7 +92,7 @@ export const useAdminData = () => {
     }));
   });
 
-  // ========== 全局统计数据 ==========
+  // ========== 全局统计 ==========
   const { data: globalStatsData, refetch: refetchStats } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi,
@@ -104,7 +105,60 @@ export const useAdminData = () => {
     functionName: 'globalGenesisPool',
   });
 
+  // 查询 HAFToken 地址
+  const { data: hafTokenAddress } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi,
+    functionName: 'hafToken',
+  });
+
+  // 查询 LP Pair 地址
+  const { data: lpPairAddress } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'pancakePair',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  // 查询 LP 余额 (LP token 由 HAFToken 合约持有)
+  const { data: contractLpBalanceData, refetch: refetchLpBalance } = useReadContract({
+    address: lpPairAddress as any,
+    abi: erc20Abi, // LP Pair 是 ERC20 token
+    functionName: 'balanceOf',
+    args: computed(() => hafTokenAddress.value ? [hafTokenAddress.value] : undefined) as any,
+    query: {
+      enabled: computed(() => !!lpPairAddress.value && !!hafTokenAddress.value),
+    }
+  });
+
+  // 查询 LP 池 USDT 储备量
+  const { data: lpUsdtReserveData, refetch: refetchLpUsdtReserve } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'getLpUsdtBalance',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  // 查询 LP 池 HAF 储备量
+  const { data: lpHafReserveData, refetch: refetchLpHafReserve } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'getLpHafBalance',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
   const globalStats = computed(() => {
+    // 解析 LP 数据
+    const lpUsdtReserve = lpUsdtReserveData.value ? formatEther(lpUsdtReserveData.value as bigint) : '0';
+    const lpHafReserve = lpHafReserveData.value ? formatEther(lpHafReserveData.value as bigint) : '0';
+    const lpTokenBalance = contractLpBalanceData.value ? formatEther(contractLpBalanceData.value as bigint) : '0';
+    
     if (!globalStatsData.value) {
       return {
         totalStakedUsdt: '0',
@@ -113,6 +167,9 @@ export const useAdminData = () => {
         currentHafPrice: '1.000000',
         contractUsdtBalance: '0',
         contractHafBalance: '0',
+        lpUsdtReserve,
+        lpHafReserve,
+        lpTokenBalance,
         totalDepositedUsdt: '0',
         totalWithdrawnHaf: '0',
         totalFeeCollectedHaf: '0',
@@ -131,6 +188,9 @@ export const useAdminData = () => {
       currentHafPrice: formatUnits(data[3], 18),
       contractUsdtBalance: formatEther(data[4]),
       contractHafBalance: formatEther(data[5]),
+      lpUsdtReserve,
+      lpHafReserve,
+      lpTokenBalance,
       totalDepositedUsdt: formatEther(data[6].totalDepositedUsdt),
       totalWithdrawnHaf: formatEther(data[6].totalWithdrawnHaf),
       totalFeeCollectedHaf: formatEther(data[6].totalFeeCollectedHaf),
@@ -141,47 +201,11 @@ export const useAdminData = () => {
     };
   });
 
-  // ========== BTC数据 ==========
-  const { data: btcStatsData, refetch: refetchBtcStats } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi,
-    functionName: 'getBtcStats',
-  });
-
-  const btcStats = computed(() => {
-    if (!btcStatsData.value) {
-      return {
-        totalHashrate: '0',
-        globalHashrate: '0',
-        dailyRewardPerT: '0',
-        currentDifficulty: '0',
-        btcPrice: '0',
-        nextHalvingTime: '0',
-        totalMined: '0',
-        yesterdayMined: '0',
-        lastUpdateTime: '0',
-      };
-    }
-
-    const data = btcStatsData.value as any;
-    return {
-      totalHashrate: formatEther(data.totalHashrate),
-      globalHashrate: formatEther(data.globalHashrate),
-      dailyRewardPerT: formatUnits(data.dailyRewardPerT, 6),
-      currentDifficulty: data.currentDifficulty.toString(),
-      btcPrice: formatUnits(data.btcPrice, 6),
-      nextHalvingTime: data.nextHalvingTime.toString(),
-      totalMined: formatEther(data.totalMined),
-      yesterdayMined: formatEther(data.yesterdayMined),
-      lastUpdateTime: data.lastUpdateTime.toString(),
-    };
-  });
-
   // ========== 价格与费率数据 ==========
   const { data: hafPriceData, refetch: refetchPrice } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi,
-    functionName: 'hafPrice',
+    functionName: 'getHafPrice',
   });
 
   // const { data: dailyRateData, refetch: refetchDailyRate } = useReadContract({
@@ -220,6 +244,13 @@ export const useAdminData = () => {
     functionName: 'paused',
   });
 
+  // HAF 高级特性开关状态
+  const { data: hafAdvancedFeaturesData, refetch: refetchHafAdvancedFeatures } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi,
+    functionName: 'getHafAdvancedFeaturesEnabled',
+  });
+
   const priceSettings = computed(() => ({
     currentPrice: hafPriceData.value ? formatUnits(hafPriceData.value as bigint, 18) : '0.00',
     // dailyIncreaseRate: dailyRateData.value ? (dailyRateData.value as bigint).toString() : '0',
@@ -234,6 +265,7 @@ export const useAdminData = () => {
 
   const systemStatus = computed(() => ({
     isPaused: pausedData.value as boolean || false,
+    hafAdvancedFeaturesEnabled: hafAdvancedFeaturesData.value as boolean ?? true,
   }));
 
   // ========== 质押级别数据 ==========
@@ -294,7 +326,9 @@ export const useAdminData = () => {
       refetchGenesisInfo(),
       refetchStats(),
       refetchGenesisPool(),
-      refetchBtcStats(),
+      refetchLpBalance(),
+      refetchLpUsdtReserve(),
+      refetchLpHafReserve(),
       refetchPrice(),
       // refetchDailyRate(),
       // refetchAutoPriceUpdate(),
@@ -324,6 +358,7 @@ export const useAdminData = () => {
       // refetchSwapFee(),
       refetchGenesisNodeCost(),
       refetchPaused(),
+      refetchHafAdvancedFeatures(),
     ]);
   };
 
@@ -339,7 +374,6 @@ export const useAdminData = () => {
     
     // 统计数据
     globalStats,
-    btcStats,
     
     // 价格与费率
     priceSettings,
@@ -357,6 +391,5 @@ export const useAdminData = () => {
     refreshGenesisData,
     refreshSystemData,
     refetchStats,
-    refetchBtcStats,
   };
 };

@@ -44,7 +44,8 @@ if (appMode === 'localnet') {
 
 // 配置 RPC URLs（支持未连接钱包时读取数据）
 const transports = {
-  [bsc.id]: http(import.meta.env.VITE_BSC_MAINNET_RPC_URL || 'https://bsc-rpc.publicnode.com'),
+  [bsc.id]: http(import.meta.env.VITE_BSC_MAINNET_RPC_URL || 'https://bsc-dataseed.binance.org/'),
+  [bscTestnet.id]: http(import.meta.env.VITE_BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545/'),
   [hardhatLocal.id]: http(import.meta.env.VITE_LOCAL_RPC_URL || 'http://127.0.0.1:8545'),
 }
 
@@ -53,7 +54,7 @@ export const wagmiConfig = defaultWagmiConfig({
   projectId,
   metadata,
   transports,
-  enableWalletConnect: true,
+  enableWalletConnect: false,
   enableInjected: true,
   enableCoinbase: true, 
   ssr: false,
@@ -75,9 +76,11 @@ if (typeof window !== 'undefined') {
 }
 
 // 根据环境选择默认链
-let defaultChain: typeof bsc | typeof hardhatLocal
+let defaultChain: typeof bsc | typeof bscTestnet | typeof hardhatLocal
 if (appMode === 'localnet') {
   defaultChain = hardhatLocal as any
+} else if (appMode === 'development') {
+  defaultChain = bscTestnet
 } else {
   defaultChain = bsc
 }

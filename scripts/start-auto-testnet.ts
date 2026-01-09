@@ -1,9 +1,10 @@
 import { spawn, exec } from 'child_process'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, createWriteStream } from 'fs'
 import { join } from 'path'
 
 const isWindows = process.platform === 'win32'
 const noLogs = process.argv.includes('--no-logs')
+const logFile = join(process.cwd(), 'hardhat-node.log')
 
 // Helper to run command and wait for completion
 function runCommand(command: string, args: string[] = []): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -82,7 +83,21 @@ function sleep(ms: number): Promise<void> {
 function startHardhatNode(): { pid: number | undefined } {
   console.log('Starting Hardhat node...')
 
-  const child = spawn('npx', ['hardhat', 'node'], {
+  let command: string
+
+  if (noLogs) {
+    command = 'npx hardhat node'
+  } else {
+    // Windows: 使用 cmd 重定向
+    console.log(`   Logs: ${logFile}`)
+    if (isWindows) {
+      command = `npx hardhat node > "${logFile}" 2>&1`
+    } else {
+      command = `npx hardhat node > "${logFile}" 2>&1`
+    }
+  }
+
+  const child = spawn(command, {
     shell: true,
     detached: !isWindows,
     stdio: 'ignore',
@@ -110,8 +125,8 @@ function updateEnvFile(deploymentFile: string): void {
 
   try {
     const deployedAddresses = JSON.parse(readFileSync(deploymentFile, 'utf-8'))
-    const usdtAddress = deployedAddresses['FullDeployModule#USDT']
-    const hashfiAddress = deployedAddresses['FullDeployModule#HashFi']
+    const usdtAddress = deployedAddresses['LocalDeployModule#USDT']
+    const hashfiAddress = deployedAddresses['LocalDeployModule#HashFi']
 
     let envContent = readFileSync(envFile, 'utf-8')
 
@@ -175,7 +190,7 @@ async function main() {
 
   // Deploy contracts
   console.log('Deploying contracts...')
-  const deployResult = await runCommand('npx', ['hardhat', 'ignition', 'deploy', 'ignition/modules/FullDeploy.ts', '--network', 'localhost'])
+  const deployResult = await runCommand('npx', ['hardhat', 'ignition', 'deploy', 'ignition/modules/LocalDeploy.ts', '--network', 'localhost'])
 
   if (deployResult.code !== 0) {
     console.error('Failed to deploy contracts!')
@@ -202,19 +217,19 @@ async function main() {
   console.log('Node info:')
   console.log('   RPC URL: http://localhost:8545')
   console.log(`   PID: ${pid}`)
+  if (!noLogs) {
+    console.log(`   Log file: ${logFile}`)
+  }
   console.log('')
   console.log('Commands:')
   console.log('   Time jump: npm run time 7  # Jump 7 days')
   console.log('   Stop: npm run stop')
-  console.log('   Frontend: npm run dev:local')
+  if (!noLogs) {
+    console.log(`   View logs: Get-Content ${logFile} -Wait  # PowerShell`)
+  }
   console.log('========================================')
 
-  if (!noLogs) {
-    console.log('')
-    console.log('Node is running. Press Ctrl+C to stop.')
-    // Keep process alive if showing logs
-    await new Promise(() => {})
-  }
+  // 不再阻塞,直接退出让 dev:local 继续运行
 }
 
 main().catch(console.error)

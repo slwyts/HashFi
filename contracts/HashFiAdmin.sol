@@ -25,9 +25,60 @@ abstract contract HashFiAdmin is HashFiLogic {
     
     function rejectGenesisNode(address _applicant) external onlyOwner {
         if (!genesisNodeApplications[_applicant]) revert NoPendingApplication();
-        
+
         genesisNodeApplications[_applicant] = false;
         _removeFromPendingApplications(_applicant);
+    }
+
+    /**
+     * @dev 强制设置或取消创世节点（仅Owner可调用）
+     * @param _user 用户地址
+     * @param _isGenesisNode true=设为创世节点，false=取消创世节点
+     */
+    function setGenesisNode(address _user, bool _isGenesisNode) external onlyOwner {
+        if (_user == address(0)) revert InvalidAddress();
+        User storage user = users[_user];
+
+        if (_isGenesisNode) {
+            // 设为创世节点
+            if (user.isGenesisNode) revert AlreadyGenesisNode();
+
+            user.isGenesisNode = true;
+            genesisNodes.push(_user);
+            activeGenesisNodes.push(_user);
+            isActiveGenesisNode[_user] = true;
+            user.genesisRewardDebt = accGenesisRewardPerNode;
+
+            // 清理可能存在的申请状态
+            if (genesisNodeApplications[_user]) {
+                genesisNodeApplications[_user] = false;
+                _removeFromPendingApplications(_user);
+            }
+        } else {
+            // 取消创世节点
+            if (!user.isGenesisNode) revert NotGenesisNode();
+
+            user.isGenesisNode = false;
+            isActiveGenesisNode[_user] = false;
+
+            // 从 genesisNodes 数组移除
+            for (uint i = 0; i < genesisNodes.length; i++) {
+                if (genesisNodes[i] == _user) {
+                    genesisNodes[i] = genesisNodes[genesisNodes.length - 1];
+                    genesisNodes.pop();
+                    break;
+                }
+            }
+
+            // 从 activeGenesisNodes 数组移除
+            for (uint i = 0; i < activeGenesisNodes.length; i++) {
+                if (activeGenesisNodes[i] == _user) {
+                    activeGenesisNodes[i] = activeGenesisNodes[activeGenesisNodes.length - 1];
+                    activeGenesisNodes.pop();
+                    break;
+                }
+            }
+        }
     }
 
     // function setHafPrice(uint256 _newPrice) external onlyOwner {
@@ -69,12 +120,51 @@ abstract contract HashFiAdmin is HashFiLogic {
         users[_user].teamLevel = _level;
     }
     
+    /**
+     * @dev 紧急提取代币（仅Owner可调用）
+     * @param _tokenAddress 代币地址，address(0)表示原生币(ETH/BNB)
+     * @param _amount 提取数量
+     * 
+     * 功能：
+     * 1. 支持提取原生币（传入address(0)）
+     * 2. 支持提取任意ERC20代币
+     * 3. 如果本合约余额不足，会自动从HAFToken子合约拉取
+     */
     function emergencyWithdrawToken(address _tokenAddress, uint256 _amount) external onlyOwner {
-        IERC20 token = IERC20(_tokenAddress);
-        token.transfer(owner(), _amount);
+        if (_tokenAddress == address(0)) {
+            // 提取原生币 (ETH/BNB)
+            uint256 balance = address(this).balance;
+            require(balance >= _amount, "Insufficient native balance");
+            (bool success, ) = payable(owner()).call{value: _amount}("");
+            require(success, "Native transfer failed");
+        } else {
+            // 提取ERC20代币
+            IERC20 token = IERC20(_tokenAddress);
+            uint256 balance = token.balanceOf(address(this));
+            
+            // 如果本合约余额不足，从HAFToken子合约拉取
+            if (balance < _amount) {
+                uint256 shortage = _amount - balance;
+                // 检查HAFToken是否有足够余额
+                uint256 tokenContractBalance;
+                if (_tokenAddress == address(hafToken)) {
+                    // 如果是HAF代币，用getContractBalance
+                    tokenContractBalance = hafToken.getContractBalance();
+                } else {
+                    // 其他代币，直接查询
+                    tokenContractBalance = token.balanceOf(address(hafToken));
+                }
+                require(tokenContractBalance >= shortage, "Insufficient balance in both contracts");
+                // 从HAFToken拉取不足的部分
+                hafToken.withdrawToDefi(_tokenAddress, shortage);
+            }
+            
+            // 转给owner
+            token.transfer(owner(), _amount);
+        }
     }
 
-    function getAllGenesisNodesInfo() external view onlyOwner returns (
+    function getAllGenesisNodesInfo() external view returns (
         address[] memory nodes,
         uint256[] memory totalDividends,
         uint256[] memory withdrawn
@@ -95,7 +185,7 @@ abstract contract HashFiAdmin is HashFiLogic {
         return (nodes, totalDividends, withdrawn);
     }
 
-    function getPendingGenesisApplications() external view onlyOwner returns (address[] memory) {
+    function getPendingGenesisApplications() external view returns (address[] memory) {
         return pendingGenesisApplications;
     }
 
@@ -127,6 +217,30 @@ abstract contract HashFiAdmin is HashFiLogic {
     function setMinBtcWithdrawal(uint256 _minAmount) external onlyOwner {
         if (_minAmount == 0) revert InvalidAmount();
         minBtcWithdrawal = _minAmount;
+    }
+
+    /**
+     * @dev 设置HAF代币高级特性开关（仅Owner可调用）
+     * @param _enabled true启用高级特性，false禁用
+     *
+     * 禁用高级特性后，HAF代币将：
+     * - 不收取买入/卖出税
+     * - 不执行每日燃烧和自动销毁
+     * - 不执行持币分红
+     * - 只执行普通ERC20转账
+     *
+     * 用于紧急情况下保证代币基本交易功能不受高级特性bug影响
+     */
+    function setHafAdvancedFeatures(bool _enabled) external onlyOwner {
+        hafToken.setAdvancedFeaturesEnabled(_enabled);
+    }
+
+    /**
+     * @dev 查询HAF代币高级特性开关状态
+     * @return 当前开关状态，true=已启用，false=已禁用
+     */
+    function getHafAdvancedFeaturesEnabled() external view returns (bool) {
+        return hafToken.advancedFeaturesEnabled();
     }
 
 }

@@ -15,7 +15,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1,
+            runs: 833,
           },
           viaIR: true,
         },
@@ -25,7 +25,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1,
+            runs: 833,
           },
           viaIR: true,
         },
@@ -37,20 +37,10 @@ const config: HardhatUserConfig = {
       type: "edr-simulated",
       chainType: "l1",
     },
-    hardhatOp: {
-      type: "edr-simulated",
-      chainType: "op",
-    },
     localhost: {
       type: "http",
       chainType: "l1",
       url: "http://127.0.0.1:8545",
-    },
-    sepolia: {
-      type: "http",
-      chainType: "l1",
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
     bscTestnet: {
       type: "http",
@@ -58,6 +48,13 @@ const config: HardhatUserConfig = {
       url: configVariable("BSC_TESTNET_RPC_URL"),
       accounts: [configVariable("BSC_TESTNET_PRIVATE_KEY")],
       chainId: 97,
+    },
+    bscMainnet: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable("BSC_MAINNET_RPC_URL"),
+      accounts: [configVariable("BSC_TESTNET_PRIVATE_KEY")], // 复用测试网私钥
+      chainId: 56,
     },
   },
 };

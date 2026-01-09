@@ -1,13 +1,18 @@
 const fs = require('fs');
 
-const contracts = ['HashFi', 'USDT'];
+const contracts = ['HashFi', 'USDT', 'HAFToken'];
 
 console.log('\n合约字节码大小对比:');
 console.log('='.repeat(70));
 
 contracts.forEach(name => {
   try {
-    const path = `artifacts/contracts/${name === 'USDT' ? 'usdt' : name}.sol/${name}.json`;
+    let path;
+    if (name === 'USDT') {
+      path = `artifacts/contracts/usdt.sol/${name}.json`;
+    } else {
+      path = `artifacts/contracts/${name}.sol/${name}.json`;
+    }
     const artifact = JSON.parse(fs.readFileSync(path, 'utf8'));
     
     const bytecode = artifact.bytecode || '';

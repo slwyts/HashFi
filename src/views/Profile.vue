@@ -161,7 +161,13 @@ const { disconnect } = useDisconnect();
 const modal = useWeb3Modal();
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
-const HAF_TOKEN_ADDRESS = CONTRACT_ADDRESS; // HAF 代币就是合约本身
+
+// 读取 HAFToken 合约地址
+const { data: hafTokenAddress } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi,
+  functionName: 'hafToken',
+});
 
 // 读取合约 owner
 const { data: ownerAddress } = useReadContract({
@@ -200,14 +206,14 @@ const { data: userInfo, refetch: refetchUserInfo } = useReadContract({
   },
 });
 
-// 读取 HAF 余额 (使用 useReadContract 替代 useBalance)
+// 读取 HAF 余额 (从 HAFToken 合约)
 const { data: hafBalanceRaw } = useReadContract({
-  address: HAF_TOKEN_ADDRESS,
+  address: computed(() => hafTokenAddress.value as `0x${string}` | undefined),
   abi: erc20Abi,
   functionName: 'balanceOf',
   args: computed(() => address.value ? [address.value] as const : undefined),
   query: {
-    enabled: !!address.value,
+    enabled: computed(() => !!address.value && !!hafTokenAddress.value),
   },
 } as any);
 
@@ -215,7 +221,7 @@ const { data: hafBalanceRaw } = useReadContract({
 const { data: hafPriceData } = useReadContract({
   address: CONTRACT_ADDRESS,
   abi,
-  functionName: 'hafPrice',
+  functionName: 'getHafPrice',
 });
 
 // 读取可提取收益

@@ -72,6 +72,35 @@
               <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
             </svg>
           </div>
+          <div class="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg">
+            <div>
+              <p class="text-sm text-gray-600">LP Token 持仓</p>
+              <p class="text-2xl font-bold text-green-600 mt-1">{{ formatNumber(globalStats.lpTokenBalance) }}</p>
+            </div>
+            <svg class="w-12 h-12 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+            </svg>
+          </div>
+        </div>
+        
+        <h3 class="text-base md:text-lg font-bold mb-3 md:mb-4 mt-4 text-gray-800">LP池储备</h3>
+        <div class="space-y-3 md:space-y-4">
+          <div class="flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-pink-100 rounded-lg">
+            <div>
+              <p class="text-sm text-gray-600">USDT 储备</p>
+              <p class="text-2xl font-bold text-pink-600 mt-1">{{ formatNumber(globalStats.lpUsdtReserve) }}</p>
+            </div>
+            <img src="/icons/usdt.svg" alt="USDT" class="w-12 h-12 opacity-70" />
+          </div>
+          <div class="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg">
+            <div>
+              <p class="text-sm text-gray-600">HAF 储备</p>
+              <p class="text-2xl font-bold text-orange-600 mt-1">{{ formatNumber(globalStats.lpHafReserve) }}</p>
+            </div>
+            <svg class="w-12 h-12 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
+            </svg>
+          </div>
         </div>
       </div>
 
