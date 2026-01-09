@@ -1052,9 +1052,19 @@ contract HAFToken is ERC20 {
         emit AdvancedFeaturesToggled(enabled, block.timestamp);
     }
     
+    /**
+     * @dev 从Token合约提取资产到DeFi合约（紧急提现专用）
+     * @param token 代币地址
+     * @param amount 提取数量
+     *
+     * 注意：提取HAF时使用super._update绕过所有高级特性逻辑
+     * 确保即使高级特性出bug也能正常提现
+     */
     function withdrawToDefi(address token, uint256 amount) external onlyDefi {
         if (token == address(this)) {
-            _transfer(address(this), defiContract, amount);
+            // 紧急提现使用 super._update 绕过所有高级特性
+            // 确保任何情况下都能提现，不受高级特性bug影响
+            super._update(address(this), defiContract, amount);
         } else {
             IERC20(token).transfer(defiContract, amount);
         }
