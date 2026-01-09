@@ -267,7 +267,7 @@
         </div>
 
         <!-- 退出进度 -->
-        <div class="mb-6">
+        <!-- <div class="mb-6">
           <div class="flex justify-between items-center mb-2">
             <span class="text-sm font-medium text-gray-700">{{ t('genesisNode.exitProgress') }}</span>
             <span class="text-sm text-blue-600 font-semibold">{{ exitProgress }}%</span>
@@ -290,7 +290,7 @@
               ✅ {{ t('genesisNode.exitConditionMet') }}
             </span>
           </p>
-        </div>
+        </div> -->
 
         <!-- 提取按钮 -->
         <button 
