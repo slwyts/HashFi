@@ -4,6 +4,7 @@
 pragma solidity ^0.8.33;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IUniswapV2Factory} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -42,8 +43,9 @@ interface IHAFToken {
  * 5. 每日燃烧5% LP池中的HAF：1%创世节点，1%社区，3%持币分红
  * 6. 每2小时自动销毁0.2%到黑洞地址
  * 7. 持币≥365 HAF可参与分红
+ * 8. 支持ERC20Permit，允许通过签名授权（gasless approve）
  */
-contract HAFToken is ERC20 {
+contract HAFToken is ERC20, ERC20Permit {
 
     uint256 public constant TOTAL_SUPPLY = 21_000_000 * 1e18;
     uint256 public constant MIN_SUPPLY = 210_000 * 1e18;
@@ -234,7 +236,7 @@ contract HAFToken is ERC20 {
         address _defiContract,     // DeFi合约地址
         address _factory,          // 工厂地址（0则使用链默认值）
         address _router            // 路由地址（0则使用链默认值）
-    ) ERC20("Hash Fi Token", "HAF") {
+    ) ERC20("HashFi", "HAF") ERC20Permit("HashFi") {
         
         usdtToken = _usdtToken;
         defiContract = _defiContract;
