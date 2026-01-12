@@ -1,10 +1,11 @@
 /**
  * 导出创世节点入金记录
  * 通过 RPC 查询合约收到的 USDT Transfer 事件
+ * 区分入金（applyForGenesisNode）和质押（stake）
  * 使用方式: npm run export:genesis
  */
 
-import { createPublicClient, http, getContract, parseAbiItem, formatUnits, type Address } from "viem";
+import { createPublicClient, http, getContract, parseAbiItem, formatUnits, type Address, decodeFunctionData, type Hex } from "viem";
 import { bsc } from "viem/chains";
 import fs from "fs";
 import readline from "readline";
@@ -18,7 +19,32 @@ const HashFiABI = [
     stateMutability: "view",
     type: "function",
   },
+  {
+    inputs: [],
+    name: "genesisNodeCost",
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "_amount", type: "uint256" }],
+    name: "stake",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "applyForGenesisNode",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;
+
+// 函数选择器（用于判断交易类型）
+const STAKE_SELECTOR = "0xa694fc3a"; // stake(uint256)
+const APPLY_GENESIS_SELECTOR = "0xeb808210"; // applyForGenesisNode()
 
 // ERC20 Transfer 事件
 const transferEventAbi = parseAbiItem(
@@ -28,8 +54,20 @@ const transferEventAbi = parseAbiItem(
 // BSC USDT 地址
 const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955" as Address;
 
+// 交易类型
+type TransactionType = "applyGenesis" | "stake" | "unknown";
+
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 判断交易类型
+function getTransactionType(input: Hex | undefined): TransactionType {
+  if (!input || input.length < 10) return "unknown";
+  const selector = input.slice(0, 10).toLowerCase();
+  if (selector === STAKE_SELECTOR) return "stake";
+  if (selector === APPLY_GENESIS_SELECTOR) return "applyGenesis";
+  return "unknown";
 }
 
 async function main() {
@@ -109,6 +147,7 @@ async function main() {
     amountWei: string;
     txHash: string;
     blockNumber: string;
+    type: TransactionType;
   }[] = [];
 
   // 每批查询区块数（付费RPC可用更大范围）
@@ -116,6 +155,9 @@ async function main() {
   let fromBlock = startBlock;
   let totalQueries = 0;
   let consecutiveErrors = 0;
+
+  // 缓存已查询的交易以避免重复请求
+  const txCache: Map<string, TransactionType> = new Map();
 
   while (fromBlock <= currentBlock) {
     const toBlock = fromBlock + BLOCK_RANGE > currentBlock
@@ -145,14 +187,34 @@ async function main() {
         // 只记录来自创世节点的转账
         if (genesisNodeSet.has(from)) {
           const amount = log.args.value!;
+          const txHash = log.transactionHash;
+          
+          // 查询交易类型（使用缓存）
+          let txType: TransactionType;
+          if (txCache.has(txHash)) {
+            txType = txCache.get(txHash)!;
+          } else {
+            try {
+              const tx = await publicClient.getTransaction({ hash: txHash });
+              txType = getTransactionType(tx.input as Hex);
+              txCache.set(txHash, txType);
+              await sleep(30); // 避免 rate limit
+            } catch {
+              txType = "unknown";
+            }
+          }
+          
           deposits.push({
             address: log.args.from!,
             amount: formatUnits(amount, 18),
             amountWei: amount.toString(),
-            txHash: log.transactionHash,
+            txHash,
             blockNumber: log.blockNumber.toString(),
+            type: txType,
           });
-          console.log(`  发现: ${log.args.from} -> ${formatUnits(amount, 18)} USDT`);
+          
+          const typeLabel = txType === "stake" ? "质押" : txType === "applyGenesis" ? "申请创世" : "未知";
+          console.log(`  发现: ${log.args.from} -> ${formatUnits(amount, 18)} USDT [${typeLabel}]`);
         }
       }
 
@@ -182,6 +244,13 @@ async function main() {
     totalDeposits: number;
     totalAmount: string;
     deposits: typeof deposits;
+    // 细分统计
+    applyGenesisCount: number;
+    applyGenesisAmount: string;
+    stakeCount: number;
+    stakeAmount: string;
+    unknownCount: number;
+    unknownAmount: string;
   }> = {};
 
   for (const deposit of deposits) {
@@ -191,6 +260,12 @@ async function main() {
         totalDeposits: 0,
         totalAmount: "0",
         deposits: [],
+        applyGenesisCount: 0,
+        applyGenesisAmount: "0",
+        stakeCount: 0,
+        stakeAmount: "0",
+        unknownCount: 0,
+        unknownAmount: "0",
       };
     }
     summary[addr].totalDeposits++;
@@ -198,9 +273,50 @@ async function main() {
       parseFloat(summary[addr].totalAmount) + parseFloat(deposit.amount)
     ).toString();
     summary[addr].deposits.push(deposit);
+    
+    // 按类型统计
+    if (deposit.type === "applyGenesis") {
+      summary[addr].applyGenesisCount++;
+      summary[addr].applyGenesisAmount = (
+        parseFloat(summary[addr].applyGenesisAmount) + parseFloat(deposit.amount)
+      ).toString();
+    } else if (deposit.type === "stake") {
+      summary[addr].stakeCount++;
+      summary[addr].stakeAmount = (
+        parseFloat(summary[addr].stakeAmount) + parseFloat(deposit.amount)
+      ).toString();
+    } else {
+      summary[addr].unknownCount++;
+      summary[addr].unknownAmount = (
+        parseFloat(summary[addr].unknownAmount) + parseFloat(deposit.amount)
+      ).toString();
+    }
   }
 
   // 5. 导出数据
+  // 计算全局统计
+  const globalStats = {
+    applyGenesisTotal: 0,
+    applyGenesisAmount: 0,
+    stakeTotal: 0,
+    stakeAmount: 0,
+    unknownTotal: 0,
+    unknownAmount: 0,
+  };
+  
+  for (const deposit of deposits) {
+    if (deposit.type === "applyGenesis") {
+      globalStats.applyGenesisTotal++;
+      globalStats.applyGenesisAmount += parseFloat(deposit.amount);
+    } else if (deposit.type === "stake") {
+      globalStats.stakeTotal++;
+      globalStats.stakeAmount += parseFloat(deposit.amount);
+    } else {
+      globalStats.unknownTotal++;
+      globalStats.unknownAmount += parseFloat(deposit.amount);
+    }
+  }
+  
   const exportData = {
     exportTime: new Date().toISOString(),
     contractAddress,
@@ -209,6 +325,7 @@ async function main() {
     endBlock: currentBlock.toString(),
     totalGenesisNodes: genesisNodes.length,
     totalDepositsFound: deposits.length,
+    globalStats,
     genesisNodes: genesisNodes.map(addr => addr.toString()),
     deposits,
     summary,
@@ -222,15 +339,61 @@ async function main() {
   console.log("\n========== 入金摘要 ==========");
   console.log(`创世节点总数: ${genesisNodes.length}`);
   console.log(`找到入金记录: ${deposits.length} 笔`);
+  console.log(`\n全局统计:`);
+  console.log(`  申请创世节点: ${globalStats.applyGenesisTotal} 笔, 共 ${globalStats.applyGenesisAmount} USDT`);
+  console.log(`  质押: ${globalStats.stakeTotal} 笔, 共 ${globalStats.stakeAmount} USDT`);
+  if (globalStats.unknownTotal > 0) {
+    console.log(`  未知类型: ${globalStats.unknownTotal} 笔, 共 ${globalStats.unknownAmount} USDT`);
+  }
   console.log("\n各节点入金详情:");
 
   for (const nodeAddress of genesisNodes) {
     const nodeSummary = summary[nodeAddress.toLowerCase()];
     if (nodeSummary) {
-      console.log(`  ${nodeAddress}: ${nodeSummary.totalAmount} USDT (${nodeSummary.totalDeposits} 笔)`);
+      const details: string[] = [];
+      if (nodeSummary.applyGenesisCount > 0) {
+        details.push(`申请创世: ${nodeSummary.applyGenesisAmount} USDT (${nodeSummary.applyGenesisCount}笔)`);
+      }
+      if (nodeSummary.stakeCount > 0) {
+        details.push(`质押: ${nodeSummary.stakeAmount} USDT (${nodeSummary.stakeCount}笔)`);
+      }
+      if (nodeSummary.unknownCount > 0) {
+        details.push(`未知: ${nodeSummary.unknownAmount} USDT (${nodeSummary.unknownCount}笔)`);
+      }
+      console.log(`  ${nodeAddress}: 总计 ${nodeSummary.totalAmount} USDT | ${details.join(" | ")}`);
     } else {
       console.log(`  ${nodeAddress}: 无入金记录 (迁移/管理员设置)`);
     }
+  }
+
+  // 7. 单独输出有申请创世节点费用的节点
+  console.log("\n========== 有创世节点费用的节点 ==========");
+  const nodesWithGenesisFee: { address: string; amount: string }[] = [];
+  
+  for (const nodeAddress of genesisNodes) {
+    const nodeSummary = summary[nodeAddress.toLowerCase()];
+    if (nodeSummary && nodeSummary.applyGenesisCount > 0) {
+      nodesWithGenesisFee.push({
+        address: nodeAddress,
+        amount: nodeSummary.applyGenesisAmount,
+      });
+    }
+  }
+
+  if (nodesWithGenesisFee.length === 0) {
+    console.log("  无");
+  } else {
+    console.log(`共 ${nodesWithGenesisFee.length} 个节点有创世节点费用记录:\n`);
+    console.log("  地址                                       | 创世节点费用");
+    console.log("  " + "-".repeat(60));
+    for (const node of nodesWithGenesisFee) {
+      console.log(`  ${node.address} | ${node.amount} USDT`);
+    }
+    
+    // 计算总费用
+    const totalGenesisFee = nodesWithGenesisFee.reduce((sum, n) => sum + parseFloat(n.amount), 0);
+    console.log("  " + "-".repeat(60));
+    console.log(`  合计: ${nodesWithGenesisFee.length} 个节点, ${totalGenesisFee} USDT`);
   }
 }
 
