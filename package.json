@@ -21,7 +21,8 @@
     "deploy:bsc": "npx hardhat ignition deploy ignition/modules/HashFiBscMainnet.ts --network bscMainnet",
     "deploy:bsc:migrate": "npx hardhat ignition deploy ignition/modules/HashFiBscMigrate.ts --network bscMainnet",
     "export:data": "npx tsx scripts/exportData.ts",
-    "export:genesis": "npx tsx scripts/exportGenesisDeposits.ts"
+    "export:genesis": "npx tsx scripts/exportGenesisDeposits.ts",
+    "distribute": "npx tsx scripts/distribute-tokens.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",

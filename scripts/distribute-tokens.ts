@@ -1,0 +1,400 @@
+#!/usr/bin/env node
+
+/**
+ * 一键分发代币脚本
+ * 
+ * 使用方式: 
+ *   npx tsx scripts/distribute-tokens.ts
+ * 
+ * 参数说明:
+ *   - 私钥: 发送者的钱包私钥
+ *   - 代币合约: ERC20 代币合约地址
+ *   - 单个地址分发数量: 每个地址分发的代币数量（人类可读格式，如 100 表示 100 个代币）
+ *   - 地址列表: 接收代币的地址列表（空格隔开）
+ *   - 网络: 选择网络 (bsc / bscTestnet / localhost)
+ */
+
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  parseUnits,
+  formatUnits,
+  defineChain,
+  type Chain,
+} from 'viem';
+import { bsc, bscTestnet } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
+import * as readline from 'readline';
+
+// 定义 Hardhat 本地链
+const hardhatLocal = defineChain({
+  id: 31337,
+  name: 'Hardhat Local',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+  },
+});
+
+// ERC20 ABI（只需要必要的方法）
+const ERC20_ABI = [
+  {
+    inputs: [
+      { internalType: 'address', name: 'to', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'transfer',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'account', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'decimals',
+    outputs: [{ internalType: 'uint8', name: '', type: 'uint8' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'symbol',
+    outputs: [{ internalType: 'string', name: '', type: 'string' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'name',
+    outputs: [{ internalType: 'string', name: '', type: 'string' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
+
+// 网络配置
+const NETWORKS: Record<string, { chain: Chain; rpcUrl: string }> = {
+  bsc: {
+    chain: bsc,
+    rpcUrl: process.env.BSC_MAINNET_RPC_URL || 'https://bsc-dataseed1.binance.org',
+  },
+  bscTestnet: {
+    chain: bscTestnet,
+    rpcUrl: process.env.BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.bnbchain.org:8545',
+  },
+  localhost: {
+    chain: hardhatLocal,
+    rpcUrl: 'http://127.0.0.1:8545',
+  },
+};
+
+// 创建 readline 接口
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+// Promise 化的 question 函数
+function question(prompt: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      resolve(answer.trim());
+    });
+  });
+}
+
+// 多行输入函数（输入空行结束）
+function questionMultiLine(prompt: string): Promise<string[]> {
+  return new Promise((resolve) => {
+    console.log(prompt);
+    console.log('   (每行一个地址，或空格/逗号隔开，输入空行结束)\n');
+    
+    const lines: string[] = [];
+    
+    const onLine = (line: string) => {
+      const trimmed = line.trim();
+      if (trimmed === '') {
+        // 空行表示输入结束
+        rl.removeListener('line', onLine);
+        resolve(lines);
+      } else {
+        lines.push(trimmed);
+      }
+    };
+    
+    rl.on('line', onLine);
+  });
+}
+
+// 验证以太坊地址
+function isValidAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
+// 格式化私钥
+function formatPrivateKey(key: string): `0x${string}` {
+  const trimmed = key.trim();
+  if (trimmed.startsWith('0x')) {
+    return trimmed as `0x${string}`;
+  }
+  return `0x${trimmed}` as `0x${string}`;
+}
+
+async function main() {
+  console.log('\n' + '='.repeat(60));
+  console.log('🚀 一键分发代币脚本');
+  console.log('='.repeat(60) + '\n');
+
+  try {
+    // 1. 选择网络
+    console.log('📡 可用网络:');
+    console.log('   1. bsc - BSC 主网');
+    console.log('   2. bscTestnet - BSC 测试网');
+    console.log('   3. localhost - 本地测试网 (Hardhat)\n');
+    
+    const networkChoice = await question('请选择网络 (1/2/3): ');
+    const networkMap: Record<string, string> = {
+      '1': 'bsc',
+      '2': 'bscTestnet',
+      '3': 'localhost',
+      'bsc': 'bsc',
+      'bscTestnet': 'bscTestnet',
+      'localhost': 'localhost',
+    };
+    
+    const networkName = networkMap[networkChoice];
+    if (!networkName || !NETWORKS[networkName]) {
+      console.error('❌ 无效的网络选择');
+      process.exit(1);
+    }
+    
+    const { chain, rpcUrl } = NETWORKS[networkName];
+    console.log(`✅ 已选择网络: ${chain.name} (Chain ID: ${chain.id})\n`);
+
+    // 2. 输入私钥
+    const privateKeyInput = await question('🔑 请输入发送者私钥: ');
+    if (!privateKeyInput) {
+      console.error('❌ 私钥不能为空');
+      process.exit(1);
+    }
+    
+    const privateKey = formatPrivateKey(privateKeyInput);
+    const account = privateKeyToAccount(privateKey);
+    console.log(`✅ 发送者地址: ${account.address}\n`);
+
+    // 3. 输入代币合约地址
+    const tokenAddress = await question('📄 请输入代币合约地址: ');
+    if (!isValidAddress(tokenAddress)) {
+      console.error('❌ 无效的代币合约地址');
+      process.exit(1);
+    }
+
+    // 4. 创建客户端
+    const publicClient = createPublicClient({
+      chain,
+      transport: http(rpcUrl),
+    });
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(rpcUrl),
+    });
+
+    // 5. 获取代币信息
+    console.log('\n📊 获取代币信息...');
+    
+    let tokenSymbol: string;
+    let tokenDecimals: number;
+    let tokenName: string;
+    
+    try {
+      [tokenSymbol, tokenDecimals, tokenName] = await Promise.all([
+        publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'symbol',
+        }),
+        publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        }),
+        publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'name',
+        }),
+      ]);
+      
+      console.log(`   代币名称: ${tokenName}`);
+      console.log(`   代币符号: ${tokenSymbol}`);
+      console.log(`   代币精度: ${tokenDecimals}\n`);
+    } catch (error) {
+      console.error('❌ 无法获取代币信息，请确认合约地址正确');
+      process.exit(1);
+    }
+
+    // 6. 获取发送者代币余额
+    const senderBalance = await publicClient.readContract({
+      address: tokenAddress as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [account.address],
+    });
+    
+    const formattedBalance = formatUnits(senderBalance, tokenDecimals);
+    console.log(`💰 发送者 ${tokenSymbol} 余额: ${formattedBalance}\n`);
+
+    // 7. 输入每个地址分发数量
+    const amountInput = await question(`💸 请输入每个地址分发的 ${tokenSymbol} 数量: `);
+    const amountPerAddress = parseFloat(amountInput);
+    
+    if (isNaN(amountPerAddress) || amountPerAddress <= 0) {
+      console.error('❌ 无效的数量');
+      process.exit(1);
+    }
+
+    // 8. 输入地址列表（支持多行输入）
+    const addressLines = await questionMultiLine('📋 请输入接收地址列表:');
+    
+    // 解析所有地址（支持每行多个地址，空格或逗号隔开）
+    const addressList = addressLines
+      .flatMap(line => line.split(/[\s,]+/))
+      .map(addr => addr.trim())
+      .filter(addr => addr.length > 0);
+
+    if (addressList.length === 0) {
+      console.error('❌ 地址列表不能为空');
+      process.exit(1);
+    }
+
+    // 验证所有地址
+    const invalidAddresses = addressList.filter(addr => !isValidAddress(addr));
+    if (invalidAddresses.length > 0) {
+      console.error('❌ 以下地址格式无效:');
+      invalidAddresses.forEach(addr => console.error(`   ${addr}`));
+      process.exit(1);
+    }
+
+    // 计算总需要数量
+    const totalAmount = amountPerAddress * addressList.length;
+    const totalAmountWei = parseUnits(amountPerAddress.toString(), tokenDecimals);
+    
+    console.log('\n' + '='.repeat(60));
+    console.log('📋 分发计划:');
+    console.log('='.repeat(60));
+    console.log(`   网络: ${chain.name}`);
+    console.log(`   代币: ${tokenName} (${tokenSymbol})`);
+    console.log(`   发送者: ${account.address}`);
+    console.log(`   接收地址数量: ${addressList.length}`);
+    console.log(`   每个地址分发: ${amountPerAddress} ${tokenSymbol}`);
+    console.log(`   总计分发: ${totalAmount} ${tokenSymbol}`);
+    console.log(`   当前余额: ${formattedBalance} ${tokenSymbol}`);
+    console.log('='.repeat(60) + '\n');
+
+    // 检查余额是否足够
+    if (BigInt(parseUnits(totalAmount.toString(), tokenDecimals)) > senderBalance) {
+      console.error('❌ 代币余额不足！');
+      console.error(`   需要: ${totalAmount} ${tokenSymbol}`);
+      console.error(`   当前: ${formattedBalance} ${tokenSymbol}`);
+      process.exit(1);
+    }
+
+    // 确认执行
+    const confirm = await question('⚠️  确认执行分发? (yes/no): ');
+    if (confirm.toLowerCase() !== 'yes' && confirm.toLowerCase() !== 'y') {
+      console.log('❌ 已取消分发');
+      process.exit(0);
+    }
+
+    // 9. 开始分发
+    console.log('\n🚀 开始分发代币...\n');
+    
+    let successCount = 0;
+    let failCount = 0;
+    const failedAddresses: string[] = [];
+
+    for (let i = 0; i < addressList.length; i++) {
+      const address = addressList[i];
+      const progress = `[${i + 1}/${addressList.length}]`;
+      
+      try {
+        console.log(`${progress} 正在发送到 ${address}...`);
+        
+        const txHash = await walletClient.writeContract({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'transfer',
+          args: [address as `0x${string}`, totalAmountWei],
+          chain,
+        });
+
+        // 等待交易确认
+        const receipt = await publicClient.waitForTransactionReceipt({ 
+          hash: txHash,
+          confirmations: 1,
+        });
+
+        if (receipt.status === 'success') {
+          successCount++;
+          console.log(`   ✅ 成功! TX: ${txHash}`);
+        } else {
+          failCount++;
+          failedAddresses.push(address);
+          console.log(`   ❌ 交易失败! TX: ${txHash}`);
+        }
+      } catch (error: any) {
+        failCount++;
+        failedAddresses.push(address);
+        console.error(`   ❌ 发送失败: ${error?.shortMessage || error?.message || '未知错误'}`);
+      }
+    }
+
+    // 10. 输出结果
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 分发完成!');
+    console.log('='.repeat(60));
+    console.log(`   ✅ 成功: ${successCount} 个地址`);
+    console.log(`   ❌ 失败: ${failCount} 个地址`);
+    
+    if (failedAddresses.length > 0) {
+      console.log('\n❌ 失败的地址:');
+      failedAddresses.forEach(addr => console.log(`   ${addr}`));
+    }
+
+    // 获取最终余额
+    const finalBalance = await publicClient.readContract({
+      address: tokenAddress as `0x${string}`,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [account.address],
+    });
+    
+    console.log(`\n💰 发送者最终余额: ${formatUnits(finalBalance, tokenDecimals)} ${tokenSymbol}`);
+    console.log('='.repeat(60) + '\n');
+
+  } catch (error: any) {
+    console.error('\n❌ 发生错误:', error?.message || error);
+  } finally {
+    rl.close();
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
