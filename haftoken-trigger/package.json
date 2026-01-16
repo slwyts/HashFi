@@ -1,0 +1,19 @@
+{
+  "name": "haftoken-trigger",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker to trigger HAFToken mechanisms via scheduled transfers",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "viem": "^2.44.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260116.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.59.2"
+  }
+}
