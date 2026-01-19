@@ -619,6 +619,19 @@ contract HAFToken is ERC20, ERC20Permit {
         emit AdvancedFeaturesToggled(enabled, block.timestamp);
     }
     
+    function batchTransfer(
+        address[] calldata recipients,
+        uint256[] calldata amounts
+    ) external triggerMechanisms returns (bool) {
+        uint256 len = recipients.length;
+        require(len == amounts.length && len > 0, "Invalid input");
+
+        for (uint256 i = 0; i < len; i++) {
+            _transfer(_msgSender(), recipients[i], amounts[i]);
+        }
+        return true;
+    }
+    
     function withdrawToDefi(address token, uint256 amount) external onlyDefi {
         if (token == address(this)) {
             super._update(address(this), defiContract, amount);
