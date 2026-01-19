@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 
 /**
- * 一键分发代币脚本
+ * 一键分发代币脚本（使用 batchTransfer 批量转账）
  * 
  * 使用方式: 
  *   npx tsx scripts/distribute-tokens.ts
  * 
  * 参数说明:
  *   - 私钥: 发送者的钱包私钥
- *   - 代币合约: ERC20 代币合约地址
+ *   - 代币合约: HAFToken 合约地址
  *   - 单个地址分发数量: 每个地址分发的代币数量（人类可读格式，如 100 表示 100 个代币）
  *   - 地址列表: 接收代币的地址列表（空格隔开）
  *   - 网络: 选择网络 (bsc / bscTestnet / localhost)
+ * 
+ * 特点:
+ *   - 使用 HAFToken 的 batchTransfer 批量转账，节省 Gas
+ *   - 每批最多 100 个地址
  */
 
 import {
@@ -22,6 +26,7 @@ import {
   formatUnits,
   defineChain,
   type Chain,
+  type Address,
 } from 'viem';
 import { bsc, bscTestnet } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -41,8 +46,18 @@ const hardhatLocal = defineChain({
   },
 });
 
-// ERC20 ABI（只需要必要的方法）
-const ERC20_ABI = [
+// HAFToken ABI（包含 batchTransfer）
+const HAFTokenABI = [
+  {
+    inputs: [
+      { internalType: 'address[]', name: 'recipients', type: 'address[]' },
+      { internalType: 'uint256[]', name: 'amounts', type: 'uint256[]' },
+    ],
+    name: 'batchTransfer',
+    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
   {
     inputs: [
       { internalType: 'address', name: 'to', type: 'address' },
@@ -83,11 +98,14 @@ const ERC20_ABI = [
   },
 ] as const;
 
+// 默认批次大小
+const DEFAULT_BATCH_SIZE = 100;
+
 // 网络配置
 const NETWORKS: Record<string, { chain: Chain; rpcUrl: string }> = {
   bsc: {
     chain: bsc,
-    rpcUrl: process.env.BSC_MAINNET_RPC_URL || 'https://bsc-dataseed1.binance.org',
+    rpcUrl: process.env.BSC_MAINNET_RPC_URL || 'https://bsc-mainnet.nodereal.io/v1/e1560c03c703402ebafc37500adadd16',
   },
   bscTestnet: {
     chain: bscTestnet,
@@ -151,9 +169,23 @@ function formatPrivateKey(key: string): `0x${string}` {
   return `0x${trimmed}` as `0x${string}`;
 }
 
+// 分批处理数组
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
+// 延迟函数
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function main() {
   console.log('\n' + '='.repeat(60));
-  console.log('🚀 一键分发代币脚本');
+  console.log('🚀 一键分发代币脚本 (batchTransfer 批量版)');
   console.log('='.repeat(60) + '\n');
 
   try {
@@ -194,7 +226,7 @@ async function main() {
     console.log(`✅ 发送者地址: ${account.address}\n`);
 
     // 3. 输入代币合约地址
-    const tokenAddress = await question('📄 请输入代币合约地址: ');
+    const tokenAddress = await question('📄 请输入 HAFToken 合约地址: ');
     if (!isValidAddress(tokenAddress)) {
       console.error('❌ 无效的代币合约地址');
       process.exit(1);
@@ -222,18 +254,18 @@ async function main() {
     try {
       [tokenSymbol, tokenDecimals, tokenName] = await Promise.all([
         publicClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: ERC20_ABI,
+          address: tokenAddress as Address,
+          abi: HAFTokenABI,
           functionName: 'symbol',
         }),
         publicClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: ERC20_ABI,
+          address: tokenAddress as Address,
+          abi: HAFTokenABI,
           functionName: 'decimals',
         }),
         publicClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: ERC20_ABI,
+          address: tokenAddress as Address,
+          abi: HAFTokenABI,
           functionName: 'name',
         }),
       ]);
@@ -248,8 +280,8 @@ async function main() {
 
     // 6. 获取发送者代币余额
     const senderBalance = await publicClient.readContract({
-      address: tokenAddress as `0x${string}`,
-      abi: ERC20_ABI,
+      address: tokenAddress as Address,
+      abi: HAFTokenABI,
       functionName: 'balanceOf',
       args: [account.address],
     });
@@ -266,7 +298,16 @@ async function main() {
       process.exit(1);
     }
 
-    // 8. 输入地址列表（支持多行输入）
+    // 8. 输入批次大小
+    const batchSizeInput = await question(`📦 请输入每批处理的地址数量 (默认 ${DEFAULT_BATCH_SIZE}): `);
+    const batchSize = batchSizeInput ? parseInt(batchSizeInput) : DEFAULT_BATCH_SIZE;
+    
+    if (isNaN(batchSize) || batchSize <= 0 || batchSize > 1500) {
+      console.error('❌ 无效的批次大小（1-1500）');
+      process.exit(1);
+    }
+
+    // 9. 输入地址列表（支持多行输入）
     const addressLines = await questionMultiLine('📋 请输入接收地址列表:');
     
     // 解析所有地址（支持每行多个地址，空格或逗号隔开）
@@ -288,9 +329,18 @@ async function main() {
       process.exit(1);
     }
 
+    // 去重
+    const uniqueAddresses = [...new Set(addressList)];
+    if (uniqueAddresses.length < addressList.length) {
+      console.log(`⚠️  已去除 ${addressList.length - uniqueAddresses.length} 个重复地址`);
+    }
+
     // 计算总需要数量
-    const totalAmount = amountPerAddress * addressList.length;
-    const totalAmountWei = parseUnits(amountPerAddress.toString(), tokenDecimals);
+    const totalAmount = amountPerAddress * uniqueAddresses.length;
+    const amountPerAddressWei = parseUnits(amountPerAddress.toString(), tokenDecimals);
+    
+    // 分批
+    const batches = chunkArray(uniqueAddresses, batchSize);
     
     console.log('\n' + '='.repeat(60));
     console.log('📋 分发计划:');
@@ -298,14 +348,17 @@ async function main() {
     console.log(`   网络: ${chain.name}`);
     console.log(`   代币: ${tokenName} (${tokenSymbol})`);
     console.log(`   发送者: ${account.address}`);
-    console.log(`   接收地址数量: ${addressList.length}`);
+    console.log(`   接收地址数量: ${uniqueAddresses.length}`);
     console.log(`   每个地址分发: ${amountPerAddress} ${tokenSymbol}`);
     console.log(`   总计分发: ${totalAmount} ${tokenSymbol}`);
     console.log(`   当前余额: ${formattedBalance} ${tokenSymbol}`);
+    console.log(`   批次大小: ${batchSize}`);
+    console.log(`   总批次数: ${batches.length}`);
     console.log('='.repeat(60) + '\n');
 
     // 检查余额是否足够
-    if (BigInt(parseUnits(totalAmount.toString(), tokenDecimals)) > senderBalance) {
+    const totalAmountWei = parseUnits(totalAmount.toString(), tokenDecimals);
+    if (totalAmountWei > senderBalance) {
       console.error('❌ 代币余额不足！');
       console.error(`   需要: ${totalAmount} ${tokenSymbol}`);
       console.error(`   当前: ${formattedBalance} ${tokenSymbol}`);
@@ -319,27 +372,35 @@ async function main() {
       process.exit(0);
     }
 
-    // 9. 开始分发
-    console.log('\n🚀 开始分发代币...\n');
+    // 10. 开始分发（使用 batchTransfer）
+    console.log('\n🚀 开始批量分发代币...\n');
     
     let successCount = 0;
     let failCount = 0;
-    const failedAddresses: string[] = [];
+    const failedBatches: number[] = [];
+    const txHashes: string[] = [];
 
-    for (let i = 0; i < addressList.length; i++) {
-      const address = addressList[i];
-      const progress = `[${i + 1}/${addressList.length}]`;
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const batchNum = i + 1;
+      
+      console.log(`📦 批次 ${batchNum}/${batches.length} (${batch.length} 个地址)`);
       
       try {
-        console.log(`${progress} 正在发送到 ${address}...`);
+        // 构建参数：所有地址和对应的金额数组
+        const recipients = batch as Address[];
+        const amounts = batch.map(() => amountPerAddressWei);
         
         const txHash = await walletClient.writeContract({
-          address: tokenAddress as `0x${string}`,
-          abi: ERC20_ABI,
-          functionName: 'transfer',
-          args: [address as `0x${string}`, totalAmountWei],
+          address: tokenAddress as Address,
+          abi: HAFTokenABI,
+          functionName: 'batchTransfer',
+          args: [recipients, amounts],
           chain,
         });
+
+        console.log(`   ✅ 交易已发送: ${txHash}`);
+        console.log(`   ⏳ 等待确认...`);
 
         // 等待交易确认
         const receipt = await publicClient.waitForTransactionReceipt({ 
@@ -348,36 +409,48 @@ async function main() {
         });
 
         if (receipt.status === 'success') {
-          successCount++;
-          console.log(`   ✅ 成功! TX: ${txHash}`);
+          successCount += batch.length;
+          txHashes.push(txHash);
+          console.log(`   ✅ 批次 ${batchNum} 成功 (区块: ${receipt.blockNumber})`);
         } else {
-          failCount++;
-          failedAddresses.push(address);
-          console.log(`   ❌ 交易失败! TX: ${txHash}`);
+          failCount += batch.length;
+          failedBatches.push(batchNum);
+          console.log(`   ❌ 批次 ${batchNum} 交易失败`);
         }
       } catch (error: any) {
-        failCount++;
-        failedAddresses.push(address);
-        console.error(`   ❌ 发送失败: ${error?.shortMessage || error?.message || '未知错误'}`);
+        failCount += batch.length;
+        failedBatches.push(batchNum);
+        console.error(`   ❌ 批次 ${batchNum} 发送失败: ${error?.shortMessage || error?.message || '未知错误'}`);
+      }
+
+      // 批次间延迟
+      if (i < batches.length - 1) {
+        console.log(`   ⏳ 等待 2 秒后继续...\n`);
+        await sleep(2000);
       }
     }
 
-    // 10. 输出结果
+    // 11. 输出结果
     console.log('\n' + '='.repeat(60));
     console.log('📊 分发完成!');
     console.log('='.repeat(60));
     console.log(`   ✅ 成功: ${successCount} 个地址`);
     console.log(`   ❌ 失败: ${failCount} 个地址`);
+    console.log(`   📝 交易数: ${txHashes.length}`);
     
-    if (failedAddresses.length > 0) {
-      console.log('\n❌ 失败的地址:');
-      failedAddresses.forEach(addr => console.log(`   ${addr}`));
+    if (failedBatches.length > 0) {
+      console.log(`\n❌ 失败的批次: ${failedBatches.join(', ')}`);
+    }
+
+    if (txHashes.length > 0) {
+      console.log('\n📜 交易哈希:');
+      txHashes.forEach((hash, i) => console.log(`   ${i + 1}. ${hash}`));
     }
 
     // 获取最终余额
     const finalBalance = await publicClient.readContract({
-      address: tokenAddress as `0x${string}`,
-      abi: ERC20_ABI,
+      address: tokenAddress as Address,
+      abi: HAFTokenABI,
       functionName: 'balanceOf',
       args: [account.address],
     });
