@@ -84,6 +84,7 @@
     "approving": "Approving...",
     "swapping": "Swapping...",
     "approveSuccess": "Approve Success",
+    "approveSuccessAutoSwap": "Approved! Initiating swap...",
     "swapSuccess": "Swap Success",
     "insufficientBalance": "Insufficient Balance",
     "minSwapAmountError": "Minimum 10 USDT",

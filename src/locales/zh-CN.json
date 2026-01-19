@@ -84,6 +84,7 @@
     "approving": "授权中...",
     "swapping": "兑换中...",
     "approveSuccess": "授权成功",
+    "approveSuccessAutoSwap": "授权成功，正在发起交易...",
     "swapSuccess": "兑换成功",
     "insufficientBalance": "余额不足",
     "minSwapAmountError": "最小兑换 10 USDT",

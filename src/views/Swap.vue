@@ -536,7 +536,7 @@ const needsApproval = computed(() => {
 // 增强的合约交互
 const { callContractWithRefresh, isProcessing } = useEnhancedContract();
 
-const handleApprove = async () => {
+const handleApprove = async (autoSwap: boolean = false) => {
   if (!fromAmount.value || !address.value || !routerAddress.value) return;
 
   const tokenAddress = fromToken.name === 'USDT' ? USDT_ADDRESS : hafTokenAddressDisplay.value;
@@ -550,8 +550,12 @@ const handleApprove = async () => {
         functionName: 'approve',
         args: [routerAddress.value as Address, maxUint256],
         pendingMessage: t('swapPage.approving'),
-        successMessage: t('swapPage.approveSuccess'),
+        successMessage: autoSwap ? t('swapPage.approveSuccessAutoSwap') : t('swapPage.approveSuccess'),
         operation: `${fromToken.name} Approval for Router`,
+        onConfirmed: autoSwap ? async () => {
+          // 授权成功后自动发起交易
+          await handleSwap();
+        } : undefined
       },
       {
         refreshAllowance: fromToken.name === 'USDT' ? refetchUsdtAllowance : refetchHafAllowance,
@@ -678,7 +682,8 @@ const buttonText = computed(() => {
 const handleButtonClick = () => {
   if (!canSwap.value) return;
   if (needsApproval.value) {
-    handleApprove();
+    // 授权后自动发起交易
+    handleApprove(true);
   } else {
     handleSwap();
   }

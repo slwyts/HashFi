@@ -49,7 +49,7 @@ const { t } = useI18n();
 const navItems = computed(() => [
   { path: '/staking', label: 'bottomNav.staking', icon: '/icons/staking.svg', activeIcon: '/icons/staking-.svg' },
   { path: '/income', label: 'bottomNav.income', icon: '/icons/income.svg', activeIcon: '/icons/income-.svg' },
-  // { path: '/swap', label: 'bottomNav.swap', icon: '/icons/flash_exchange.svg', activeIcon: '/icons/flash-.svg' },
+  { path: '/swap', label: 'bottomNav.swap', icon: '/icons/flash_exchange.svg', activeIcon: '/icons/flash-.svg' },
   { path: '/team', label: 'bottomNav.team', icon: '/icons/ecosystem.svg', activeIcon: '/icons/eco-.svg' },
   { path: '/profile', label: 'bottomNav.profile', icon: '/icons/profile.svg', activeIcon: '/icons/profile-.svg' },
 ]);
