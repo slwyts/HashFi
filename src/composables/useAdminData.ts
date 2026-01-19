@@ -246,9 +246,57 @@ export const useAdminData = () => {
 
   // HAF 高级特性开关状态
   const { data: hafAdvancedFeaturesData, refetch: refetchHafAdvancedFeatures } = useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi,
-    functionName: 'getHafAdvancedFeaturesEnabled',
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'advancedFeaturesEnabled',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  const { data: buyTaxRateData, refetch: refetchBuyTaxRate } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'buyTaxRate',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  const { data: sellTaxRateData, refetch: refetchSellTaxRate } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'sellTaxRate',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  const { data: highTaxStartHourData, refetch: refetchHighTaxStart } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'highTaxStartHour',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  const { data: highTaxEndHourData, refetch: refetchHighTaxEnd } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'highTaxEndHour',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
+  });
+
+  const { data: highTaxMultiplierData, refetch: refetchHighTaxMultiplier } = useReadContract({
+    address: hafTokenAddress as any,
+    abi: hafTokenAbi,
+    functionName: 'highTaxMultiplier',
+    query: {
+      enabled: computed(() => !!hafTokenAddress.value),
+    }
   });
 
   const priceSettings = computed(() => ({
@@ -261,6 +309,14 @@ export const useAdminData = () => {
     withdrawalFee: withdrawalFeeData.value ? Number(withdrawalFeeData.value as bigint) : 0,
     // swapFee: swapFeeData.value ? Number(swapFeeData.value as bigint) : 0,
     genesisNodeCost: genesisNodeCostData.value ? formatEther(genesisNodeCostData.value as bigint) : '0',
+  }));
+
+  const taxSettings = computed(() => ({
+    buyTaxRateBps: buyTaxRateData.value ? Number(buyTaxRateData.value as bigint) : 0,
+    sellTaxRateBps: sellTaxRateData.value ? Number(sellTaxRateData.value as bigint) : 0,
+    highTaxStartHour: highTaxStartHourData.value ? Number(highTaxStartHourData.value as bigint) : 0,
+    highTaxEndHour: highTaxEndHourData.value ? Number(highTaxEndHourData.value as bigint) : 0,
+    highTaxMultiplierBps: highTaxMultiplierData.value ? Number(highTaxMultiplierData.value as bigint) : 10000,
   }));
 
   const systemStatus = computed(() => ({
@@ -336,6 +392,12 @@ export const useAdminData = () => {
       // refetchSwapFee(),
       refetchGenesisNodeCost(),
       refetchPaused(),
+      refetchHafAdvancedFeatures(),
+      refetchBuyTaxRate(),
+      refetchSellTaxRate(),
+      refetchHighTaxStart(),
+      refetchHighTaxEnd(),
+      refetchHighTaxMultiplier(),
     ]);
   };
 
@@ -359,6 +421,11 @@ export const useAdminData = () => {
       refetchGenesisNodeCost(),
       refetchPaused(),
       refetchHafAdvancedFeatures(),
+      refetchBuyTaxRate(),
+      refetchSellTaxRate(),
+      refetchHighTaxStart(),
+      refetchHighTaxEnd(),
+      refetchHighTaxMultiplier(),
     ]);
   };
 
@@ -378,6 +445,7 @@ export const useAdminData = () => {
     // 价格与费率
     priceSettings,
     feeSettings,
+  taxSettings,
     systemStatus,
     
     // 级别配置

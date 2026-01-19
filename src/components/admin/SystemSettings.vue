@@ -71,6 +71,95 @@
         </button>
       </div>
 
+      <!-- 税率 & 高税期 设置 -->
+      <div class="mb-6 p-5 bg-green-50 rounded-lg border border-green-200">
+        <h3 class="text-lg font-semibold mb-4 text-gray-800">HAF 税率与高税期</h3>
+        <p class="text-sm text-gray-600 mb-4">买卖税按 10000 为基数，1% = 100；高税倍数基数 10000，2 倍 = 20000</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">买入税率 (%)</label>
+            <input
+              v-model="taxForm.buyTaxRate"
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              :placeholder="(taxSettings.buyTaxRateBps / 100).toString()"
+            />
+            <p class="text-xs text-gray-500 mt-1">当前: {{ (taxSettings.buyTaxRateBps / 100).toFixed(2) }}%</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">卖出税率 (%)</label>
+            <input
+              v-model="taxForm.sellTaxRate"
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              :placeholder="(taxSettings.sellTaxRateBps / 100).toString()"
+            />
+            <p class="text-xs text-gray-500 mt-1">当前: {{ (taxSettings.sellTaxRateBps / 100).toFixed(2) }}%</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">高税倍数 (x)</label>
+            <input
+              v-model="taxForm.highTaxMultiplier"
+              type="number"
+              step="0.1"
+              min="1"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              :placeholder="(taxSettings.highTaxMultiplierBps / 10000).toString()"
+            />
+            <p class="text-xs text-gray-500 mt-1">当前: {{ (taxSettings.highTaxMultiplierBps / 10000).toFixed(2) }}x</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">高税开始小时 (UTC+8)</label>
+            <input
+              v-model="taxForm.highTaxStartHour"
+              type="number"
+              min="0"
+              max="23"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              :placeholder="taxSettings.highTaxStartHour.toString()"
+            />
+            <p class="text-xs text-gray-500 mt-1">当前: {{ taxSettings.highTaxStartHour }} 点</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">高税结束小时 (UTC+8, 不含)</label>
+            <input
+              v-model="taxForm.highTaxEndHour"
+              type="number"
+              min="0"
+              max="23"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              :placeholder="taxSettings.highTaxEndHour.toString()"
+            />
+            <p class="text-xs text-gray-500 mt-1">当前: {{ taxSettings.highTaxEndHour }} 点</p>
+          </div>
+        </div>
+
+        <button
+          @click="handleUpdateTax"
+          :disabled="isProcessing() || !hasTaxChanges"
+          class="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+        >
+          更新税率与高税期
+        </button>
+
+        <p class="text-xs text-gray-500 mt-3">
+          高税期生效区间：开始小时 ≤ 当前小时 &lt; 结束小时（若相等视为关闭）。高税只作用于卖出至 LP。
+        </p>
+      </div>
+
       <!-- LP流动性管理 -->
       <div class="mb-6 p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
         <div class="flex items-center gap-3 mb-4">
@@ -292,16 +381,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { parseEther } from 'viem';
+import { parseEther, encodeFunctionData } from 'viem';
 import { useAdminData } from '../../composables/useAdminData';
 import { useEnhancedContract } from '../../composables/useEnhancedContract';
-import { abi } from '@/core/contract';
+import { abi, hafTokenAbi } from '@/core/contract';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
 
 const {
   priceSettings,
   feeSettings: currentFees,
+  taxSettings,
   systemStatus,
   refreshSystemData,
 } = useAdminData();
@@ -312,6 +402,14 @@ const feeForm = ref({
   withdrawalFee: '',
   swapFee: '',
   genesisNodeCost: '',
+});
+
+const taxForm = ref({
+  buyTaxRate: '',
+  sellTaxRate: '',
+  highTaxStartHour: '',
+  highTaxEndHour: '',
+  highTaxMultiplier: '',
 });
 
 const liquidityForm = ref({
@@ -329,6 +427,11 @@ const hasLiquidityInput = computed(() => {
   const usdt = Number(liquidityForm.value.usdtAmount);
   const haf = Number(liquidityForm.value.hafAmount);
   return (usdt > 0 && !isNaN(usdt)) || (haf > 0 && !isNaN(haf));
+});
+
+const hasTaxChanges = computed(() => {
+  const t = taxForm.value;
+  return [t.buyTaxRate, t.sellTaxRate, t.highTaxStartHour, t.highTaxEndHour, t.highTaxMultiplier].some(v => v !== '');
 });
 
 const formatPrice = (value: string | number) => {
@@ -402,6 +505,73 @@ const handleUpdateFees = async () => {
   }
 };
 
+const handleUpdateTax = async () => {
+  const updates = [];
+  const toBps = (val: string) => BigInt(Math.round(Number(val) * 100)); // percent -> bps (1% = 100)
+  const toMultiplierBps = (val: string) => BigInt(Math.round(Number(val) * 10000)); // 1x = 10000
+
+  if (taxForm.value.buyTaxRate !== '' || taxForm.value.sellTaxRate !== '') {
+    const buy = taxForm.value.buyTaxRate !== '' ? toBps(taxForm.value.buyTaxRate) : BigInt(taxSettings.value.buyTaxRateBps);
+    const sell = taxForm.value.sellTaxRate !== '' ? toBps(taxForm.value.sellTaxRate) : BigInt(taxSettings.value.sellTaxRateBps);
+    const data = encodeFunctionData({
+      abi: hafTokenAbi,
+      functionName: 'setTaxRates',
+      args: [buy, sell],
+    });
+    updates.push(
+      callContractWithRefresh(
+        {
+          address: CONTRACT_ADDRESS,
+          abi,
+          functionName: 'callHafToken',
+          args: [data],
+          operation: '正在更新买卖税率',
+          successMessage: '买卖税率更新成功',
+          errorMessage: '买卖税率更新失败',
+        },
+        {}
+      )
+    );
+  }
+
+  if (taxForm.value.highTaxStartHour !== '' || taxForm.value.highTaxEndHour !== '' || taxForm.value.highTaxMultiplier !== '') {
+    const startHour = taxForm.value.highTaxStartHour !== '' ? BigInt(Number(taxForm.value.highTaxStartHour)) : BigInt(taxSettings.value.highTaxStartHour);
+    const endHour = taxForm.value.highTaxEndHour !== '' ? BigInt(Number(taxForm.value.highTaxEndHour)) : BigInt(taxSettings.value.highTaxEndHour);
+    const multiplier = taxForm.value.highTaxMultiplier !== '' ? toMultiplierBps(taxForm.value.highTaxMultiplier) : BigInt(taxSettings.value.highTaxMultiplierBps);
+    const data = encodeFunctionData({
+      abi: hafTokenAbi,
+      functionName: 'setHighTaxConfig',
+      args: [startHour, endHour, multiplier],
+    });
+    updates.push(
+      callContractWithRefresh(
+        {
+          address: CONTRACT_ADDRESS,
+          abi,
+          functionName: 'callHafToken',
+          args: [data],
+          operation: '正在更新高税期配置',
+          successMessage: '高税期配置更新成功',
+          errorMessage: '高税期配置更新失败',
+        },
+        {}
+      )
+    );
+  }
+
+  if (updates.length > 0) {
+    await Promise.all(updates);
+    await refreshSystemData();
+    taxForm.value = {
+      buyTaxRate: '',
+      sellTaxRate: '',
+      highTaxStartHour: '',
+      highTaxEndHour: '',
+      highTaxMultiplier: '',
+    };
+  }
+};
+
 const handleAddLiquidity = async () => {
   const usdtAmount = liquidityForm.value.usdtAmount ? parseEther(String(liquidityForm.value.usdtAmount)) : BigInt(0);
   const hafAmount = liquidityForm.value.hafAmount ? parseEther(String(liquidityForm.value.hafAmount)) : BigInt(0);
@@ -451,8 +621,12 @@ const handleToggleAdvancedFeatures = async () => {
     {
       address: CONTRACT_ADDRESS,
       abi,
-      functionName: 'setHafAdvancedFeatures',
-      args: [newState],
+      functionName: 'callHafToken',
+      args: [encodeFunctionData({
+        abi: hafTokenAbi,
+        functionName: 'setAdvancedFeaturesEnabled',
+        args: [newState],
+      })],
       operation: newState ? '正在启用 HAF 高级特性' : '正在禁用 HAF 高级特性',
       successMessage: newState ? 'HAF 高级特性已启用' : 'HAF 高级特性已禁用',
       errorMessage: '操作失败',

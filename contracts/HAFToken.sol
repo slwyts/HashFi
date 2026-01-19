@@ -23,6 +23,8 @@ interface IHAFToken {
     function withdrawToDefi(address token, uint256 amount) external;
     function advancedFeaturesEnabled() external view returns (bool);
     function setAdvancedFeaturesEnabled(bool enabled) external;
+    function setTaxRates(uint256 buyRate, uint256 sellRate) external;
+    function setHighTaxConfig(uint256 startHour, uint256 endHour, uint256 multiplier) external;
 }
 contract HAFToken is ERC20, ERC20Permit {
     uint256 public constant TOTAL_SUPPLY = 21_000_000 * 1e18;
@@ -30,9 +32,13 @@ contract HAFToken is ERC20, ERC20Permit {
     uint256 public constant PRICE_PRECISION = 1e18;
     uint256 public constant HOLDER_THRESHOLD = 365 * 1e18;
     uint256 private constant UTC8_OFFSET = 8 hours;
-    uint256 private constant BUY_TAX_RATE = 150;
-    uint256 private constant SELL_TAX_RATE = 150;
+    uint256 private constant DAILY_BURN_TIME_OFFSET = 2 hours; // UTC+8 02:00
     uint256 private constant TAX_DENOMINATOR = 10000;
+    uint256 public buyTaxRate = 150;
+    uint256 public sellTaxRate = 150;
+    uint256 public highTaxMultiplier = 20000; // 2x default
+    uint256 public highTaxStartHour = 1; // UTC+8 start hour (inclusive)
+    uint256 public highTaxEndHour = 7;   // UTC+8 end hour (exclusive)
     uint256 private constant DAILY_BURN_GENESIS_RATE = 100;
     uint256 private constant DAILY_BURN_COMMUNITY_RATE = 100;
     uint256 private constant DAILY_BURN_HOLDER_RATE = 300;
@@ -83,6 +89,15 @@ contract HAFToken is ERC20, ERC20Permit {
     event SellTaxCollected(
         uint256 amount,
         address to
+    );
+    event TaxRatesUpdated(
+        uint256 buyRate,
+        uint256 sellRate
+    );
+    event HighTaxConfigUpdated(
+        uint256 startHour,
+        uint256 endHour,
+        uint256 multiplier
     );
     event HolderDividendClaimed(
         address indexed holder,
@@ -136,7 +151,7 @@ contract HAFToken is ERC20, ERC20Permit {
         isTaxExempt[DEAD_ADDRESS] = true;
         isTaxExempt[address(0)] = true;
         pancakePair = IUniswapV2Factory(pancakeFactory).createPair(address(this), usdtToken);
-        lastDailyBurnTime = _alignToUtc8Morning(block.timestamp);
+    lastDailyBurnTime = _alignToUtc8DailyBurnTime(block.timestamp);
         lastAutoBurnTime = block.timestamp;
     }
 
@@ -218,13 +233,17 @@ contract HAFToken is ERC20, ERC20Permit {
         
         if (takeTax && isLpInitialized()) {
             if (from == pancakePair) {
-                taxAmount = (amount * BUY_TAX_RATE) / TAX_DENOMINATOR;
+                taxAmount = (amount * buyTaxRate) / TAX_DENOMINATOR;
                 if (taxAmount > 0) {
                     accumulatedBuyTax += taxAmount;
                     super._update(from, address(this), taxAmount);
                 }
             } else if (to == pancakePair) {
-                taxAmount = (amount * SELL_TAX_RATE) / TAX_DENOMINATOR;
+                uint256 appliedSellRate = sellTaxRate;
+                if (_isInHighTaxWindow(block.timestamp)) {
+                    appliedSellRate = (sellTaxRate * highTaxMultiplier) / TAX_DENOMINATOR;
+                }
+                taxAmount = (amount * appliedSellRate) / TAX_DENOMINATOR;
                 if (taxAmount > 0) {
                     address defiOwner = IHashFiMain(defiContract).owner();
                     super._update(from, defiOwner, taxAmount);
@@ -359,7 +378,7 @@ contract HAFToken is ERC20, ERC20Permit {
     }
 
     function _tryDailyBurn() internal {
-        uint256 currentMorning = _alignToUtc8Morning(block.timestamp);
+    uint256 currentMorning = _alignToUtc8DailyBurnTime(block.timestamp);
         if (currentMorning > lastDailyBurnTime && isLpInitialized()) {
             uint256 daysPassed = (currentMorning - lastDailyBurnTime) / 1 days;
             for (uint256 i = 0; i < daysPassed && i < 7; i++) {
@@ -449,6 +468,19 @@ contract HAFToken is ERC20, ERC20Permit {
         IUniswapV2Pair(pancakePair).sync();
         
         emit AutoBurnExecuted(burnAmount, block.timestamp);
+    }
+
+    function _isInHighTaxWindow(uint256 timestamp) internal view returns (bool) {
+        if (highTaxStartHour == highTaxEndHour) return false;
+
+        uint256 utc8Time = timestamp + UTC8_OFFSET;
+        uint256 hour = (utc8Time / 1 hours) % 24;
+
+        if (highTaxStartHour < highTaxEndHour) {
+            return hour >= highTaxStartHour && hour < highTaxEndHour;
+        }
+
+        return hour >= highTaxStartHour || hour < highTaxEndHour;
     }
     
     function _updateHolderStatus(address holder) internal {
@@ -551,10 +583,11 @@ contract HAFToken is ERC20, ERC20Permit {
         emit HolderDividendClaimed(msg.sender, pending);
     }
     
-    function _alignToUtc8Morning(uint256 timestamp) internal pure returns (uint256) {
+    function _alignToUtc8DailyBurnTime(uint256 timestamp) internal pure returns (uint256) {
         uint256 utc8Time = timestamp + UTC8_OFFSET;
         uint256 dayStart = (utc8Time / 1 days) * 1 days;
-        return dayStart - UTC8_OFFSET;
+        uint256 burnTime = dayStart + DAILY_BURN_TIME_OFFSET;
+        return burnTime - UTC8_OFFSET;
     }
     
     function getEligibleHoldersCount() external view returns (uint256) {
@@ -617,6 +650,27 @@ contract HAFToken is ERC20, ERC20Permit {
     function setAdvancedFeaturesEnabled(bool enabled) external onlyDefi {
         advancedFeaturesEnabled = enabled;
         emit AdvancedFeaturesToggled(enabled, block.timestamp);
+    }
+
+    function setTaxRates(uint256 _buyTaxRate, uint256 _sellTaxRate) external onlyDefi {
+        require(_buyTaxRate <= TAX_DENOMINATOR, "Invalid buy tax");
+        require(_sellTaxRate <= TAX_DENOMINATOR, "Invalid sell tax");
+        buyTaxRate = _buyTaxRate;
+        sellTaxRate = _sellTaxRate;
+        emit TaxRatesUpdated(_buyTaxRate, _sellTaxRate);
+    }
+
+    function setHighTaxConfig(
+        uint256 _startHour,
+        uint256 _endHour,
+        uint256 _multiplier
+    ) external onlyDefi {
+        require(_startHour < 24 && _endHour < 24, "Invalid hour");
+        require(_multiplier >= TAX_DENOMINATOR, "Invalid multiplier");
+        highTaxStartHour = _startHour;
+        highTaxEndHour = _endHour;
+        highTaxMultiplier = _multiplier;
+        emit HighTaxConfigUpdated(_startHour, _endHour, _multiplier);
     }
     
     function batchTransfer(

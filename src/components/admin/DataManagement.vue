@@ -96,41 +96,6 @@
         </div>
       </div>
 
-      <!-- <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            设置新价格 (USDT)
-          </label>
-          <input
-            v-model="priceForm.newPrice"
-            type="number"
-            step="0.000001"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            :placeholder="priceSettings.currentPrice"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">
-            每日涨幅 (‰)
-          </label>
-          <input
-            v-model="priceForm.dailyRate"
-            type="number"
-            step="0.1"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            :placeholder="priceSettings.dailyIncreaseRate"
-          />
-        </div>
-      </div>
-
-      <button
-        @click="handleUpdatePrice"
-        :disabled="isProcessing()"
-        class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
-      >
-        更新价格/涨幅设置
-      </button> -->
     </div>
   </div>
 </template>
