@@ -17,13 +17,17 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
      * @param _migrationUsers 迁移用户地址列表（可为空数组）
      * @param _migrationReferrers 迁移用户对应的推荐人列表（与_migrationUsers一一对应）
      * @param _migrationGenesisNodes 迁移创世节点列表（可为空数组）
+     * @param _migrationStakeUsers 迁移质押订单的用户地址列表（可为空数组）
+     * @param _migrationStakeAmounts 迁移质押订单的金额列表（与_migrationStakeUsers一一对应）
      */
     constructor(
         address _usdtAddress,
         address _initialOwner,
         address[] memory _migrationUsers,
         address[] memory _migrationReferrers,
-        address[] memory _migrationGenesisNodes
+        address[] memory _migrationGenesisNodes,
+        address[] memory _migrationStakeUsers,
+        uint256[] memory _migrationStakeAmounts
     ) Ownable(_initialOwner) {
         usdtToken = IERC20(_usdtAddress);
 
@@ -43,7 +47,7 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
         teamLevels.push(TeamLevelInfo(1000000 * 1e18, 25));// V5
 
         // 迁移数据初始化
-        _initMigrationData(_migrationUsers, _migrationReferrers, _migrationGenesisNodes);
+        _initMigrationData(_migrationUsers, _migrationReferrers, _migrationGenesisNodes, _migrationStakeUsers, _migrationStakeAmounts);
     }
 
     /**
@@ -62,9 +66,12 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
     function _initMigrationData(
         address[] memory _users,
         address[] memory _referrers,
-        address[] memory _genesisNodes
+        address[] memory _genesisNodes,
+        address[] memory _stakeUsers,
+        uint256[] memory _stakeAmounts
     ) private {
         require(_users.length == _referrers.length, "Migration: length mismatch");
+        require(_stakeUsers.length == _stakeAmounts.length, "Migration: stake length mismatch");
 
         // 初始化用户绑定关系
         for (uint256 i = 0; i < _users.length; i++) {
@@ -92,6 +99,61 @@ contract HashFi is HashFiAdmin, HashFiView, Pausable {
             genesisNodes.push(node);
             activeGenesisNodes.push(node);
             isActiveGenesisNode[node] = true;
+        }
+
+        // 迁移质押订单
+        for (uint256 i = 0; i < _stakeUsers.length; i++) {
+            address stakeUser = _stakeUsers[i];
+            uint256 amount = _stakeAmounts[i];
+
+            if (stakeUser == address(0) || amount == 0) continue;
+
+            // 获取质押等级
+            uint8 level = _getStakingLevelByAmount(amount);
+            if (level == 0) continue; // 跳过无效金额
+
+            // 创建订单
+            uint256 orderId = orders.length;
+            uint256 baseQuota = (amount * stakingLevels[level].multiplier) / 100;
+            uint256 quota = (baseQuota * 90) / 100;
+            // 迁移订单假设HAF初始价格为0.1 USDT（即1 USDT = 10 HAF）
+            // 公式: quotaHaf = quota * PRICE_PRECISION / hafPrice = quota * 1e18 / 0.1e18 = quota * 10
+            uint256 quotaHaf = quota * 10;
+
+            orders.push(Order(orderId, stakeUser, level, amount, quota, 0, quotaHaf, 0, block.timestamp, block.timestamp, false));
+            
+            User storage user = users[stakeUser];
+            user.orderIds.push(orderId);
+            // 更新总质押金额（减去之前的标记值1）
+            if (user.totalStakedAmount == 1) {
+                user.totalStakedAmount = amount;
+            } else {
+                user.totalStakedAmount = user.totalStakedAmount + amount;
+            }
+
+            globalStats.totalDepositedUsdt = globalStats.totalDepositedUsdt + amount;
+            if (user.orderIds.length == 1) {
+                globalStats.totalActiveUsers = globalStats.totalActiveUsers + 1;
+            }
+
+            // 更新上级团队业绩（不发放直推奖励，因为是迁移数据）
+            _updateAncestorsPerformance(stakeUser, amount);
+        }
+    }
+
+    /**
+     * @dev 更新上级团队业绩（仅更新业绩，不发放奖励，用于迁移数据）
+     */
+    function _updateAncestorsPerformance(address _user, uint256 _amount) private {
+        address currentUser = _user;
+        address referrer = users[currentUser].referrer;
+        
+        while(referrer != address(0) && referrer != address(0x0000000000000000000000000000000000000001)) {
+            users[referrer].teamTotalPerformance = users[referrer].teamTotalPerformance + _amount;
+            _updateUserTeamLevel(referrer);
+            
+            currentUser = referrer;
+            referrer = users[currentUser].referrer;
         }
     }
     

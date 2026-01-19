@@ -22,6 +22,8 @@ function loadMigrationData() {
       users: [] as string[],
       referrers: [] as string[],
       genesisNodes: [] as string[],
+      stakeUsers: [] as string[],
+      stakeAmounts: [] as string[],
     };
   }
 
@@ -32,12 +34,16 @@ function loadMigrationData() {
     users: (jsonData.users || []) as string[],
     referrers: (jsonData.referrers || []) as string[],
     genesisNodes: (jsonData.genesisNodes || jsonData.activeGenesisNodesList || []) as string[],
+    stakeUsers: (jsonData.stakeUsers || []) as string[],
+    stakeAmounts: (jsonData.stakeAmounts || []) as string[],
   };
 
   console.log(`\n📦 迁移数据加载成功 (${migrationFile}):`);
   console.log(`   - 用户数量: ${data.users.length}`);
   console.log(`   - 推荐人数量: ${data.referrers.length}`);
   console.log(`   - 创世节点: ${data.genesisNodes.length}`);
+  console.log(`   - 迁移质押用户: ${data.stakeUsers.length}`);
+  console.log(`   - 迁移质押金额: ${data.stakeAmounts.length}`);
 
   return data;
 }
@@ -73,11 +79,13 @@ const HashFiBscMigrateModule = buildModule("HashFiBscMigrateModule", (m) => {
   const users = m.getParameter("users", migrationData.users);
   const referrers = m.getParameter("referrers", migrationData.referrers);
   const genesisNodes = m.getParameter("genesisNodes", migrationData.genesisNodes);
+  const stakeUsers = m.getParameter("stakeUsers", migrationData.stakeUsers);
+  const stakeAmounts = m.getParameter("stakeAmounts", migrationData.stakeAmounts);
 
   // 1. 部署 HashFi（含迁移数据）
   const hashFi = m.contract(
     "HashFi",
-    [usdtAddress, initialOwner, users, referrers, genesisNodes],
+    [usdtAddress, initialOwner, users, referrers, genesisNodes, stakeUsers, stakeAmounts],
     {
       id: "HashFi",
     }

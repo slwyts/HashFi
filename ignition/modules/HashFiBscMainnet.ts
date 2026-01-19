@@ -19,7 +19,7 @@ const HashFiBscMainnetModule = buildModule("HashFiBscMainnetModule", (m) => {
   const pancakeRouter = "0x0000000000000000000000000000000000000000";
 
   // 1. 部署 HashFi（不含迁移数据）
-  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, [], [], []], {
+  const hashFi = m.contract("HashFi", [usdtAddress, initialOwner, [], [], [], [], []], {
     id: "HashFi",
   });
 
