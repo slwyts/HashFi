@@ -15,7 +15,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 800,
+            runs: 833,
           },
           viaIR: true,
           metadata: {
@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 800,
+            runs: 833,
           },
           viaIR: true,
           metadata: {

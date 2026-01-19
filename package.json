@@ -20,6 +20,7 @@
     "deploy:bsct": "npx hardhat ignition deploy ignition/modules/HashFiBscTestnet.ts --network bscTestnet",
     "deploy:bsc": "npx hardhat ignition deploy ignition/modules/HashFiBscMainnet.ts --network bscMainnet",
     "deploy:bsc:migrate": "npx hardhat ignition deploy ignition/modules/HashFiBscMigrate.ts --network bscMainnet",
+    "deploy:bsc:raw": "npx tsx scripts/deploy-bsc-raw.ts",
     "export:data": "npx tsx scripts/exportData.ts",
     "export:genesis": "npx tsx scripts/exportGenesisDeposits.ts",
     "export:balances": "npx tsx scripts/export-balances.ts",
