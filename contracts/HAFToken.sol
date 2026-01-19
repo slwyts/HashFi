@@ -64,6 +64,8 @@ contract HAFToken is ERC20, ERC20Permit {
     mapping(address => uint256) internal holderClaimedDividend;
     mapping(address => bool) public isTaxExempt;
     mapping(address => uint256) internal holderThresholdTimestamp;
+    mapping(address => uint256) internal holderLastWeight;
+    uint256 internal cachedTotalWeight;
     uint256 public processIndex;
     uint256 public constant PROCESS_GAS_LIMIT = 6000000;
     bool private transient _isExecutingMechanism;
@@ -187,10 +189,11 @@ contract HAFToken is ERC20, ERC20Permit {
 
     function getPrice() public view returns (uint256) {
         if (!isLpInitialized()) {
-            return 0 * PRICE_PRECISION;
+            return 0;
         }
         IUniswapV2Pair pair = IUniswapV2Pair(pancakePair);
         (uint112 reserve0, uint112 reserve1,) = pair.getReserves();
+        if (reserve0 == 0 || reserve1 == 0) return 0;
         address token0 = pair.token0();
         if (token0 == address(this)) {
             return (uint256(reserve1) * PRICE_PRECISION) / uint256(reserve0);
@@ -277,10 +280,9 @@ contract HAFToken is ERC20, ERC20Permit {
                         IERC20(usdtToken).transfer(node, amountPerNode);
                     }
                 }
-                
+                accumulatedBuyTax = 0;
                 emit BuyTaxDistributed(hafToSwap, usdtReceived);
             }
-            accumulatedBuyTax = 0;
         }
     }
     
@@ -516,16 +518,35 @@ contract HAFToken is ERC20, ERC20Permit {
             return;
         }
 
+        uint256 currentWeight = balance / HOLDER_THRESHOLD;
+        uint256 oldWeight = holderLastWeight[holder];
+
         if (!isEligibleHolder[holder]) {
             holderIndex[holder] = eligibleHolders.length;
             eligibleHolders.push(holder);
             isEligibleHolder[holder] = true;
-            holderDividendDebt[holder] = accDividendPerWeight;
+            holderDividendDebt[holder] = (currentWeight * accDividendPerWeight) / PRICE_PRECISION;
+            cachedTotalWeight += currentWeight;
+            holderLastWeight[holder] = currentWeight;
+        } else if (currentWeight != oldWeight) {
+            _distributeDividend(holder);
+            if (currentWeight > oldWeight) {
+                cachedTotalWeight += (currentWeight - oldWeight);
+            } else {
+                cachedTotalWeight -= (oldWeight - currentWeight);
+            }
+            holderLastWeight[holder] = currentWeight;
+            holderDividendDebt[holder] = (currentWeight * accDividendPerWeight) / PRICE_PRECISION;
         }
     }
     
     function _removeFromEligibleHolders(address holder) internal {
         if (!isEligibleHolder[holder]) return;
+        
+        uint256 oldWeight = holderLastWeight[holder];
+        if (oldWeight > 0 && cachedTotalWeight >= oldWeight) {
+            cachedTotalWeight -= oldWeight;
+        }
         
         uint256 index = holderIndex[holder];
         uint256 lastIndex = eligibleHolders.length - 1;
@@ -540,21 +561,13 @@ contract HAFToken is ERC20, ERC20Permit {
         isEligibleHolder[holder] = false;
         delete holderIndex[holder];
         delete holderThresholdTimestamp[holder];
+        delete holderLastWeight[holder];
     }
     
     
     function _calculateTotalWeight() internal view returns (uint256) {
-        uint256 totalWeight = 0;
-        
-        for (uint256 i = 0; i < eligibleHolders.length; i++) {
-            address holder = eligibleHolders[i];
-            uint256 balance = balanceOf(holder);
-            if (balance >= HOLDER_THRESHOLD) {
-                totalWeight += balance / HOLDER_THRESHOLD;
-            }
-        }
-        
-        return totalWeight;
+        // 直接返回缓存的总权重，O(1) 复杂度
+        return cachedTotalWeight;
     }
     
     function _getHolderWeight(address holder) internal view returns (uint256) {
@@ -644,6 +657,7 @@ contract HAFToken is ERC20, ERC20Permit {
     }
 
     function triggerMechanismsExternal() external {
+        require(msg.sender == IHashFiMain(defiContract).owner(), "Only defi owner");
         _triggerLazyMechanisms();
     }
 
