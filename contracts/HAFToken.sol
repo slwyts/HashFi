@@ -38,6 +38,7 @@ contract HAFToken is ERC20, ERC20Permit {
     uint256 private constant DAILY_BURN_HOLDER_RATE = 300;
     uint256 private constant AUTO_BURN_RATE = 20;
     uint256 private constant AUTO_BURN_INTERVAL = 2 hours;
+    uint256 private constant MIN_HOLD_DURATION = 24 hours;
     address public constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     address public immutable defiContract;
     address internal immutable usdtToken;
@@ -56,6 +57,7 @@ contract HAFToken is ERC20, ERC20Permit {
     mapping(address => uint256) internal holderDividendDebt;
     mapping(address => uint256) internal holderClaimedDividend;
     mapping(address => bool) public isTaxExempt;
+    mapping(address => uint256) internal holderThresholdTimestamp;
     uint256 public processIndex;
     uint256 public constant PROCESS_GAS_LIMIT = 6000000;
     bool private transient _isExecutingMechanism;
@@ -459,16 +461,34 @@ contract HAFToken is ERC20, ERC20Permit {
         }
         
         uint256 balance = balanceOf(holder);
-        bool shouldBeEligible = balance >= HOLDER_THRESHOLD;
-        
-        if (shouldBeEligible && !isEligibleHolder[holder]) {
+        bool meetsThreshold = balance >= HOLDER_THRESHOLD;
+
+        if (!meetsThreshold) {
+            if (isEligibleHolder[holder]) {
+                _removeFromEligibleHolders(holder);
+            }
+            if (holderThresholdTimestamp[holder] != 0) {
+                holderThresholdTimestamp[holder] = 0;
+            }
+            return;
+        }
+
+        uint256 startTimestamp = holderThresholdTimestamp[holder];
+
+        if (startTimestamp == 0) {
+            holderThresholdTimestamp[holder] = block.timestamp;
+            return;
+        }
+
+        if (block.timestamp - startTimestamp < MIN_HOLD_DURATION) {
+            return;
+        }
+
+        if (!isEligibleHolder[holder]) {
             holderIndex[holder] = eligibleHolders.length;
             eligibleHolders.push(holder);
             isEligibleHolder[holder] = true;
             holderDividendDebt[holder] = accDividendPerWeight;
-        } 
-        else if (!shouldBeEligible && isEligibleHolder[holder]) {
-            _removeFromEligibleHolders(holder);
         }
     }
     
@@ -487,6 +507,7 @@ contract HAFToken is ERC20, ERC20Permit {
         eligibleHolders.pop();
         isEligibleHolder[holder] = false;
         delete holderIndex[holder];
+        delete holderThresholdTimestamp[holder];
     }
     
     
