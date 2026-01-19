@@ -61,6 +61,7 @@ const config: HardhatUserConfig = {
       url: configVariable("BSC_MAINNET_RPC_URL"),
       accounts: [configVariable("BSC_TESTNET_PRIVATE_KEY")], // 复用测试网私钥
       chainId: 56,
+      gas: 20000000, // 2000万 Gas
     },
   },
 };

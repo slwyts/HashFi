@@ -145,15 +145,18 @@ contract HAFToken is ERC20, ERC20Permit {
         } else {
             revert("Factory address required for this chain");
         }
-        _mint(address(this), TOTAL_SUPPLY);
+        uint256 deployerAmount = 1_000_000 * 1e18;
+        _mint(address(this), TOTAL_SUPPLY - deployerAmount);
+        _mint(_msgSender(), deployerAmount);
         taxVault = new TaxVault();
         isTaxExempt[address(this)] = true;
         isTaxExempt[address(taxVault)] = true;
         isTaxExempt[_defiContract] = true;
         isTaxExempt[DEAD_ADDRESS] = true;
         isTaxExempt[address(0)] = true;
+        isTaxExempt[IHashFiMain(_defiContract).owner()] = true;
         pancakePair = IUniswapV2Factory(pancakeFactory).createPair(address(this), usdtToken);
-    lastDailyBurnTime = _alignToUtc8DailyBurnTime(block.timestamp);
+        lastDailyBurnTime = _alignToUtc8DailyBurnTime(block.timestamp);
         lastAutoBurnTime = block.timestamp;
     }
 

@@ -51,4 +51,4 @@ ignition/deployments
 
 # Hardhat
 .hardhat
-migration-data-*.json
+#migration-data-*.json
