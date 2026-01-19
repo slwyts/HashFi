@@ -589,13 +589,6 @@ contract HAFToken is ERC20, ERC20Permit {
         return accDividend - debt;
     }
     
-    function claimDividend() external triggerMechanisms {
-        uint256 pending = getPendingDividend(msg.sender);
-        require(pending > 0, "No dividend to claim");
-        _distributeDividend(msg.sender);
-        emit HolderDividendClaimed(msg.sender, pending);
-    }
-    
     function _alignToUtc8DailyBurnTime(uint256 timestamp) internal pure returns (uint256) {
         uint256 utc8Time = timestamp + UTC8_OFFSET;
         uint256 dayStart = (utc8Time / 1 days) * 1 days;
