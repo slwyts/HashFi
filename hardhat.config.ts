@@ -18,9 +18,6 @@ const config: HardhatUserConfig = {
             runs: 833,
           },
           viaIR: true,
-          metadata: {
-            bytecodeHash: "none",
-          },
         },
       },
       production: {
@@ -31,9 +28,6 @@ const config: HardhatUserConfig = {
             runs: 833,
           },
           viaIR: true,
-          metadata: {
-            bytecodeHash: "none",
-          },
         },
       },
     },

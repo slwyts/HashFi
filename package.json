@@ -25,7 +25,8 @@
     "export:genesis": "npx tsx scripts/exportGenesisDeposits.ts",
     "export:balances": "npx tsx scripts/export-balances.ts",
     "distribute": "npx tsx scripts/distribute-tokens.ts",
-    "airdrop": "npx tsx scripts/airdrop.ts"
+    "airdrop": "npx tsx scripts/airdrop.ts",
+    "batch-transfer": "npx tsx scripts/batch-transfer.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0",
