@@ -1,0 +1,19 @@
+{
+  "network": "bscMainnet",
+  "chainId": 56,
+  "timestamp": "2026-01-20T10:37:29.713Z",
+  "deployer": "0xEa4816aE14244465d16D1d074b2bf0F2B75b5e8C",
+  "contracts": {
+    "HashFi": "0xfd2da4f965116577cad697cacfa9e6138b5abeb2",
+    "HAFToken": "0x74cdcbce04b3c3f039ede48362fe47df4c61b8ab"
+  },
+  "transactions": {
+    "deployHashFi": "0x55dee5ad421d8210c0fc71e2051987e6d2adcfee25b00a3dcd995ad9a13cb836",
+    "deployHAFToken": "0x16ded2a55adb6770ef9acd4fb58cc8137eebc505b6858844c416a0b8dc70a09f",
+    "setHafToken": "0xc0062504dbe4bd3a647d4a6262be2e11785bfa832bafc4faeaa29e6cab6b7bb2"
+  },
+  "gasUsed": {
+    "HashFi": "34032949",
+    "HAFToken": "7241918"
+  }
+}

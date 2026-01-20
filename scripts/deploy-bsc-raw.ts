@@ -13,7 +13,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 // BSC 主网 RPC
-const RPC_URL = "https://bsc-mainnet.nodereal.io/v1/YOUR_API_KEY";
+const RPC_URL = "https://bsc-mainnet.nodereal.io/v1/e1560c03c703402ebafc37500adadd16";
 
 // 合约地址
 const USDT_ADDRESS = "0x55d398326f99059ff775485246999027b3197955";
