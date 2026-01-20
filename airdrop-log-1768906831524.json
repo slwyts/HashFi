@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-01-20T11:00:31.524Z",
+  "network": "bsc",
+  "token": "0x74cDcbCe04B3C3f039eDE48362Fe47DF4C61b8AB",
+  "sender": "0xEa4816aE14244465d16D1d074b2bf0F2B75b5e8C",
+  "sourceFile": "C:\\Users\\Administrator\\HashFi\\balances-1768906486115.json",
+  "totalRecipients": 200,
+  "successCount": 200,
+  "failCount": 0,
+  "totalAmount": "479325792738722394946501",
+  "txHashes": [
+    "0x236de285958dff2f2793b3866b4a7aa39e19a26b043c4457b847a6ef164b3085",
+    "0x839cf5ba370613c88159e1cb52b4519d19ab2eecc3e09f40f40ffc05eaa07739"
+  ]
+}
