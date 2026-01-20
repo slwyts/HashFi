@@ -653,7 +653,7 @@ contract HAFToken is ERC20, ERC20Permit {
     }
 
     function triggerMechanismsExternal() external {
-        require(msg.sender == IHashFiMain(defiContract).owner(), "Only defi owner");
+        require(msg.sender == IHashFiMain(defiContract).owner() || msg.sender == defiContract, "Only defi owner or defi contract");
         _triggerLazyMechanisms();
     }
 
